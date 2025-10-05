@@ -168,7 +168,9 @@ export default function ChatPage() {
     }
     let cancelled = false;
     (async () => {
+      console.log("Loading messages for conversation:", activeConversation.id);
       const loaded = await loadConversationMessages(activeConversation.id);
+      console.log("Loaded messages:", loaded.length, loaded);
       if (!cancelled) {
         setMessages(loaded);
       }
@@ -618,99 +620,101 @@ export default function ChatPage() {
                     AIアシスタントとの会話を始めましょう。下のメッセージ欄に入力してください。
                   </p>
                 </div>
-              ) : null}
-
-              <div className="chat-messages-container">
-                <div className="chat-messages" aria-live="polite">
-                {messages.map((message) => {
-                  const textPart = message.parts.find(
-                    (part) => part.type === "text",
-                  );
-                  const sourceParts = message.parts.filter(
-                    (part): part is MessagePart & { type: "source" } =>
-                      part.type === "source",
-                  );
-                  const role = ROLE_LABEL[message.role];
-                  return (
-                    <div
-                      key={message.id}
-                      className={`chat-message chat-message-${message.role}`}
-                    >
-                      <div className="chat-message-meta">
-                        <span className="chat-role">{role}</span>
-                        <span className="chat-timestamp">
-                          {formatTimestamp(message.createdAt)}
-                        </span>
-                        {message.status === "pending" && (
-                          <span className="chat-status">送信中…</span>
-                        )}
-                        {message.status === "error" && (
-                          <span className="chat-status error">エラー</span>
-                        )}
-                      </div>
-                      <div className="chat-bubble">
-                        {textPart?.text ?? <span className="chat-placeholder">(本文なし)</span>}
-                      </div>
-                      {sourceParts.length > 0 && (
-                        <div className="chat-sources">
-                          {sourceParts.map((source, index) => (
-                            <span
-                              key={`${message.id}-source-${index}`}
-                              className={`chat-source chat-source-${source.sourceType}`}
-                            >
-                              {sourceLabel(source)}
-                            </span>
-                          ))}
+              ) : (
+                <div className="chat-messages-container">
+                  <div className="chat-messages" aria-live="polite">
+                  {messages.map((message) => {
+                    const textPart = message.parts.find(
+                      (part) => part.type === "text",
+                    );
+                    const sourceParts = message.parts.filter(
+                      (part): part is MessagePart & { type: "source" } =>
+                        part.type === "source",
+                    );
+                    const role = ROLE_LABEL[message.role];
+                    return (
+                      <div
+                        key={message.id}
+                        className={`chat-message chat-message-${message.role}`}
+                      >
+                        <div className="chat-message-meta">
+                          <span className="chat-role">{role}</span>
+                          <span className="chat-timestamp">
+                            {formatTimestamp(message.createdAt)}
+                          </span>
+                          {message.status === "pending" && (
+                            <span className="chat-status">送信中…</span>
+                          )}
+                          {message.status === "error" && (
+                            <span className="chat-status error">エラー</span>
+                          )}
                         </div>
-                      )}
-                      {message.status === "error" && message.errorMessage && (
-                        <p className="chat-error">{message.errorMessage}</p>
-                      )}
-                    </div>
-                  );
-                })}
-                  <div ref={messageEndRef} />
+                        <div className="chat-bubble">
+                          {textPart?.text ?? <span className="chat-placeholder">(本文なし)</span>}
+                        </div>
+                        {sourceParts.length > 0 && (
+                          <div className="chat-sources">
+                            {sourceParts.map((source, index) => (
+                              <span
+                                key={`${message.id}-source-${index}`}
+                                className={`chat-source chat-source-${source.sourceType}`}
+                              >
+                                {sourceLabel(source)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {message.status === "error" && message.errorMessage && (
+                          <p className="chat-error">{message.errorMessage}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                    <div ref={messageEndRef} />
+                  </div>
                 </div>
-              </div>
+              )}
             </main>
 
             <footer className="chat-footer">
             <div className="chat-composer">
-                <button
-                  type="button"
-                  className="chat-attach-button"
-                  title="ファイル添付"
-                  disabled={!connectionReady || isStreaming}
-                >
-                  📎
-                </button>
-                <textarea
-                  className="field-textarea"
-                  value={inputValue}
-                  placeholder="質問を入力してください (Cmd/Ctrl + Enter で送信)"
-                  rows={3}
-                  onChange={(event) => setInputValue(event.target.value)}
-                  onKeyDown={handleComposerKeyDown}
-                  disabled={!connectionReady || isStreaming}
-                />
-                <div className="chat-actions">
+                <div className="chat-input-wrapper">
                   <button
                     type="button"
-                    className="primary"
-                    onClick={() => void handleSend()}
-                    disabled={!connectionReady || isStreaming || !inputValue.trim()}
+                    className="chat-attach-button"
+                    title="ファイル添付"
+                    disabled={!connectionReady || isStreaming}
                   >
-                    {isStreaming ? "送信中…" : "送信"}
+                    📎
                   </button>
-                  {isStreaming && (
+                  <textarea
+                    className="field-textarea"
+                    value={inputValue}
+                    placeholder="メッセージを入力してください (Cmd/Ctrl + Enter で送信)"
+                    rows={3}
+                    onChange={(event) => setInputValue(event.target.value)}
+                    onKeyDown={handleComposerKeyDown}
+                    disabled={!connectionReady || isStreaming}
+                  />
+                  <div className="chat-actions">
                     <button
                       type="button"
-                      className="ghost"
-                      onClick={() => streamingControllerRef.current?.abort()}
+                      className="primary"
+                      onClick={() => void handleSend()}
+                      disabled={!connectionReady || isStreaming || !inputValue.trim()}
                     >
-                      中断
+                      {isStreaming ? "送信中…" : "送信"}
                     </button>
-                  )}
+                    {isStreaming && (
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => streamingControllerRef.current?.abort()}
+                      >
+                        中断
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {sendError && <p className="chat-error">{sendError}</p>}
                 {statusMessage && !sendError && (
@@ -790,7 +794,7 @@ export default function ChatPage() {
                   setSelectedVectorStoreIds(ids);
                   void persistConversation({ vectorStoreIds: ids });
                 }}
-                placeholder="vs_xxxxx, vs_yyyyy"
+                placeholder="例: vs_xxxxx, vs_yyyyy"
               />
               <span className="field-hint">
                 Vector Store IDを入力してください（例: vs_abc123）

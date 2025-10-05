@@ -112,7 +112,7 @@ export default function VectorStoresPage() {
             <input
               type="text"
               className="vs-search-input"
-              placeholder="Search Vector Store"
+              placeholder="ベクトルストアを検索"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />

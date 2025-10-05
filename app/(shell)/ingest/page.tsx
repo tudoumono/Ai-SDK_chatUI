@@ -127,7 +127,7 @@ export default function IngestPage() {
               type="text"
               className="ingest-form-input"
               style={{ width: '1200px', maxWidth: '100%' }}
-              placeholder="Enter a name for your Vector Store"
+              placeholder="ベクトルストアの名前を入力してください"
               value={storeName}
               onChange={(e) => setStoreName(e.target.value)}
             />
@@ -138,31 +138,74 @@ export default function IngestPage() {
             <textarea
               className="ingest-form-textarea"
               style={{ width: '1200px', maxWidth: '100%' }}
-              placeholder="Provide a brief description of the Vector Store"
+              placeholder="ベクトルストアの簡単な説明を入力してください（任意）"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
             />
           </div>
 
-          <div
-            className={`dropzone ${isDragging ? "dragging" : ""}`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="dropzone-content">
-              <h3 className="dropzone-title">Upload Files</h3>
-              <p className="dropzone-description">Drag and drop files here, or browse</p>
-              <label className="dropzone-button">
-                <input
-                  type="file"
-                  multiple
-                  className="dropzone-input"
-                  onChange={handleFileSelect}
-                />
-                Select Files
-              </label>
+          <div className="upload-section">
+            <div className="upload-left">
+              <div
+                className={`dropzone ${isDragging ? "dragging" : ""}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div className="dropzone-content">
+                  <h3 className="dropzone-title">Upload Files</h3>
+                  <p className="dropzone-description">Drag and drop files here, or browse</p>
+                  <label className="dropzone-button">
+                    <input
+                      type="file"
+                      multiple
+                      className="dropzone-input"
+                      onChange={handleFileSelect}
+                    />
+                    Select Files
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="upload-right">
+              <h2 className="section-title">Uploaded Files</h2>
+              <div className="files-table-container">
+                <table className="files-table">
+                  <thead>
+                    <tr>
+                      <th>File Name</th>
+                      <th>Size</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {uploadedFiles.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="empty-state">
+                          ファイルがアップロードされていません
+                        </td>
+                      </tr>
+                    ) : (
+                      uploadedFiles.map((file) => (
+                        <tr key={file.id}>
+                          <td className="file-name">{file.name}</td>
+                          <td className="file-size">{formatFileSize(file.size)}</td>
+                          <td className="file-actions">
+                            <button
+                              className="file-delete-button"
+                              onClick={() => handleDeleteFile(file.id)}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -176,39 +219,22 @@ export default function IngestPage() {
             <span className="progress-percentage">{uploadProgress}%</span>
           </div>
 
-          <h2 className="section-title">Associated Files</h2>
+          <h2 className="section-title">Registered Files in Vector Store</h2>
           <div className="files-table-container">
             <table className="files-table">
               <thead>
                 <tr>
                   <th>File Name</th>
-                  <th>Size</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {uploadedFiles.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="empty-state">
-                      ファイルがアップロードされていません
-                    </td>
-                  </tr>
-                ) : (
-                  uploadedFiles.map((file) => (
-                    <tr key={file.id}>
-                      <td className="file-name">{file.name}</td>
-                      <td className="file-size">{formatFileSize(file.size)}</td>
-                      <td className="file-actions">
-                        <button
-                          className="file-delete-button"
-                          onClick={() => handleDeleteFile(file.id)}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                <tr>
+                  <td colSpan={3} className="empty-state">
+                    登録済みファイルはありません
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

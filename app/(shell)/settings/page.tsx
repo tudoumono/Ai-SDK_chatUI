@@ -277,7 +277,7 @@ export default function SettingsPage() {
               autoComplete="off"
               className="field-input"
               id="settings-api-key"
-              placeholder="sk-..."
+              placeholder="例: sk-..."
               type="password"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
@@ -292,7 +292,7 @@ export default function SettingsPage() {
               autoComplete="off"
               className="field-input"
               id="settings-base-url"
-              placeholder="https://api.openai.com/v1"
+              placeholder="デフォルト: https://api.openai.com/v1"
               type="url"
               value={baseUrl}
               onChange={(event) => setBaseUrl(event.target.value)}
@@ -308,7 +308,7 @@ export default function SettingsPage() {
                 autoComplete="off"
                 className="field-input"
                 id="settings-http-proxy"
-                placeholder="http://proxy.example.com:8080"
+                placeholder="例: http://proxy.example.com:8080"
                 value={httpProxy}
                 onChange={(event) => setHttpProxy(event.target.value)}
               />
@@ -323,7 +323,7 @@ export default function SettingsPage() {
                 autoComplete="off"
                 className="field-input"
                 id="settings-https-proxy"
-                placeholder="https://secure-proxy.example.com:8443"
+                placeholder="例: https://secure-proxy.example.com:8443"
                 value={httpsProxy}
                 onChange={(event) => setHttpsProxy(event.target.value)}
               />
@@ -338,7 +338,7 @@ export default function SettingsPage() {
             <textarea
               className="field-textarea"
               id="settings-additional-headers"
-              placeholder={"X-Proxy-Token: example-token"}
+              placeholder="例: X-Proxy-Token: example-token"
               rows={3}
               value={additionalHeaders}
               onChange={(event) => {
