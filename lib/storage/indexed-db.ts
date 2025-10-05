@@ -2,6 +2,8 @@ import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import {
   type ConversationRecord,
   type VectorStoreRecord,
+  type MessageRecord,
+  type AttachmentRecord,
 } from "./schema";
 
 type ChatUiSchema = DBSchema & {
@@ -15,10 +17,20 @@ type ChatUiSchema = DBSchema & {
     value: VectorStoreRecord;
     indexes: { "by-updated": string };
   };
+  messages: {
+    key: string;
+    value: MessageRecord;
+    indexes: { "by-conversation": string; "by-created": string };
+  };
+  attachments: {
+    key: string;
+    value: AttachmentRecord;
+    indexes: { "by-conversation": string };
+  };
 };
 
 const DB_NAME = "ai-sdk-chat-ui";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<ChatUiSchema>> | null = null;
 
@@ -37,6 +49,19 @@ function createDbPromise() {
             keyPath: "id",
           });
           store.createIndex("by-updated", "updatedAt");
+        }
+        if (!database.objectStoreNames.contains("messages")) {
+          const store = database.createObjectStore("messages", {
+            keyPath: "id",
+          });
+          store.createIndex("by-conversation", "conversationId");
+          store.createIndex("by-created", "createdAt");
+        }
+        if (!database.objectStoreNames.contains("attachments")) {
+          const store = database.createObjectStore("attachments", {
+            keyPath: "id",
+          });
+          store.createIndex("by-conversation", "conversationId");
         }
       },
     });
@@ -67,6 +92,73 @@ export async function getAllVectorStores() {
   );
 }
 
+export async function getConversation(id: string) {
+  const db = await getDatabase();
+  return db.get("conversations", id);
+}
+
+export async function getMessages(conversationId: string) {
+  const db = await getDatabase();
+  const index = db.transaction("messages").store.index("by-conversation");
+  const items = await index.getAll(IDBKeyRange.only(conversationId));
+  return items.sort((a, b) =>
+    a.createdAt > b.createdAt ? 1 : a.createdAt < b.createdAt ? -1 : 0,
+  );
+}
+
+export async function upsertMessages(records: MessageRecord[]) {
+  if (records.length === 0) {
+    return;
+  }
+  const db = await getDatabase();
+  const tx = db.transaction("messages", "readwrite");
+  await Promise.all(records.map((record) => tx.store.put(record)));
+  await tx.done;
+}
+
+export async function deleteMessages(messageIds: string[]) {
+  if (messageIds.length === 0) {
+    return;
+  }
+  const db = await getDatabase();
+  const tx = db.transaction("messages", "readwrite");
+  await Promise.all(messageIds.map((id) => tx.store.delete(id)));
+  await tx.done;
+}
+
+export async function deleteConversation(conversationId: string) {
+  const db = await getDatabase();
+
+  // 会話に関連するメッセージを削除
+  const messages = await getMessages(conversationId);
+  if (messages.length > 0) {
+    const tx = db.transaction("messages", "readwrite");
+    await Promise.all(messages.map((msg) => tx.store.delete(msg.id)));
+    await tx.done;
+  }
+
+  // 会話を削除
+  const convTx = db.transaction("conversations", "readwrite");
+  await convTx.store.delete(conversationId);
+  await convTx.done;
+}
+
+export async function upsertAttachments(records: AttachmentRecord[]) {
+  if (records.length === 0) {
+    return;
+  }
+  const db = await getDatabase();
+  const tx = db.transaction("attachments", "readwrite");
+  await Promise.all(records.map((record) => tx.store.put(record)));
+  await tx.done;
+}
+
+export async function getAttachments(conversationId: string) {
+  const db = await getDatabase();
+  const index = db.transaction("attachments").store.index("by-conversation");
+  return index.getAll(IDBKeyRange.only(conversationId));
+}
+
 export async function upsertConversations(records: ConversationRecord[]) {
   const db = await getDatabase();
   const tx = db.transaction("conversations", "readwrite");
@@ -86,5 +178,7 @@ export async function clearAll() {
   await Promise.all([
     db.clear("conversations"),
     db.clear("vectorStores"),
+    db.clear("messages"),
+    db.clear("attachments"),
   ]);
 }

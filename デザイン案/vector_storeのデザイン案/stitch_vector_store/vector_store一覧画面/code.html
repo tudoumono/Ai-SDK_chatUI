@@ -1,0 +1,215 @@
+<html>
+  <head>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link
+      rel="stylesheet"
+      as="style"
+      onload="this.rel='stylesheet'"
+      href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
+    />
+
+    <title>Stitch Design</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  </head>
+  <body>
+    <div class="relative flex h-auto min-h-screen w-full flex-col bg-[#111618] dark group/design-root overflow-x-hidden" style='font-family: Inter, "Noto Sans", sans-serif;'>
+      <div class="layout-container flex h-full grow flex-col">
+        <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#283339] px-10 py-3">
+          <div class="flex items-center gap-8">
+            <div class="flex items-center gap-4 text-white">
+              <div class="size-4">
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M44 4H30.6666V17.3334H17.3334V30.6666H4V44H44V4Z" fill="currentColor"></path></svg>
+              </div>
+              <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em]">AI Assistant</h2>
+            </div>
+            <div class="flex items-center gap-9">
+              <a class="text-white text-sm font-medium leading-normal" href="#">Dashboard</a>
+              <a class="text-white text-sm font-medium leading-normal" href="#">Documents</a>
+              <a class="text-white text-sm font-medium leading-normal" href="#">Community</a>
+            </div>
+          </div>
+          <div class="flex flex-1 justify-end gap-8">
+            <label class="flex flex-col min-w-40 !h-10 max-w-64">
+              <div class="flex w-full flex-1 items-stretch rounded-lg h-full">
+                <div
+                  class="text-[#9db0b9] flex border-none bg-[#283339] items-center justify-center pl-4 rounded-l-lg border-r-0"
+                  data-icon="MagnifyingGlass"
+                  data-size="24px"
+                  data-weight="regular"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                    <path
+                      d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"
+                    ></path>
+                  </svg>
+                </div>
+                <input
+                  placeholder="Search"
+                  class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-white focus:outline-0 focus:ring-0 border-none bg-[#283339] focus:border-none h-full placeholder:text-[#9db0b9] px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal"
+                  value=""
+                />
+              </div>
+            </label>
+            <div
+              class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBlTprbrvC0PBFDuFw4mFG3nv4B_eObru-gPp_05IxKtpJtwhWe19KGfkeMPTBVWLvMdv2itfcLg7iLqQUCcmsAsnhfj5QgwdN95tamPJ_qCUa_C9kw7IDWAnIxIoTAObYBtH_q3oUulYsA78DOD0KImmXb_fImQHmV74WoQlqAHyWqjxA7AvhNpGhsdYjFX_Qh8OZZTeOlJnYrzv-3zKlQRQaDORz5NI7q33oYLhSkNFeM1E9z7zl1oTTPvCrDH6irnqsnPNw1ubE");'
+            ></div>
+          </div>
+        </header>
+        <div class="px-40 flex flex-1 justify-center py-5">
+          <div class="layout-content-container flex flex-col max-w-[960px] flex-1">
+            <div class="flex flex-wrap justify-between gap-3 p-4">
+              <p class="text-white tracking-light text-[32px] font-bold leading-tight min-w-72">Vector Stores</p>
+              <button
+                class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-8 px-4 bg-[#283339] text-white text-sm font-medium leading-normal"
+              >
+                <span class="truncate">New</span>
+              </button>
+            </div>
+            <div class="px-4 py-3">
+              <label class="flex flex-col min-w-40 h-12 w-full">
+                <div class="flex w-full flex-1 items-stretch rounded-lg h-full">
+                  <div
+                    class="text-[#9db0b9] flex border-none bg-[#283339] items-center justify-center pl-4 rounded-l-lg border-r-0"
+                    data-icon="MagnifyingGlass"
+                    data-size="24px"
+                    data-weight="regular"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                      <path
+                        d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"
+                      ></path>
+                    </svg>
+                  </div>
+                  <input
+                    placeholder="Search Vector Store"
+                    class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-white focus:outline-0 focus:ring-0 border-none bg-[#283339] focus:border-none h-full placeholder:text-[#9db0b9] px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal"
+                    value=""
+                  />
+                </div>
+              </label>
+            </div>
+            <div class="flex gap-3 p-3 flex-wrap pr-4">
+              <button class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-[#283339] pl-4 pr-2">
+                <p class="text-white text-sm font-medium leading-normal">Created Date</p>
+                <div class="text-white" data-icon="CaretDown" data-size="20px" data-weight="regular">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" fill="currentColor" viewBox="0 0 256 256">
+                    <path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path>
+                  </svg>
+                </div>
+              </button>
+              <button class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-[#283339] pl-4 pr-2">
+                <p class="text-white text-sm font-medium leading-normal">Size</p>
+                <div class="text-white" data-icon="CaretDown" data-size="20px" data-weight="regular">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" fill="currentColor" viewBox="0 0 256 256">
+                    <path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path>
+                  </svg>
+                </div>
+              </button>
+            </div>
+            <div class="px-4 py-3 @container">
+              <div class="flex overflow-hidden rounded-lg border border-[#3b4b54] bg-[#111618]">
+                <table class="flex-1">
+                  <thead>
+                    <tr class="bg-[#1c2327]">
+                      <th class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-120 px-4 py-3 text-left text-white w-[400px] text-sm font-medium leading-normal">Name</th>
+                      <th class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-240 px-4 py-3 text-left text-white w-[400px] text-sm font-medium leading-normal">
+                        Created Date
+                      </th>
+                      <th class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-360 px-4 py-3 text-left text-white w-[400px] text-sm font-medium leading-normal">Size</th>
+                      <th class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-480 px-4 py-3 text-left text-white w-60 text-[#9db0b9] text-sm font-medium leading-normal">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="border-t border-t-[#3b4b54]">
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-120 h-[72px] px-4 py-2 w-[400px] text-white text-sm font-normal leading-normal">
+                        Document Search
+                      </td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-240 h-[72px] px-4 py-2 w-[400px] text-[#9db0b9] text-sm font-normal leading-normal">
+                        2024/01/15
+                      </td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-360 h-[72px] px-4 py-2 w-[400px] text-[#9db0b9] text-sm font-normal leading-normal">10MB</td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-480 h-[72px] px-4 py-2 w-60 text-[#9db0b9] text-sm font-bold leading-normal tracking-[0.015em]">
+                        Details
+                      </td>
+                    </tr>
+                    <tr class="border-t border-t-[#3b4b54]">
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-120 h-[72px] px-4 py-2 w-[400px] text-white text-sm font-normal leading-normal">
+                        Product Manual
+                      </td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-240 h-[72px] px-4 py-2 w-[400px] text-[#9db0b9] text-sm font-normal leading-normal">
+                        2024/02/20
+                      </td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-360 h-[72px] px-4 py-2 w-[400px] text-[#9db0b9] text-sm font-normal leading-normal">15MB</td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-480 h-[72px] px-4 py-2 w-60 text-[#9db0b9] text-sm font-bold leading-normal tracking-[0.015em]">
+                        Details
+                      </td>
+                    </tr>
+                    <tr class="border-t border-t-[#3b4b54]">
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-120 h-[72px] px-4 py-2 w-[400px] text-white text-sm font-normal leading-normal">
+                        Customer Support
+                      </td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-240 h-[72px] px-4 py-2 w-[400px] text-[#9db0b9] text-sm font-normal leading-normal">
+                        2024/03/10
+                      </td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-360 h-[72px] px-4 py-2 w-[400px] text-[#9db0b9] text-sm font-normal leading-normal">8MB</td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-480 h-[72px] px-4 py-2 w-60 text-[#9db0b9] text-sm font-bold leading-normal tracking-[0.015em]">
+                        Details
+                      </td>
+                    </tr>
+                    <tr class="border-t border-t-[#3b4b54]">
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-120 h-[72px] px-4 py-2 w-[400px] text-white text-sm font-normal leading-normal">
+                        Internal Wiki
+                      </td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-240 h-[72px] px-4 py-2 w-[400px] text-[#9db0b9] text-sm font-normal leading-normal">
+                        2024/04/05
+                      </td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-360 h-[72px] px-4 py-2 w-[400px] text-[#9db0b9] text-sm font-normal leading-normal">20MB</td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-480 h-[72px] px-4 py-2 w-60 text-[#9db0b9] text-sm font-bold leading-normal tracking-[0.015em]">
+                        Details
+                      </td>
+                    </tr>
+                    <tr class="border-t border-t-[#3b4b54]">
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-120 h-[72px] px-4 py-2 w-[400px] text-white text-sm font-normal leading-normal">FAQ</td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-240 h-[72px] px-4 py-2 w-[400px] text-[#9db0b9] text-sm font-normal leading-normal">
+                        2024/05/01
+                      </td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-360 h-[72px] px-4 py-2 w-[400px] text-[#9db0b9] text-sm font-normal leading-normal">5MB</td>
+                      <td class="table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-480 h-[72px] px-4 py-2 w-60 text-[#9db0b9] text-sm font-bold leading-normal tracking-[0.015em]">
+                        Details
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <style>
+                          @container(max-width:120px){.table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-120{display: none;}}
+                @container(max-width:240px){.table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-240{display: none;}}
+                @container(max-width:360px){.table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-360{display: none;}}
+                @container(max-width:480px){.table-2e984e77-e1e5-4c23-b9f7-b135696ca1d2-column-480{display: none;}}
+              </style>
+            </div>
+            <div class="flex justify-stretch">
+              <div class="flex flex-1 gap-3 flex-wrap px-4 py-3 justify-start">
+                <button
+                  class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#283339] text-white text-sm font-bold leading-normal tracking-[0.015em]"
+                >
+                  <span class="truncate">Edit</span>
+                </button>
+                <button
+                  class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#283339] text-white text-sm font-bold leading-normal tracking-[0.015em]"
+                >
+                  <span class="truncate">Delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

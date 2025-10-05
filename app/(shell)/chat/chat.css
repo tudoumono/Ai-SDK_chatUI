@@ -1,0 +1,322 @@
+/* チャットレイアウト */
+.chat-layout {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+
+/* 左サイドバー - 会話履歴 */
+.chat-sidebar-left {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.chat-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  padding: 0 var(--spacing-lg);
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-sidebar-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.chat-history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-sm);
+}
+
+.chat-history-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  color: var(--foreground-secondary);
+  position: relative;
+  group: hover;
+}
+
+.chat-history-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--foreground);
+}
+
+.chat-history-item.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.chat-history-icon {
+  font-size: 1rem;
+}
+
+.chat-history-title {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-history-action {
+  opacity: 0;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: 0.875rem;
+}
+
+.chat-history-item:hover .chat-history-action {
+  opacity: 1;
+}
+
+.chat-history-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.chat-history-edit-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+/* メインチャットエリア */
+.chat-main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  padding: 0 var(--spacing-xl);
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.chat-header-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.chat-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-xl);
+}
+
+.chat-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-lg);
+  padding: 48px 16px;
+  text-align: center;
+  max-width: 768px;
+  margin: 0 auto;
+}
+
+.chat-welcome-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  background: var(--accent-light);
+  font-size: 2rem;
+}
+
+.chat-welcome-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+}
+
+.chat-welcome-description {
+  font-size: 1rem;
+  opacity: 0.75;
+}
+
+.chat-messages-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.chat-footer {
+  border-top: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  padding: var(--spacing-lg);
+}
+
+.chat-composer {
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.chat-attach-button {
+  position: absolute;
+  left: var(--spacing-md);
+  bottom: var(--spacing-md);
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+  z-index: 1;
+}
+
+.chat-attach-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.chat-attach-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-composer .field-textarea {
+  width: 100%;
+  min-height: 64px;
+  padding-left: 56px;
+  padding-right: 56px;
+}
+
+.chat-composer .chat-actions {
+  position: absolute;
+  right: var(--spacing-md);
+  bottom: var(--spacing-md);
+}
+
+/* 右サイドバー - 設定 */
+.chat-sidebar-right {
+  width: 384px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.chat-settings-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-toggle-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-flex;
+  height: 24px;
+  width: 44px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background var(--transition-base);
+}
+
+.toggle-switch:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.toggle-switch.active {
+  background: var(--accent);
+}
+
+.toggle-switch-slider {
+  pointer-events: none;
+  display: inline-block;
+  height: 20px;
+  width: 20px;
+  transform: translateX(0);
+  border-radius: var(--radius-full);
+  background: white;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-base);
+}
+
+.toggle-switch.active .toggle-switch-slider {
+  transform: translateX(20px);
+}
+
+.vector-stores-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.vector-store-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.vector-store-option:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.vector-store-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}

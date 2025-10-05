@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+
+<html class="" lang="en"><head>
+<meta charset="utf-8"/>
+<title>ChatBot UI</title>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter:wght@400;500;700;900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>tailwind.config = {darkMode: "class", theme: {extend: {colors: {primary: "#000000", "background-light": "#f7f7f7", "background-dark": "#191919"}, fontFamily: {display: "Inter"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}}}};</script>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark">
+<div class="flex h-screen w-full">
+<aside class="w-80 flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+<header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800 px-4">
+<div class="flex items-center gap-3">
+<button class="rounded-full p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="text-lg font-bold text-slate-800 dark:text-slate-200">Chat History</h1>
+</div>
+<button class="rounded-full p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined">add</span>
+</button>
+</header>
+<div class="flex-1 overflow-y-auto">
+<nav class="p-2 space-y-1">
+<a class="flex items-center gap-3 rounded-lg bg-primary/10 dark:bg-primary/20 text-primary px-3 py-2 group" href="#">
+<span class="material-symbols-outlined text-base">chat_bubble</span>
+<span class="text-sm font-medium truncate flex-1">Conversation about web design</span>
+<button class="opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1 text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</a>
+<a class="flex items-center gap-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 group" href="#">
+<span class="material-symbols-outlined text-base">chat_bubble</span>
+<span class="text-sm font-medium truncate flex-1">Marketing strategies brainstorm</span>
+<button class="opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1 text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</a>
+<a class="flex items-center gap-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 group" href="#">
+<span class="material-symbols-outlined text-base">chat_bubble</span>
+<span class="text-sm font-medium truncate flex-1">Recipe ideas for dinner</span>
+<button class="opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1 text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</a>
+<a class="flex items-center gap-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 group" href="#">
+<span class="material-symbols-outlined text-base">chat_bubble</span>
+<span class="text-sm font-medium truncate flex-1">Planning a vacation to Japan</span>
+<button class="opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1 text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</a>
+<a class="flex items-center gap-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 group" href="#">
+<span class="material-symbols-outlined text-base">chat_bubble</span>
+<span class="text-sm font-medium truncate flex-1">Python coding help</span>
+<button class="opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1 text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</a>
+</nav>
+</div>
+</aside>
+<div class="flex h-screen w-full flex-col">
+<header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6">
+<div class="flex items-center gap-3">
+<h1 class="text-lg font-bold text-slate-800 dark:text-slate-200">ChatBot</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="rounded-full p-2 text-slate-600 hover:bg-primary/10 hover:text-primary dark:text-slate-400 dark:hover:bg-primary/20">
+<span class="material-symbols-outlined">tune</span>
+</button>
+<div class="h-10 w-10 rounded-full bg-cover bg-center" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAB2Wj1oU0oJprzAz8LJq54t7fk215OIrITU7BUI_S2YHhW2n6ut2OT5Tcwlu1Crr8ncl7Tn0AJpXw1a7kNLR3szorwBMGrwZbN-laDmSDHCM4BCvWhkq2Q-bOdyYev7l6SRxMFXOCpU77rQOY_Uc7fCe5M3QWlqc_R2EvY8C-8AS7KbNooq9DRVYIOuo-p2vXPju0hrhWD_f4D7o5LeODUsZK7PlopsYA8fpG-GLneYAoEi2fZzTWeUZ0HR2dKM7fXolGNML3vV1De");'></div>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto p-6">
+<div class="mx-auto max-w-3xl">
+<div class="flex flex-col items-center justify-center gap-4 py-12 text-center">
+<div class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-4xl">smart_toy</span>
+</div>
+<h2 class="text-3xl font-bold text-slate-900 dark:text-white">Welcome to ChatBot</h2>
+<p class="text-slate-600 dark:text-slate-400">Start a conversation with our AI assistant. Type your message below and press send.</p>
+</div>
+<div class="space-y-6">
+<div class="flex items-start gap-4">
+<div class="h-10 w-10 shrink-0 rounded-full bg-cover bg-center" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCbl5hjdAAnCcXAN7burl9khZYSv3PyM-j1dZg-Heb30c3VfWxwiujPwMHKBGsHsVm62VmK836mI3pdq6VoGJuH95lE1MYv4K2TN5gHz5LknOwTmAWTyjK1nyWLLTHudk080z14GOZhItLLto_G6c6wW7USJ1JwZsQu58qqcPYQvXieUkOz8QBx_PdXx3iCZFUzrdfK75CqGCY0HEfo0KbXYEl2-QywZEY3FOYGroDjmgDSpzdZPdukX-VcR6QRcKNoWoYoiNvNfsfy");'></div>
+<div class="flex flex-col gap-1">
+<p class="text-sm font-semibold text-slate-700 dark:text-slate-300">AI Assistant</p>
+<div class="rounded-lg bg-primary/10 p-3 text-slate-800 dark:bg-primary/20 dark:text-slate-200">
+<p class="text-base">Hello! How can I assist you today?</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<footer class="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+<div class="mx-auto max-w-3xl">
+<div class="relative flex items-center">
+<input class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white py-3 pl-4 pr-12 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-white dark:placeholder-slate-400" placeholder="Type your message..." type="text"/>
+<button class="absolute right-3 flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white transition-colors hover:bg-primary/90">
+<span class="material-symbols-outlined text-lg">send</span>
+</button>
+</div>
+</div>
+</footer>
+</div>
+<aside class="w-96 flex-shrink-0 flex flex-col border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" x-data="{ vectorStoreEnabled: false, vectorStores: [''], showError: false, checkInputs() { this.showError = this.vectorStoreEnabled &amp;&amp; this.vectorStores.every(store =&gt; store === ''); } }">
+<header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800 px-4">
+<h1 class="text-lg font-bold text-slate-800 dark:text-slate-200">Settings</h1>
+<button class="rounded-full p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined">close</span>
+</button>
+</header>
+<div class="flex-1 overflow-y-auto p-4 space-y-6">
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="model">Model</label>
+<select class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-primary focus:border-primary" id="model">
+<option>GPT-4</option>
+<option selected="">GPT-3.5 Turbo</option>
+<option>Claude 2</option>
+<option>Gemini Pro</option>
+</select>
+</div>
+<div>
+<div class="flex items-center justify-between">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="web-search">Web Search</label>
+<button aria-checked="false" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-slate-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:bg-slate-700" id="web-search" role="switch" type="button">
+<span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
+</button>
+</div>
+</div>
+<div>
+<div class="flex items-center justify-between">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="vector-store">Vector Store</label>
+<button :aria-checked="vectorStoreEnabled.toString()" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-slate-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:bg-slate-700" id="vector-store" role="switch" type="button" x-on:click="vectorStoreEnabled = !vectorStoreEnabled; checkInputs()">
+<span :class="{ 'translate-x-5': vectorStoreEnabled, 'translate-x-0': !vectorStoreEnabled }" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+</button>
+</div>
+</div>
+<div class="space-y-2" x-show="vectorStoreEnabled" x-transition="">
+<div class="flex items-center justify-between">
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="vector-store-input-0">Vector Store Data</label>
+<button class="rounded-full p-1 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" x-on:click="if (vectorStores.length &lt; 3) vectorStores.push('')" x-show="vectorStores.length &lt; 3">
+<span class="material-symbols-outlined text-lg">add</span>
+</button>
+</div>
+<template :key="index" x-for="(store, index) in vectorStores">
+<div class="flex items-center gap-2">
+<input :id="'vector-store-input-' + index" @input="checkInputs" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-primary focus:border-primary" placeholder="Enter vector store data..." type="text" x-model="vectorStores[index]"/>
+<button class="rounded-full p-1 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" x-on:click="vectorStores.splice(index, 1); checkInputs()" x-show="vectorStores.length &gt; 1">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+</div>
+</template>
+<p class="text-sm text-red-500" x-show="showError">At least one vector store data input must be filled.</p>
+</div>
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="temperature">Temperature</label>
+<div class="flex items-center gap-2">
+<input class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-primary" id="temperature" max="2" min="0" step="0.1" type="range" value="0.7"/>
+<span class="text-sm text-slate-600 dark:text-slate-400">0.7</span>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="max-length">Maximum Length</label>
+<div class="flex items-center gap-2">
+<input class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-primary" id="max-length" max="4096" min="1" step="1" type="range" value="2048"/>
+<span class="text-sm text-slate-600 dark:text-slate-400">2048</span>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="stop-sequences">Stop Sequences</label>
+<input class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-primary focus:border-primary" id="stop-sequences" placeholder="e.g., Human:" type="text"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="top-p">Top P</label>
+<div class="flex items-center gap-2">
+<input class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-primary" id="top-p" max="1" min="0" step="0.1" type="range" value="1"/>
+<span class="text-sm text-slate-600 dark:text-slate-400">1.0</span>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="frequency-penalty">Frequency Penalty</label>
+<div class="flex items-center gap-2">
+<input class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-primary" id="frequency-penalty" max="2" min="0" step="0.1" type="range" value="0"/>
+<span class="text-sm text-slate-600 dark:text-slate-400">0.0</span>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="presence-penalty">Presence Penalty</label>
+<div class="flex items-center gap-2">
+<input class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-primary" id="presence-penalty" max="2" min="0" step="0.1" type="range" value="0"/>
+<span class="text-sm text-slate-600 dark:text-slate-400">0.0</span>
+</div>
+</div>
+</div>
+</aside>
+</div>
+<script defer="" src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</body></html>

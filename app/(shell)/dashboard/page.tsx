@@ -8,10 +8,12 @@ import {
   getAllVectorStores,
   upsertConversations,
   upsertVectorStores,
+  upsertMessages,
 } from "@/lib/storage/indexed-db";
 import {
   buildSeedConversations,
   buildSeedVectorStores,
+  buildSeedMessages,
 } from "@/lib/storage/seeds";
 import type {
   ConversationRecord,
@@ -58,9 +60,11 @@ export default function DashboardPage() {
       if (conversations.length === 0 && vectorStores.length === 0) {
         const seedConversations = buildSeedConversations();
         const seedVectorStores = buildSeedVectorStores();
+        const seedMessages = buildSeedMessages();
         await Promise.all([
           upsertConversations(seedConversations),
           upsertVectorStores(seedVectorStores),
+          upsertMessages(seedMessages),
         ]);
         setData({
           conversations: seedConversations,
