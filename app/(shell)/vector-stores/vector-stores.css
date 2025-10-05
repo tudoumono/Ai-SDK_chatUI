@@ -225,6 +225,18 @@
   gap: var(--spacing-md);
 }
 
+.vs-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.vs-sync-note {
+  font-size: 0.75rem;
+  color: var(--foreground-secondary);
+  opacity: 0.8;
+}
+
 .vs-refresh {
   padding: 6px 14px;
   border-radius: var(--radius-md);
@@ -410,4 +422,37 @@
 
 .vs-favorite-button.is-favorite:hover {
   color: #ffb300;
+}
+
+.vs-favorite-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vs-favorite-button:disabled:hover {
+  color: rgba(255, 255, 255, 0.3);
+  transform: none;
+}
+
+.vs-favorite-button.is-favorite:disabled:hover {
+  color: #ffc107;
+  transform: none;
+}
+
+.vs-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.vs-action-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.vs-filter-button:disabled,
+.vs-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

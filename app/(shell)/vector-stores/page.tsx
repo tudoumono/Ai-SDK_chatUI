@@ -41,12 +41,12 @@ export default function VectorStoresPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "size">("date");
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>({
     state: "idle",
     message: "削除操作はまだ実行されていません。",
   });
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasInitializedRef = useRef(false);
 
   const showStatus = useCallback((next: Status) => {
     if (statusTimerRef.current) {
@@ -108,13 +108,8 @@ export default function VectorStoresPage() {
   }, [showStatus]);
 
   useEffect(() => {
-    if (!hasInitializedRef.current) {
-      hasInitializedRef.current = true;
-      void syncWithRemote();
-    } else {
-      void loadStoresFromLocal();
-    }
-  }, []);
+    void loadStoresFromLocal();
+  }, [loadStoresFromLocal]);
 
   useEffect(() => {
     const table = document.querySelector(".vs-table");
@@ -176,6 +171,9 @@ export default function VectorStoresPage() {
 
   const handleToggleFavorite = useCallback(
     async (store: VectorStoreRecord) => {
+      if (deletingId) {
+        return; // 削除処理中は何もしない
+      }
       try {
         await updateVectorStore(store.id, { isFavorite: !store.isFavorite });
         await loadStoresFromLocal();
@@ -187,11 +185,15 @@ export default function VectorStoresPage() {
         });
       }
     },
-    [loadStoresFromLocal, showStatus],
+    [deletingId, loadStoresFromLocal, showStatus],
   );
 
   const handleDelete = useCallback(
     async (store: VectorStoreRecord) => {
+      if (deletingId) {
+        return; // 既に削除処理中の場合は何もしない
+      }
+
       if (store.isFavorite) {
         alert(`「${store.name}」はお気に入りに登録されているため削除できません。\n先にお気に入りを解除してください。`);
         return;
@@ -199,6 +201,8 @@ export default function VectorStoresPage() {
       if (!confirm(`「${store.name}」を削除しますか？この操作は取り消せません。`)) {
         return;
       }
+
+      setDeletingId(store.id);
       setStatus({ state: "loading", message: "ベクトルストアを削除しています…" });
       try {
         const connection = await loadConnection();
@@ -219,9 +223,11 @@ export default function VectorStoresPage() {
               ? `削除に失敗しました: ${error.message}`
               : "削除に失敗しました",
         });
+      } finally {
+        setDeletingId(null);
       }
     },
-    [syncWithRemote, showStatus],
+    [deletingId, syncWithRemote, showStatus],
   );
 
   useEffect(
@@ -274,6 +280,7 @@ export default function VectorStoresPage() {
             <button
               className={`vs-filter-button ${sortBy === "date" ? "active" : ""}`}
               onClick={() => setSortBy("date")}
+              disabled={!!deletingId}
             >
               作成日
               <span className="vs-filter-icon">▼</span>
@@ -281,6 +288,7 @@ export default function VectorStoresPage() {
             <button
               className={`vs-filter-button ${sortBy === "size" ? "active" : ""}`}
               onClick={() => setSortBy("size")}
+              disabled={!!deletingId}
             >
               ファイル数
               <span className="vs-filter-icon">▼</span>
@@ -294,9 +302,19 @@ export default function VectorStoresPage() {
           <>
             <div className="vs-table-shell">
               <div className="vs-toolbar">
-                <button className="vs-refresh" onClick={() => void syncWithRemote()} type="button">
-                  更新
-                </button>
+                <div className="vs-toolbar-left">
+                  <button
+                    className="vs-refresh"
+                    onClick={() => void syncWithRemote()}
+                    type="button"
+                    disabled={!!deletingId}
+                  >
+                    更新
+                  </button>
+                  <span className="vs-sync-note">
+                    ※ OpenAIとの同期は「更新」ボタン押下時と削除時のみ実行されます
+                  </span>
+                </div>
                 {status.state !== "idle" && (
                   <div className={`vs-status vs-status-${status.state}`} role="status">
                     {status.message}
@@ -347,6 +365,7 @@ export default function VectorStoresPage() {
                             onClick={() => void handleToggleFavorite(store)}
                             title={store.isFavorite ? "お気に入りを解除" : "お気に入りに追加"}
                             type="button"
+                            disabled={!!deletingId}
                           >
                             ★
                           </button>
@@ -362,15 +381,19 @@ export default function VectorStoresPage() {
                         <td className="vs-actions-cell">
                           <Link
                             href={`/ingest?id=${store.id}`}
-                            className="vs-action-button"
+                            className={`vs-action-button ${deletingId ? "disabled" : ""}`}
+                            onClick={(e) => {
+                              if (deletingId) e.preventDefault();
+                            }}
                           >
                             Edit
                           </Link>
                           <button
                             className="vs-action-button vs-action-delete"
                             onClick={() => void handleDelete(store)}
+                            disabled={!!deletingId}
                           >
-                            Delete
+                            {deletingId === store.id ? "削除中..." : "Delete"}
                           </button>
                         </td>
                       </tr>

@@ -85,3 +85,280 @@ export async function deleteVectorStoreFromApi(
     throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
   }
 }
+
+type VectorStoreFile = {
+  id: string;
+  object: string;
+  created_at: number;
+  vector_store_id: string;
+  status: "in_progress" | "completed" | "cancelled" | "failed";
+  last_error?: {
+    code: string;
+    message: string;
+  } | null;
+};
+
+type VectorStoreFilesResponse = {
+  object: string;
+  data: VectorStoreFile[];
+  first_id?: string;
+  last_id?: string;
+  has_more: boolean;
+};
+
+export type VectorStoreFileInfo = {
+  id: string;
+  status: string;
+  createdAt: string;
+  error?: string;
+};
+
+export async function fetchVectorStoreFiles(
+  vectorStoreId: string,
+  connectionOverride?: ConnectionSettings,
+): Promise<VectorStoreFileInfo[]> {
+  const connection = ensureConnection(
+    connectionOverride ?? (await loadConnection()),
+  );
+  const baseUrl = buildBaseUrl(connection);
+  const url = `${baseUrl}/vector_stores/${vectorStoreId}/files`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: buildRequestHeaders(
+      { Authorization: `Bearer ${connection.apiKey}` },
+      connection.additionalHeaders,
+    ),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+  }
+  const json = (await response.json()) as VectorStoreFilesResponse;
+  return json.data.map((file) => ({
+    id: file.id,
+    status: file.status,
+    createdAt: new Date(file.created_at * 1000).toISOString(),
+    error: file.last_error?.message,
+  }));
+}
+
+type FileInfo = {
+  id: string;
+  filename: string;
+  bytes: number;
+  created_at: number;
+  purpose: string;
+};
+
+export async function fetchFileInfo(
+  fileId: string,
+  connectionOverride?: ConnectionSettings,
+): Promise<{ filename: string; size: number }> {
+  const connection = ensureConnection(
+    connectionOverride ?? (await loadConnection()),
+  );
+  const baseUrl = buildBaseUrl(connection);
+  const url = `${baseUrl}/files/${fileId}`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: buildRequestHeaders(
+      { Authorization: `Bearer ${connection.apiKey}` },
+      connection.additionalHeaders,
+    ),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+  }
+  const json = (await response.json()) as FileInfo;
+  return {
+    filename: json.filename,
+    size: json.bytes,
+  };
+}
+
+export async function deleteVectorStoreFile(
+  vectorStoreId: string,
+  fileId: string,
+  connectionOverride?: ConnectionSettings,
+) {
+  const connection = ensureConnection(
+    connectionOverride ?? (await loadConnection()),
+  );
+  const baseUrl = buildBaseUrl(connection);
+  const url = `${baseUrl}/vector_stores/${vectorStoreId}/files/${fileId}`;
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: buildRequestHeaders(
+      { Authorization: `Bearer ${connection.apiKey}` },
+      connection.additionalHeaders,
+    ),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+  }
+}
+
+type CreateVectorStoreResponse = {
+  id: string;
+  object: string;
+  created_at: number;
+  name: string;
+  file_counts: {
+    in_progress: number;
+    completed: number;
+    failed: number;
+    cancelled: number;
+    total: number;
+  };
+};
+
+export async function createVectorStore(
+  name: string,
+  description?: string,
+  connectionOverride?: ConnectionSettings,
+): Promise<string> {
+  const connection = ensureConnection(
+    connectionOverride ?? (await loadConnection()),
+  );
+  const baseUrl = buildBaseUrl(connection);
+  const url = `${baseUrl}/vector_stores`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: buildRequestHeaders(
+      {
+        Authorization: `Bearer ${connection.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      connection.additionalHeaders,
+    ),
+    body: JSON.stringify({
+      name,
+      ...(description ? { metadata: { description } } : {}),
+    }),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+  }
+  const json = (await response.json()) as CreateVectorStoreResponse;
+  return json.id;
+}
+
+export async function uploadFileToOpenAI(
+  file: File,
+  connectionOverride?: ConnectionSettings,
+  onProgress?: (progress: number) => void,
+): Promise<string> {
+  const connection = ensureConnection(
+    connectionOverride ?? (await loadConnection()),
+  );
+  const baseUrl = buildBaseUrl(connection);
+  const url = `${baseUrl}/files`;
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("purpose", "assistants");
+
+  const xhr = new XMLHttpRequest();
+
+  return new Promise((resolve, reject) => {
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable && onProgress) {
+        const progress = Math.round((e.loaded / e.total) * 100);
+        onProgress(progress);
+      }
+    });
+
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const response = JSON.parse(xhr.responseText);
+          resolve(response.id);
+        } catch (error) {
+          reject(new Error("Failed to parse response"));
+        }
+      } else {
+        reject(new Error(`HTTP ${xhr.status}: ${xhr.responseText}`));
+      }
+    });
+
+    xhr.addEventListener("error", () => {
+      reject(new Error("Network error"));
+    });
+
+    xhr.addEventListener("abort", () => {
+      reject(new Error("Upload aborted"));
+    });
+
+    xhr.open("POST", url);
+    xhr.setRequestHeader("Authorization", `Bearer ${connection.apiKey}`);
+
+    if (connection.additionalHeaders) {
+      Object.entries(connection.additionalHeaders).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
+    }
+
+    xhr.send(formData);
+  });
+}
+
+export async function attachFileToVectorStore(
+  vectorStoreId: string,
+  fileId: string,
+  connectionOverride?: ConnectionSettings,
+): Promise<void> {
+  const connection = ensureConnection(
+    connectionOverride ?? (await loadConnection()),
+  );
+  const baseUrl = buildBaseUrl(connection);
+  const url = `${baseUrl}/vector_stores/${vectorStoreId}/files`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: buildRequestHeaders(
+      {
+        Authorization: `Bearer ${connection.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      connection.additionalHeaders,
+    ),
+    body: JSON.stringify({ file_id: fileId }),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+  }
+}
+
+export async function updateVectorStore(
+  vectorStoreId: string,
+  name: string,
+  description?: string,
+  connectionOverride?: ConnectionSettings,
+): Promise<void> {
+  const connection = ensureConnection(
+    connectionOverride ?? (await loadConnection()),
+  );
+  const baseUrl = buildBaseUrl(connection);
+  const url = `${baseUrl}/vector_stores/${vectorStoreId}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: buildRequestHeaders(
+      {
+        Authorization: `Bearer ${connection.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      connection.additionalHeaders,
+    ),
+    body: JSON.stringify({
+      name,
+      ...(description ? { metadata: { description } } : {}),
+    }),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+  }
+}
