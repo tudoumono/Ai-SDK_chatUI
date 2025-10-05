@@ -30,6 +30,13 @@ export type MessagePart =
       fileId?: string;
     };
 
+export type AttachedFileInfo = {
+  fileName: string;
+  fileSize: number;
+  fileId?: string;
+  purpose?: 'vision' | 'assistants';
+};
+
 export type MessageRecord = {
   id: string;
   conversationId: string;
@@ -40,7 +47,9 @@ export type MessageRecord = {
   status: "pending" | "complete" | "error";
   isSummary?: boolean;
   errorMessage?: string;
+  errorDetails?: string;
   usedTools?: string[];
+  attachedFiles?: AttachedFileInfo[];
 };
 
 export type AttachmentRecord = {

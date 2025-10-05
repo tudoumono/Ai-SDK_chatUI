@@ -8,6 +8,11 @@ export type StreamCallbacks = {
   onStatusChange?: (status: string) => void;
 };
 
+export type FileAttachment = {
+  fileId: string;
+  tools: Array<{ type: 'file_search' | 'code_interpreter' }>;
+};
+
 export type StreamRequest = {
   connection: ConnectionSettings;
   model: string;
@@ -16,6 +21,7 @@ export type StreamRequest = {
   webSearchEnabled?: boolean;
   abortSignal?: AbortSignal;
   maxOutputTokens?: number;
+  attachments?: FileAttachment[];
 };
 
 export type StreamResult = {
@@ -26,8 +32,8 @@ export type StreamResult = {
   usedTools: string[];
 };
 
-function toInputMessages(messages: MessageRecord[]) {
-  return messages
+function toInputMessages(messages: MessageRecord[], attachments?: FileAttachment[]) {
+  const result = messages
     .map((message) => {
       if (message.role === "tool") {
         return null;
@@ -52,6 +58,41 @@ function toInputMessages(messages: MessageRecord[]) {
       role: "user" | "assistant" | "system" | "developer";
       content: string;
     } => item !== null);
+
+  // 最後のユーザーメッセージにファイルを添付
+  if (attachments && attachments.length > 0 && result.length > 0) {
+    const lastUserIndex = result.map(m => m.role).lastIndexOf("user");
+    if (lastUserIndex !== -1) {
+      const lastMessage = result[lastUserIndex];
+      const contentParts: any[] = [
+        { type: "input_text", text: lastMessage.content }
+      ];
+
+      // ファイルIDを追加（画像とドキュメントで異なるtypeを使用）
+      for (const att of attachments) {
+        if (att.tools.some(t => t.type === 'code_interpreter')) {
+          // Vision用（画像ファイル）
+          contentParts.push({
+            type: "input_image",
+            file_id: att.fileId,
+          });
+        } else {
+          // file_search用（ドキュメントファイル）
+          contentParts.push({
+            type: "input_file",
+            file_id: att.fileId,
+          });
+        }
+      }
+
+      result[lastUserIndex] = {
+        ...lastMessage,
+        content: contentParts,
+      } as any;
+    }
+  }
+
+  return result;
 }
 
 function buildTools(vectorStoreIds?: string[], webSearchEnabled?: boolean): any {
@@ -100,7 +141,7 @@ export async function streamAssistantResponse(
   callbacks: StreamCallbacks = {},
 ): Promise<StreamResult> {
   const client = createResponsesClient(request.connection);
-  const input = toInputMessages(request.messages);
+  const input = toInputMessages(request.messages, request.attachments);
   if (input.length === 0) {
     throw new Error("送信するメッセージがありません。");
   }
@@ -112,6 +153,8 @@ export async function streamAssistantResponse(
     callbacks.onStatusChange?.("Vector検索中…");
   } else if (request.webSearchEnabled) {
     callbacks.onStatusChange?.("Web検索中…");
+  } else if (request.attachments && request.attachments.length > 0) {
+    callbacks.onStatusChange?.("添付ファイルを処理中…");
   } else {
     callbacks.onStatusChange?.("応答を生成中…");
   }
@@ -122,7 +165,7 @@ export async function streamAssistantResponse(
       input,
       tools: buildTools(request.vectorStoreIds, request.webSearchEnabled),
       max_output_tokens: request.maxOutputTokens,
-    },
+    } as any,
     { signal: request.abortSignal },
   );
 

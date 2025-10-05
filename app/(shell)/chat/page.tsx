@@ -36,6 +36,8 @@ import {
   touchConversation,
 } from "@/lib/chat/session";
 import { streamAssistantResponse } from "@/lib/chat/streaming";
+import { validateFile, formatFileSize } from "@/lib/chat/file-validation";
+import { uploadFileToOpenAI, type UploadedFileInfo } from "@/lib/chat/file-upload";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
 const CONVERSATION_RETENTION_DAYS = 14;
@@ -113,6 +115,9 @@ export default function ChatPage() {
     tags: ConversationRecord[];
     messages: ConversationRecord[];
   } | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<Array<{ file: File; purpose: 'vision' | 'assistants'; isImage: boolean }>>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const showSearchResults = searchQuery.trim().length > 0;
   const totalMatches = searchResults
@@ -409,10 +414,51 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     }
 
     setSendError(null);
-    setStatusMessage("OpenAI Responses API へ送信中…");
     setIsStreaming(true);
 
-    const userMessage = createUserMessage(conversation.id, prompt);
+    // ファイルアップロード処理
+    let uploadedFileInfos: UploadedFileInfo[] = [];
+    let attachedFileInfos: AttachedFileInfo[] = [];
+
+    if (attachedFiles.length > 0) {
+      try {
+        setUploadingFiles(true);
+        setStatusMessage(`${attachedFiles.length}件のファイルをアップロード中…`);
+
+        uploadedFileInfos = await Promise.all(
+          attachedFiles.map((item) =>
+            uploadFileToOpenAI(item.file, item.purpose, currentConnection)
+          )
+        );
+
+        // IndexedDB保存用のファイル情報を作成
+        attachedFileInfos = uploadedFileInfos.map(info => ({
+          fileName: info.fileName,
+          fileSize: info.fileSize,
+          fileId: info.fileId,
+          purpose: info.purpose,
+        }));
+
+        setStatusMessage("ファイルアップロード完了");
+        setAttachedFiles([]);
+      } catch (error) {
+        setUploadingFiles(false);
+        setIsStreaming(false);
+        const errorMsg = error instanceof Error ? error.message : "ファイルアップロードに失敗しました";
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        setSendError(errorMsg);
+        setStatusMessage(null);
+
+        // エラーメッセージを含むユーザーメッセージを保存
+        const userMessageWithError = createUserMessage(conversation.id, prompt, attachedFileInfos);
+        await saveMessages([userMessageWithError]);
+        return;
+      } finally {
+        setUploadingFiles(false);
+      }
+    }
+
+    const userMessage = createUserMessage(conversation.id, prompt, attachedFileInfos);
     const assistantDraft = createAssistantDraft(conversation.id);
 
     setMessages((prev) => [...prev, userMessage, assistantDraft]);
@@ -423,11 +469,19 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
       ? generateAutoTitle(prompt)
       : undefined;
 
+    setStatusMessage("OpenAI Responses API へ送信中…");
+
     try {
       await saveMessages([userMessage, assistantDraft]);
 
       const controller = new AbortController();
       streamingControllerRef.current = controller;
+
+      // attachmentsを構築
+      const attachments = uploadedFileInfos.map(info => ({
+        fileId: info.fileId,
+        tools: [{ type: info.purpose === 'vision' ? 'code_interpreter' as const : 'file_search' as const }],
+      }));
 
       const baseHistory = [...messagesRef.current];
       const result = await streamAssistantResponse(
@@ -438,6 +492,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
           vectorStoreIds: vectorSearchEnabled ? selectedVectorStoreIds : undefined,
           webSearchEnabled,
           abortSignal: controller.signal,
+          attachments: attachments.length > 0 ? attachments : undefined,
         },
         {
           onStatusChange: (status) => {
@@ -506,8 +561,12 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
       setStatusMessage("応答を受信しました。");
     } catch (error) {
       console.error(error);
-      const message =
+      const errorMessage =
         error instanceof Error ? error.message : "Responses API 呼び出しに失敗しました。";
+      const errorDetails = error instanceof Error ? error.stack : JSON.stringify(error);
+
+      // エラー内容を含むテキストを作成
+      const errorText = `❌ エラーが発生しました\n\n${errorMessage}\n\n詳細:\n${errorDetails || 'なし'}`;
 
       let failedAssistant: MessageRecord | null = null;
       setMessages((current) =>
@@ -515,7 +574,15 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
           if (record.id !== assistantDraft.id) {
             return record;
           }
-          const next = withAssistantText(record, message, "error", message);
+          const next = withAssistantText(
+            record,
+            errorText,
+            "error",
+            errorMessage,
+            undefined,
+            undefined,
+            errorDetails
+          );
           failedAssistant = next;
           return next;
         }),
@@ -534,7 +601,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
 
       await persistConversation({ hasContent: true, ...(autoTitle ? { title: autoTitle } : {}) });
 
-      setSendError(message);
+      setSendError(errorMessage);
       setStatusMessage("エラーが発生しました。");
     } finally {
       streamingControllerRef.current = null;
@@ -665,6 +732,42 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     },
     [persistConversation],
   );
+
+  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const validatedFiles: typeof attachedFiles = [];
+    const errors: string[] = [];
+
+    for (const file of files) {
+      const result = validateFile(file);
+      if (result.error) {
+        errors.push(result.error.message);
+      } else if (result.validated) {
+        validatedFiles.push(result.validated);
+      }
+    }
+
+    if (errors.length > 0) {
+      setSendError(errors.join('\n'));
+    } else {
+      setSendError(null);
+    }
+
+    setAttachedFiles((prev) => [...prev, ...validatedFiles]);
+
+    // inputをリセット
+    if (event.target) {
+      event.target.value = '';
+    }
+  }, []);
+
+  const handleRemoveFile = useCallback((index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleAttachClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
 
   const visibleConversations = useMemo(
     () => conversations.filter((conversation) => conversation.hasContent),
@@ -931,11 +1034,28 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                             <span className="chat-status error">エラー</span>
                           )}
                         </div>
+                        {message.attachedFiles && message.attachedFiles.length > 0 && (
+                          <div className="chat-attached-files">
+                            {message.attachedFiles.map((file, index) => (
+                              <div key={index} className="chat-attached-file">
+                                <span className="file-icon">{file.purpose === 'vision' ? '🖼️' : '📄'}</span>
+                                <span className="file-name">{file.fileName}</span>
+                                <span className="file-size">({formatFileSize(file.fileSize)})</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div className="chat-bubble">
                           {textPart?.text ?? <span className="chat-placeholder">(本文なし)</span>}
                         </div>
                         {message.status === "error" && message.errorMessage && (
                           <p className="chat-error">{message.errorMessage}</p>
+                        )}
+                        {message.status === "error" && message.errorDetails && (
+                          <details className="chat-error-details">
+                            <summary>エラー詳細</summary>
+                            <pre>{message.errorDetails}</pre>
+                          </details>
                         )}
                         {message.role === "assistant" && message.usedTools && message.usedTools.length > 0 && (
                           <div className="chat-tools-used">
@@ -970,11 +1090,39 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
 
             <footer className="chat-footer">
             <div className="chat-composer">
+                {attachedFiles.length > 0 && (
+                  <div className="attached-files-list">
+                    {attachedFiles.map((item, index) => (
+                      <div key={index} className="attached-file-item">
+                        <span className="file-icon">{item.isImage ? '🖼️' : '📄'}</span>
+                        <span className="file-name">{item.file.name}</span>
+                        <span className="file-size">({formatFileSize(item.file.size)})</span>
+                        <button
+                          type="button"
+                          className="file-remove"
+                          onClick={() => handleRemoveFile(index)}
+                          disabled={isStreaming}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="chat-input-wrapper">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.md,.json,.html,.doc,.docx,.c,.cs,.cpp,.java,.js,.ts,.py,.rb,.go"
+                    onChange={handleFileSelect}
+                    style={{ display: 'none' }}
+                  />
                   <button
                     type="button"
                     className="chat-attach-button"
                     title="ファイル添付"
+                    onClick={handleAttachClick}
                     disabled={!connectionReady || isStreaming}
                   >
                     📎
@@ -993,9 +1141,9 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                       type="button"
                       className="primary"
                       onClick={() => void handleSend()}
-                      disabled={!connectionReady || isStreaming || !inputValue.trim()}
+                      disabled={!connectionReady || isStreaming || (!inputValue.trim() && attachedFiles.length === 0)}
                     >
-                      {isStreaming ? "送信中…" : "送信"}
+                      {uploadingFiles ? "アップロード中…" : isStreaming ? "送信中…" : "送信"}
                     </button>
                     {isStreaming && (
                       <button
