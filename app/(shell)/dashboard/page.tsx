@@ -297,7 +297,7 @@ export default function DashboardPage() {
                 </p>
                 <div className="vector-store-footer">
                   <span className="vector-store-files">ファイル数: {store.fileCount}</span>
-                  <code className="inline-code">{store.id}</code>
+                  <code className="inline-code vector-store-id">{store.id}</code>
                 </div>
               </article>
             ))}

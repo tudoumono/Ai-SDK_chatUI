@@ -3,6 +3,7 @@ import {
   loadConnection,
   type ConnectionSettings,
 } from "@/lib/settings/connection-storage";
+import { buildRequestHeaders } from "@/lib/settings/header-utils";
 
 function ensureConnection(connection?: ConnectionSettings | null) {
   if (!connection) {
@@ -12,24 +13,6 @@ function ensureConnection(connection?: ConnectionSettings | null) {
     throw new Error("API キーが見つかりません");
   }
   return connection;
-}
-
-function buildHeaders(connection: ConnectionSettings): HeadersInit {
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${connection.apiKey}`,
-  };
-  if (connection.organization) {
-    headers["OpenAI-Organization"] = connection.organization;
-  }
-  if (connection.project) {
-    headers["OpenAI-Project"] = connection.project;
-  }
-  if (connection.additionalHeaders) {
-    for (const [key, value] of Object.entries(connection.additionalHeaders)) {
-      headers[key] = value;
-    }
-  }
-  return headers;
 }
 
 function buildBaseUrl(connection: ConnectionSettings) {
@@ -55,13 +38,16 @@ export async function fetchVectorStoresFromApi(
   connectionOverride?: ConnectionSettings,
 ): Promise<VectorStoreRecord[]> {
   const connection = ensureConnection(
-    connectionOverride ?? loadConnection(),
+    connectionOverride ?? (await loadConnection()),
   );
   const baseUrl = buildBaseUrl(connection);
   const url = `${baseUrl}/vector_stores`;
   const response = await fetch(url, {
     method: "GET",
-    headers: buildHeaders(connection),
+    headers: buildRequestHeaders(
+      { Authorization: `Bearer ${connection.apiKey}` },
+      connection.additionalHeaders,
+    ),
   });
   if (!response.ok) {
     const message = await response.text().catch(() => "");

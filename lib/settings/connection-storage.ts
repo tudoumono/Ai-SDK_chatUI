@@ -1,8 +1,5 @@
-import {
-  decryptJson,
-  encryptJson,
-  type EncryptedPayload,
-} from "@/lib/crypto/aes-gcm";
+import { decryptJson, encryptJson, type EncryptedPayload } from "@/lib/crypto/aes-gcm";
+import { sanitizeHeaders } from "@/lib/settings/header-utils";
 
 export type StoragePolicy = "none" | "session" | "persistent";
 export type ConnectionHeaders = Record<string, string>;
@@ -148,7 +145,7 @@ export async function loadConnection(): Promise<ConnectionSettings | null> {
   const base: ConnectionSettings = {
     baseUrl: stored.meta?.baseUrl ?? "",
     apiKey: stored.apiKey ?? "",
-    additionalHeaders: stored.meta?.additionalHeaders,
+    additionalHeaders: sanitizeHeaders(stored.meta?.additionalHeaders),
     httpProxy: stored.meta?.httpProxy,
     httpsProxy: stored.meta?.httpsProxy,
     storagePolicy: stored.storagePolicy,
