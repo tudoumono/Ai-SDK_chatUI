@@ -50,16 +50,23 @@ export type ValidatedFile = {
 };
 
 export function validateFile(file: File): { error?: FileValidationError; validated?: ValidatedFile } {
-  const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+  const extension = (() => {
+    const parts = file.name.split('.');
+    if (parts.length <= 1) return '';
+    const last = parts.pop();
+    return last ? `.${last.toLowerCase()}` : '';
+  })();
   const mimeType = file.type.toLowerCase();
 
   // 画像ファイルチェック
-  const isImage = SUPPORTED_FILE_TYPES.images.extensions.includes(extension) ||
-    SUPPORTED_FILE_TYPES.images.mimeTypes.includes(mimeType);
+  const isImageExtension = SUPPORTED_FILE_TYPES.images.extensions.some((ext) => ext === extension);
+  const isImageMime = SUPPORTED_FILE_TYPES.images.mimeTypes.some((type) => type === mimeType);
+  const isImage = isImageExtension || isImageMime;
 
   // 文書ファイルチェック
-  const isDocument = SUPPORTED_FILE_TYPES.documents.extensions.includes(extension) ||
-    SUPPORTED_FILE_TYPES.documents.mimeTypes.includes(mimeType);
+  const isDocumentExtension = SUPPORTED_FILE_TYPES.documents.extensions.some((ext) => ext === extension);
+  const isDocumentMime = SUPPORTED_FILE_TYPES.documents.mimeTypes.some((type) => type === mimeType);
+  const isDocument = isDocumentExtension || isDocumentMime;
 
   // サポート外の形式
   if (!isImage && !isDocument) {
@@ -67,10 +74,11 @@ export function validateFile(file: File): { error?: FileValidationError; validat
       ...SUPPORTED_FILE_TYPES.images.extensions,
       ...SUPPORTED_FILE_TYPES.documents.extensions,
     ].join(', ');
+    const extensionLabel = extension || '(拡張子なし)';
     return {
       error: {
         type: 'unsupported',
-        message: `ファイル形式 ${extension} はサポートされていません。サポート形式: ${supportedExts}`,
+        message: `ファイル形式 ${extensionLabel} はサポートされていません。サポート形式: ${supportedExts}`,
       },
     };
   }

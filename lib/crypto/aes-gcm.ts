@@ -32,6 +32,14 @@ function fromBase64(value: string): Uint8Array {
   return bytes;
 }
 
+function toArrayBuffer(view: Uint8Array): ArrayBuffer {
+  const { buffer, byteOffset, byteLength } = view;
+  if (byteOffset === 0 && byteLength === buffer.byteLength) {
+    return buffer;
+  }
+  return buffer.slice(byteOffset, byteOffset + byteLength);
+}
+
 async function deriveKey(passphrase: string, salt: Uint8Array) {
   const crypto = getCrypto();
   const baseKey = await crypto.subtle.importKey(
@@ -87,9 +95,9 @@ export async function decryptJson<T>(payload: EncryptedPayload, passphrase: stri
   const iv = fromBase64(payload.iv);
   const key = await deriveKey(passphrase, salt);
   const decrypted = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
+    { name: "AES-GCM", iv: toArrayBuffer(iv) },
     key,
-    fromBase64(payload.ciphertext),
+    toArrayBuffer(fromBase64(payload.ciphertext)),
   );
   return JSON.parse(decoder.decode(decrypted)) as T;
 }

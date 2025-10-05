@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ["openai"],
-  },
+  experimental: {},
+  serverExternalPackages: ["openai"],
 };
 
 export default nextConfig;

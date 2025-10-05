@@ -50,7 +50,7 @@ export async function deleteFileFromOpenAI(
 ): Promise<void> {
   const client = createResponsesClient(connection);
   try {
-    await client.files.del(fileId);
+    await client.files.delete(fileId);
   } catch (error) {
     console.error('Failed to delete file:', error);
     // 削除失敗は致命的ではないため、エラーを投げない
