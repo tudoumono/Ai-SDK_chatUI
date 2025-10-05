@@ -38,6 +38,7 @@ import {
 import { streamAssistantResponse } from "@/lib/chat/streaming";
 import { validateFile, formatFileSize } from "@/lib/chat/file-validation";
 import { uploadFileToOpenAI, type UploadedFileInfo } from "@/lib/chat/file-upload";
+import type { AttachedFileInfo } from "@/lib/storage/schema";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
 const CONVERSATION_RETENTION_DAYS = 14;
@@ -416,9 +417,14 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     setSendError(null);
     setIsStreaming(true);
 
+    const autoTitle = shouldAutoTitle(conversation)
+      ? generateAutoTitle(prompt)
+      : undefined;
+
     // ファイルアップロード処理
     let uploadedFileInfos: UploadedFileInfo[] = [];
     let attachedFileInfos: AttachedFileInfo[] = [];
+    let fileUploadError: string | null = null;
 
     if (attachedFiles.length > 0) {
       try {
@@ -442,32 +448,27 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
         setStatusMessage("ファイルアップロード完了");
         setAttachedFiles([]);
       } catch (error) {
-        setUploadingFiles(false);
-        setIsStreaming(false);
-        const errorMsg = error instanceof Error ? error.message : "ファイルアップロードに失敗しました";
-        const errorStack = error instanceof Error ? error.stack : undefined;
-        setSendError(errorMsg);
-        setStatusMessage(null);
+        const errorMessage = error instanceof Error ? error.message : "ファイルアップロードに失敗しました";
+        console.error("ファイルアップロードエラー:", error);
 
-        // エラーメッセージを含むユーザーメッセージを保存
-        const userMessageWithError = createUserMessage(conversation.id, prompt, attachedFileInfos);
-        await saveMessages([userMessageWithError]);
-        return;
+        // エラーを記録するが、処理は続行
+        fileUploadError = `⚠️ ファイル添付に失敗しました: ${errorMessage}\n\nファイルなしで回答を続けます...`;
+        setStatusMessage("ファイルアップロードに失敗しましたが、チャットを続行します...");
+        setAttachedFiles([]);
       } finally {
         setUploadingFiles(false);
       }
     }
 
-    const userMessage = createUserMessage(conversation.id, prompt, attachedFileInfos);
+    // ファイルアップロードエラーがあった場合、プロンプトに追記
+    const finalPrompt = fileUploadError ? `${prompt}\n\n${fileUploadError}` : prompt;
+
+    const userMessage = createUserMessage(conversation.id, finalPrompt, attachedFileInfos);
     const assistantDraft = createAssistantDraft(conversation.id);
 
     setMessages((prev) => [...prev, userMessage, assistantDraft]);
     messagesRef.current = [...messagesRef.current, userMessage, assistantDraft];
     setInputValue("");
-
-    const autoTitle = shouldAutoTitle(conversation)
-      ? generateAutoTitle(prompt)
-      : undefined;
 
     setStatusMessage("OpenAI Responses API へ送信中…");
 
@@ -1017,6 +1018,12 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                       (part) => part.type === "text",
                     );
                     const role = ROLE_LABEL[message.role];
+
+                    // デバッグ: エラーメッセージの確認
+                    if (message.status === "error") {
+                      console.log("Error message:", message);
+                      console.log("Text part:", textPart);
+                    }
                     return (
                       <div
                         key={message.id}
@@ -1048,9 +1055,6 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                         <div className="chat-bubble">
                           {textPart?.text ?? <span className="chat-placeholder">(本文なし)</span>}
                         </div>
-                        {message.status === "error" && message.errorMessage && (
-                          <p className="chat-error">{message.errorMessage}</p>
-                        )}
                         {message.status === "error" && message.errorDetails && (
                           <details className="chat-error-details">
                             <summary>エラー詳細</summary>
@@ -1156,7 +1160,6 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                     )}
                   </div>
                 </div>
-                {sendError && <p className="chat-error">{sendError}</p>}
             </div>
           </footer>
           </>
