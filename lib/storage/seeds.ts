@@ -22,6 +22,8 @@ export function buildSeedConversations(): ConversationRecord[] {
       webSearchEnabled: false,
       vectorSearchEnabled: false,
       vectorStoreIds: [],
+      isFavorite: false,
+      hasContent: true,
     },
     {
       id: "conv-rag-demo",
@@ -34,6 +36,8 @@ export function buildSeedConversations(): ConversationRecord[] {
       webSearchEnabled: true,
       vectorSearchEnabled: true,
       vectorStoreIds: ["vs-product-faq"],
+      isFavorite: false,
+      hasContent: true,
     },
   ];
 }

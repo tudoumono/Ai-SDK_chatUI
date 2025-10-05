@@ -91,6 +91,11 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+.chat-history-action.favorite {
+  opacity: 1;
+  color: var(--accent);
+}
+
 .chat-history-edit-input {
   flex: 1;
   background: rgba(255, 255, 255, 0.1);

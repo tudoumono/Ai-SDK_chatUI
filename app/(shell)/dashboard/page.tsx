@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchVectorStoresFromApi } from "@/lib/openai/vector-stores";
+import { pruneConversationsOlderThan } from "@/lib/chat/session";
 import { downloadBundle, parseBundle } from "@/lib/storage/export";
 import {
   getAllConversations,
@@ -36,6 +37,8 @@ type DataState = {
   vectorStores: VectorStoreRecord[];
 };
 
+const CONVERSATION_RETENTION_DAYS = 14;
+
 export default function DashboardPage() {
   const [status, setStatus] = useState<DashboardStatus>(INITIAL_STATUS);
   const [filter, setFilter] = useState("");
@@ -52,12 +55,16 @@ export default function DashboardPage() {
     try {
       setStatus({ state: "loading", message: "データを読み込み中です…" });
 
+      await pruneConversationsOlderThan(CONVERSATION_RETENTION_DAYS);
+
       const [conversations, vectorStores] = await Promise.all([
         getAllConversations(),
         getAllVectorStores(),
       ]);
 
-      if (conversations.length === 0 && vectorStores.length === 0) {
+      const filteredConversations = conversations.filter((conversation) => conversation.hasContent);
+
+      if (filteredConversations.length === 0 && vectorStores.length === 0) {
         const seedConversations = buildSeedConversations();
         const seedVectorStores = buildSeedVectorStores();
         const seedMessages = buildSeedMessages();
@@ -78,7 +85,7 @@ export default function DashboardPage() {
       }
 
       // TODO: G0 で決定した保存ポリシー・暗号化設定を参照し、ここで復号や表示制御を行う。
-      setData({ conversations, vectorStores });
+      setData({ conversations: filteredConversations, vectorStores });
       setStatus({
         state: "success",
         message: "IndexedDB からデータを読み込みました。",

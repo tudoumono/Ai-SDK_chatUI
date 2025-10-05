@@ -1,37 +1,99 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { VectorStoreRecord } from "@/lib/storage/schema";
-import { getAllVectorStores } from "@/lib/storage/indexed-db";
+import { deleteVectorStore, getAllVectorStores, replaceVectorStores } from "@/lib/storage/indexed-db";
+import { loadConnection } from "@/lib/settings/connection-storage";
+import { deleteVectorStoreFromApi, fetchVectorStoresFromApi } from "@/lib/openai/vector-stores";
 import "./vector-stores.css";
+
+type Status =
+  | { state: "idle"; message: string }
+  | { state: "loading"; message: string }
+  | { state: "success"; message: string }
+  | { state: "error"; message: string };
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function highlightText(text: string, query: string) {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) {
+    return text;
+  }
+  const escaped = escapeRegExp(normalizedQuery);
+  const segments = text.split(new RegExp(`(${escaped})`, "gi"));
+  return segments.map((segment, index) =>
+    segment.toLowerCase() === normalizedQuery.toLowerCase() ? (
+      <mark className="vs-highlight" key={`${segment}-${index}`}>
+        {segment}
+      </mark>
+    ) : (
+      <span key={`${segment}-${index}`}>{segment}</span>
+    ),
+  );
+}
 
 export default function VectorStoresPage() {
   const [vectorStores, setVectorStores] = useState<VectorStoreRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "size">("date");
   const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<Status>({
+    state: "idle",
+    message: "削除操作はまだ実行されていません。",
+  });
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showStatus = useCallback((next: Status) => {
+    if (statusTimerRef.current) {
+      clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = null;
+    }
+    setStatus(next);
+    if (next.state === "success" || next.state === "error") {
+      statusTimerRef.current = setTimeout(() => {
+        setStatus({ state: "idle", message: "" });
+        statusTimerRef.current = null;
+      }, 3000);
+    }
+  }, []);
+
+  const loadStores = useCallback(async () => {
+    setLoading(true);
+    try {
+      const connection = await loadConnection();
+      if (!connection || !connection.apiKey) {
+        const stores = await getAllVectorStores();
+        setVectorStores(stores);
+        showStatus({
+          state: "error",
+          message: "OpenAI 接続が未設定です。ローカル IndexedDB のみ表示しています。",
+        });
+        return;
+      }
+
+      const remoteStores = await fetchVectorStoresFromApi(connection);
+      await replaceVectorStores(remoteStores);
+      setVectorStores(remoteStores);
+      showStatus({ state: "success", message: "OpenAI と同期しました。" });
+    } catch (error) {
+      console.error("Failed to load vector stores:", error);
+      showStatus({
+        state: "error",
+        message:
+          error instanceof Error ? `読み込みに失敗しました: ${error.message}` : "読み込みに失敗しました",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [showStatus]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const stores = await getAllVectorStores();
-        if (!cancelled) {
-          setVectorStores(stores);
-        }
-      } catch (error) {
-        console.error("Failed to load vector stores:", error);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadStores();
+  }, [loadStores]);
 
   useEffect(() => {
     const table = document.querySelector(".vs-table");
@@ -72,9 +134,17 @@ export default function VectorStoresPage() {
     });
   }, [loading]);
 
-  const filteredStores = vectorStores.filter((store) =>
-    store.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredStores = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return vectorStores;
+    }
+    return vectorStores.filter((store) => {
+      const name = store.name.toLowerCase();
+      const id = store.id.toLowerCase();
+      return name.includes(query) || id.includes(query);
+    });
+  }, [vectorStores, searchQuery]);
 
   const sortedStores = [...filteredStores].sort((a, b) => {
     if (sortBy === "date") {
@@ -83,13 +153,45 @@ export default function VectorStoresPage() {
     return (b.fileCount || 0) - (a.fileCount || 0);
   });
 
-  const handleDelete = useCallback(async (id: string, name: string) => {
-    if (!confirm(`「${name}」を削除しますか？この操作は取り消せません。`)) {
-      return;
-    }
-    // TODO: Implement delete functionality
-    alert("削除機能は未実装です");
-  }, []);
+  const handleDelete = useCallback(
+    async (id: string, name: string) => {
+      if (!confirm(`「${name}」を削除しますか？この操作は取り消せません。`)) {
+        return;
+      }
+      setStatus({ state: "loading", message: "ベクトルストアを削除しています…" });
+      try {
+        const connection = await loadConnection();
+        if (!connection || !connection.apiKey) {
+          throw new Error("OpenAI API キーが設定されていません。G0 で接続設定を確認してください。");
+        }
+
+        await deleteVectorStoreFromApi(id, connection);
+        await deleteVectorStore(id);
+        await loadStores();
+        showStatus({ state: "success", message: `「${name}」を削除しました。` });
+      } catch (error) {
+        console.error("Failed to delete vector store", error);
+        showStatus({
+          state: "error",
+          message:
+            error instanceof Error
+              ? `削除に失敗しました: ${error.message}`
+              : "削除に失敗しました",
+        });
+      }
+    },
+    [loadStores, showStatus],
+  );
+
+  useEffect(
+    () => () => {
+      if (statusTimerRef.current) {
+        clearTimeout(statusTimerRef.current);
+        statusTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   return (
     <div className="vector-stores-page">
@@ -116,6 +218,15 @@ export default function VectorStoresPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <button
+                className="vs-clear"
+                onClick={() => setSearchQuery("")}
+                type="button"
+              >
+                ×
+              </button>
+            )}
           </div>
 
           <div className="vs-filters">
@@ -140,10 +251,21 @@ export default function VectorStoresPage() {
           <div className="vs-loading">読み込み中...</div>
         ) : (
           <>
-            <div className="vs-table-container">
-              <table className="vs-table">
-                <thead>
-                  <tr>
+            <div className="vs-table-shell">
+              <div className="vs-toolbar">
+                <button className="vs-refresh" onClick={() => void loadStores()} type="button">
+                  更新
+                </button>
+                {status.state !== "idle" && (
+                  <div className={`vs-status vs-status-${status.state}`} role="status">
+                    {status.message}
+                  </div>
+                )}
+              </div>
+              <div className="vs-table-container">
+                <table className="vs-table">
+                  <thead>
+                    <tr>
                     <th className="resizable">
                       <div className="th-content">名前</div>
                       <div className="resize-handle"></div>
@@ -175,8 +297,8 @@ export default function VectorStoresPage() {
                   ) : (
                     sortedStores.map((store) => (
                       <tr key={store.id}>
-                        <td className="vs-name">{store.name}</td>
-                        <td className="vs-id">{store.id}</td>
+                        <td className="vs-name">{highlightText(store.name, searchQuery)}</td>
+                        <td className="vs-id">{highlightText(store.id, searchQuery)}</td>
                         <td className="vs-date">
                           {new Date(store.createdAt).toLocaleDateString("ja-JP")}
                         </td>
@@ -200,8 +322,9 @@ export default function VectorStoresPage() {
                       </tr>
                     ))
                   )}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </>
         )}

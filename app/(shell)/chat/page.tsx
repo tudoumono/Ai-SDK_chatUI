@@ -23,6 +23,7 @@ import {
   deleteConversation,
   listConversations,
   loadConversationMessages,
+  pruneConversationsOlderThan,
   saveConversation,
   saveMessages,
   touchConversation,
@@ -30,6 +31,7 @@ import {
 import { streamAssistantResponse } from "@/lib/chat/streaming";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
+const CONVERSATION_RETENTION_DAYS = 14;
 
 const ROLE_LABEL: Record<MessageRecord["role"], string> = {
   user: "You",
@@ -95,6 +97,17 @@ export default function ChatPage() {
   const activeConversationRef = useRef<ConversationRecord | null>(activeConversation);
   const streamingControllerRef = useRef<AbortController | null>(null);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
+  const assistantSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
+    if (assistantSnapshotTimerRef.current) {
+      clearTimeout(assistantSnapshotTimerRef.current);
+    }
+    assistantSnapshotTimerRef.current = setTimeout(() => {
+      void saveMessages([message]);
+      assistantSnapshotTimerRef.current = null;
+    }, 400);
+  }, []);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -108,6 +121,8 @@ export default function ChatPage() {
     let cancelled = false;
     (async () => {
       try {
+        await pruneConversationsOlderThan(CONVERSATION_RETENTION_DAYS);
+
         const [loadedConnection, stores, existingConversations] = await Promise.all([
           loadConnection(),
           getAllVectorStores().catch(() => [] as VectorStoreRecord[]),
@@ -158,6 +173,10 @@ export default function ChatPage() {
     return () => {
       cancelled = true;
       streamingControllerRef.current?.abort();
+      if (assistantSnapshotTimerRef.current) {
+        clearTimeout(assistantSnapshotTimerRef.current);
+        assistantSnapshotTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -308,52 +327,62 @@ export default function ChatPage() {
         },
         {
           onTextSnapshot: (text) => {
+            let pendingUpdate: MessageRecord | null = null;
             setMessages((current) =>
-              current.map((message) =>
-                message.id === assistantDraft.id
-                  ? withAssistantText(message, text, "pending")
-                  : message,
-              ),
+              current.map((message) => {
+                if (message.id !== assistantDraft.id) {
+                  return message;
+                }
+                const next = withAssistantText(message, text, "pending");
+                pendingUpdate = next;
+                return next;
+              }),
             );
-            messagesRef.current = messagesRef.current.map((message) =>
-              message.id === assistantDraft.id
-                ? withAssistantText(message, text, "pending")
-                : message,
-            );
+            if (pendingUpdate) {
+              messagesRef.current = messagesRef.current.map((message) =>
+                message.id === pendingUpdate!.id ? pendingUpdate! : message,
+              );
+              scheduleAssistantSnapshotSave(pendingUpdate);
+            }
           },
         },
       );
 
-      let completedAssistant: MessageRecord | null = null;
-      setMessages((current) =>
-        current.map((message) => {
-          if (message.id !== assistantDraft.id) {
-            return message;
-          }
-          const next = withAssistantText(
-            message,
-            result.text,
-            "complete",
-            undefined,
-            result.sources,
-          );
-          completedAssistant = next;
-          return next;
-        }),
+      const assistantSnapshot =
+        messagesRef.current.find((message) => message.id === assistantDraft.id) ?? assistantDraft;
+      const existingTextPart = assistantSnapshot.parts.find(
+        (part): part is MessagePart & { type: "text" } => part.type === "text",
+      );
+      const finalText = result.text || existingTextPart?.text || "";
+      const completedAssistant = withAssistantText(
+        assistantSnapshot,
+        finalText,
+        "complete",
+        undefined,
+        result.sources,
       );
 
-      if (completedAssistant) {
-        messagesRef.current = messagesRef.current.map((message) =>
-          message.id === completedAssistant!.id ? completedAssistant! : message,
-        );
-        await saveMessages([completedAssistant]);
+      setMessages((current) =>
+        current.map((message) => (message.id === completedAssistant.id ? completedAssistant : message)),
+      );
+
+      messagesRef.current = messagesRef.current.map((message) =>
+        message.id === completedAssistant.id ? completedAssistant : message,
+      );
+
+      if (assistantSnapshotTimerRef.current) {
+        clearTimeout(assistantSnapshotTimerRef.current);
+        assistantSnapshotTimerRef.current = null;
       }
+
+      await saveMessages([completedAssistant]);
 
       await persistConversation({
         modelId: selectedModel.trim() || DEFAULT_MODEL,
         webSearchEnabled,
         vectorSearchEnabled,
         vectorStoreIds: vectorSearchEnabled ? selectedVectorStoreIds : [],
+        hasContent: true,
       });
       setStatusMessage("応答を受信しました。");
     } catch (error) {
@@ -377,13 +406,23 @@ export default function ChatPage() {
         messagesRef.current = messagesRef.current.map((record) =>
           record.id === failedAssistant!.id ? failedAssistant! : record,
         );
+        if (assistantSnapshotTimerRef.current) {
+          clearTimeout(assistantSnapshotTimerRef.current);
+          assistantSnapshotTimerRef.current = null;
+        }
         await saveMessages([failedAssistant]);
       }
+
+      await persistConversation({ hasContent: true });
 
       setSendError(message);
       setStatusMessage("エラーが発生しました。");
     } finally {
       streamingControllerRef.current = null;
+      if (assistantSnapshotTimerRef.current) {
+        clearTimeout(assistantSnapshotTimerRef.current);
+        assistantSnapshotTimerRef.current = null;
+      }
       setIsStreaming(false);
     }
   }, [
@@ -391,6 +430,7 @@ export default function ChatPage() {
     inputValue,
     isStreaming,
     persistConversation,
+    scheduleAssistantSnapshotSave,
     selectedModel,
     selectedVectorStoreIds,
     vectorSearchEnabled,
@@ -465,12 +505,24 @@ export default function ChatPage() {
     }
   }, [conversations, activeConversationId]);
 
-  const conversationOptions = useMemo(() => {
-    return conversations.map((conversation) => ({
-      id: conversation.id,
-      title: conversation.title,
-    }));
-  }, [conversations]);
+  const handleToggleFavorite = useCallback(
+    async (conversation: ConversationRecord) => {
+      const updated = await touchConversation(conversation, {
+        isFavorite: !conversation.isFavorite,
+      });
+      setConversations((prev) =>
+        prev
+          .map((item) => (item.id === updated.id ? updated : item))
+          .sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1)),
+      );
+    },
+    [],
+  );
+
+  const visibleConversations = useMemo(
+    () => conversations.filter((conversation) => conversation.hasContent),
+    [conversations],
+  );
 
   const connectionReady = !!connection?.apiKey;
 
@@ -490,7 +542,7 @@ export default function ChatPage() {
             </button>
           </header>
         <nav className="chat-history-list">
-          {conversations.map((conv) => {
+          {visibleConversations.map((conv) => {
             const isActive = conv.id === activeConversationId;
             const isEditing = conv.id === editingConversationId;
             return (
@@ -543,6 +595,16 @@ export default function ChatPage() {
                     >
                       {conv.title}
                     </span>
+                    <button
+                      className={`chat-history-action${conv.isFavorite ? " favorite" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleToggleFavorite(conv);
+                      }}
+                      title={conv.isFavorite ? "お気に入り解除" : "お気に入り登録"}
+                    >
+                      {conv.isFavorite ? "★" : "☆"}
+                    </button>
                     <button
                       className="chat-history-action"
                       onClick={(e) => {

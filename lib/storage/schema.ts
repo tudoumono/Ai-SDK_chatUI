@@ -12,6 +12,8 @@ export type ConversationRecord = {
   vectorSearchEnabled?: boolean;
   vectorStoreIds?: string[];
   encrypted?: boolean;
+  isFavorite?: boolean;
+  hasContent?: boolean;
 };
 
 export type MessageRole = "system" | "user" | "assistant" | "tool";

@@ -137,10 +137,41 @@ export async function deleteConversation(conversationId: string) {
     await tx.done;
   }
 
+  // 添付ファイルを削除
+  const attachments = await getAttachments(conversationId);
+  if (attachments.length > 0) {
+    const tx = db.transaction("attachments", "readwrite");
+    await Promise.all(attachments.map((item) => tx.store.delete(item.id)));
+    await tx.done;
+  }
+
   // 会話を削除
   const convTx = db.transaction("conversations", "readwrite");
   await convTx.store.delete(conversationId);
   await convTx.done;
+}
+
+export async function pruneExpiredConversations(maxAgeMilliseconds: number) {
+  const conversations = await getAllConversations();
+  if (conversations.length === 0) {
+    return 0;
+  }
+
+  const cutoff = Date.now() - maxAgeMilliseconds;
+  const expired = conversations.filter((conversation) => {
+    if (conversation.isFavorite) {
+      return false;
+    }
+    const updatedTime = new Date(conversation.updatedAt).getTime();
+    return Number.isFinite(updatedTime) && updatedTime < cutoff;
+  });
+
+  if (expired.length === 0) {
+    return 0;
+  }
+
+  await Promise.all(expired.map((conversation) => deleteConversation(conversation.id)));
+  return expired.length;
 }
 
 export async function upsertAttachments(records: AttachmentRecord[]) {
@@ -173,11 +204,35 @@ export async function upsertVectorStores(records: VectorStoreRecord[]) {
   await tx.done;
 }
 
+export async function deleteVectorStore(id: string) {
+  const db = await getDatabase();
+  const tx = db.transaction("vectorStores", "readwrite");
+  await tx.store.delete(id);
+  await tx.done;
+}
+
+export async function replaceVectorStores(records: VectorStoreRecord[]) {
+  const db = await getDatabase();
+  const tx = db.transaction("vectorStores", "readwrite");
+  await tx.store.clear();
+  await Promise.all(records.map((record) => tx.store.put(record)));
+  await tx.done;
+}
+
 export async function clearAll() {
   const db = await getDatabase();
   await Promise.all([
     db.clear("conversations"),
     db.clear("vectorStores"),
+    db.clear("messages"),
+    db.clear("attachments"),
+  ]);
+}
+
+export async function clearConversationHistory() {
+  const db = await getDatabase();
+  await Promise.all([
+    db.clear("conversations"),
     db.clear("messages"),
     db.clear("attachments"),
   ]);

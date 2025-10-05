@@ -11,6 +11,7 @@ import {
   saveConnection,
   type StoragePolicy,
 } from "@/lib/settings/connection-storage";
+import { clearConversationHistory } from "@/lib/chat/session";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -64,6 +65,10 @@ export default function SettingsPage() {
   const [status, setStatus] = useState<Status>({
     state: "idle",
     message: "設定を読み込んでいます…",
+  });
+  const [conversationStatus, setConversationStatus] = useState<Status>({
+    state: "idle",
+    message: "会話履歴の操作は未実行です。",
   });
   const [savedFlags, setSavedFlags] = useState({ session: false, persistent: false });
   const [loading, setLoading] = useState(true);
@@ -252,6 +257,40 @@ export default function SettingsPage() {
       message: "保存済みの接続設定を削除しました。必要に応じて再設定してください。",
     });
     addLog("info", "setup", "G5 設定から保存済み接続を削除しました");
+  }, [addLog]);
+
+  const handleClearConversationHistory = useCallback(async () => {
+    if (
+      !confirm(
+        "このブラウザに保存されているすべての会話・メッセージを削除します。よろしいですか？",
+      )
+    ) {
+      return;
+    }
+    setConversationStatus({ state: "loading", message: "会話履歴を削除しています…" });
+    try {
+      await clearConversationHistory();
+      setConversationStatus({
+        state: "success",
+        message: "IndexedDB の会話履歴を削除しました。",
+      });
+      addLog("info", "setup", "IndexedDB の会話履歴を削除しました");
+    } catch (error) {
+      console.error(error);
+      setConversationStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? `会話履歴の削除に失敗しました: ${error.message}`
+            : "会話履歴の削除に失敗しました",
+      });
+      addLog(
+        "error",
+        "setup",
+        "IndexedDB 会話履歴の削除に失敗しました",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
   }, [addLog]);
 
   return (
@@ -461,6 +500,28 @@ export default function SettingsPage() {
           >
             保存済み接続を削除
           </button>
+        </div>
+      </section>
+
+      <section className="section-card">
+        <div className="section-card-title">会話履歴</div>
+        <p className="section-card-description">
+          このブラウザの IndexedDB に保存されているチャット履歴を一括削除できます。Vector Store など他のデータは影響を受けません。
+        </p>
+        <div className="form-navigation">
+          <button
+            className="outline-button"
+            onClick={handleClearConversationHistory}
+            type="button"
+          >
+            会話履歴をすべて削除
+          </button>
+        </div>
+        <div className={`status-banner status-${conversationStatus.state}`} role="status">
+          <div className="status-title">{conversationStatus.message}</div>
+          <p className="status-message">
+            削除後はブラウザをリロードすると初期状態（サンプル会話のみ）で表示されます。
+          </p>
         </div>
       </section>
 

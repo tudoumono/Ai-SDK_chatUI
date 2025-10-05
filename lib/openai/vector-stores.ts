@@ -62,3 +62,25 @@ export async function fetchVectorStoresFromApi(
     description: item.description ?? undefined,
   }));
 }
+
+export async function deleteVectorStoreFromApi(
+  id: string,
+  connectionOverride?: ConnectionSettings,
+) {
+  const connection = ensureConnection(
+    connectionOverride ?? (await loadConnection()),
+  );
+  const baseUrl = buildBaseUrl(connection);
+  const url = `${baseUrl}/vector_stores/${id}`;
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: buildRequestHeaders(
+      { Authorization: `Bearer ${connection.apiKey}` },
+      connection.additionalHeaders,
+    ),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+  }
+}

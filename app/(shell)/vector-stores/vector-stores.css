@@ -106,6 +106,27 @@
   outline: none;
 }
 
+.vs-clear {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--foreground);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.vs-clear:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--accent);
+}
+
 .vs-search-input::placeholder {
   color: var(--foreground-secondary);
   opacity: 0.6;
@@ -145,20 +166,87 @@
   opacity: 0.8;
 }
 
-.vs-table-container {
+.vs-status {
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: 0.8rem;
+}
+
+.vs-status-success {
+  border-color: var(--success);
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.vs-status-error {
+  border-color: var(--error);
+  color: var(--error);
+  background: var(--error-bg);
+}
+
+.vs-status-loading {
+  border-color: var(--info);
+  color: var(--info);
+  background: var(--info-bg);
+}
+
+.vs-highlight {
+  background: rgba(234, 179, 8, 0.35);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+.vs-table-shell {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: auto;
+  background: rgba(255, 255, 255, 0.02);
   margin-bottom: var(--spacing-lg);
   height: calc(100vh - 400px);
   min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.vs-table-container {
+  overflow: auto;
+  height: 100%;
   position: relative;
+}
+
+.vs-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--border);
+  gap: var(--spacing-md);
+}
+
+.vs-refresh {
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.vs-refresh:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .vs-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
 
 .vs-table thead {
@@ -176,6 +264,8 @@
   color: var(--foreground);
   position: relative;
   min-width: 100px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
 
 .vs-table th.resizable {
@@ -220,6 +310,7 @@
 .vs-table td {
   padding: var(--spacing-lg);
   font-size: 0.875rem;
+  border-right: 1px solid var(--border);
 }
 
 .vs-table td.vs-name {
@@ -231,6 +322,7 @@
   color: var(--foreground-secondary);
   font-family: monospace;
   font-size: 0.8rem;
+  min-width: 220px;
 }
 
 .vs-table td.vs-date,

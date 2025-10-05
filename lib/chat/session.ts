@@ -4,6 +4,8 @@ import {
   getMessages,
   upsertConversations,
   upsertMessages,
+  pruneExpiredConversations,
+  clearConversationHistory as clearConversationHistoryFromDb,
 } from "@/lib/storage/indexed-db";
 import type {
   ConversationRecord,
@@ -29,6 +31,8 @@ export function createConversationDraft(title?: string): ConversationRecord {
     modelId: "gpt-4.1-mini",
     webSearchEnabled: false,
     vectorStoreIds: [],
+    isFavorite: false,
+    hasContent: false,
   };
 }
 
@@ -73,10 +77,25 @@ export async function listConversations() {
   return getAllConversations();
 }
 
+export async function pruneConversationsOlderThan(days: number) {
+  if (Number.isNaN(days) || days <= 0) {
+    return 0;
+  }
+  if (typeof window === "undefined") {
+    return 0;
+  }
+  const milliseconds = Math.floor(days * 24 * 60 * 60 * 1000);
+  return pruneExpiredConversations(milliseconds);
+}
+
 export async function saveConversation(record: ConversationRecord) {
   await upsertConversations([record]);
 }
 
 export async function deleteConversation(conversationId: string) {
   await deleteConversationFromDb(conversationId);
+}
+
+export async function clearConversationHistory() {
+  await clearConversationHistoryFromDb();
 }
