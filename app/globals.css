@@ -1403,10 +1403,16 @@ textarea {
 }
 
 .conversation-subsection-title {
-  font-size: 0.75rem;
-  color: var(--foreground-secondary);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  text-transform: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--accent-lighter);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  margin-top: var(--spacing-md);
 }
 
 .conversation-empty {

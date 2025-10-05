@@ -307,12 +307,12 @@ export default function DashboardPage() {
             />
           </div>
         </div>
-        <div className={`status-banner status-${status.state}`} role="status">
-          <div className="status-title">{status.message}</div>
-        </div>
-      </section>
+        {status.message && (
+          <div className={`status-banner status-${status.state}`} role="status">
+            <div className="status-title">{status.message}</div>
+          </div>
+        )}
 
-      <section className="section-card">
         <div className="section-card-title">会話一覧</div>
         {showSearchResults ? (
           <div className="conversation-subsections">
