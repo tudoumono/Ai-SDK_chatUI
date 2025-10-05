@@ -255,7 +255,7 @@ export default function SettingsPage() {
   }, [addLog]);
 
   return (
-    <main className="settings-page">
+    <main className="page-grid">
       <div className="page-header settings-header">
         <h1 className="page-header-title">G5: 設定</h1>
         <p className="page-header-description">

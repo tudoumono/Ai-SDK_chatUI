@@ -188,7 +188,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <main>
+    <main className="page-grid">
       <div className="page-header">
         <h1 className="page-header-title">G1: ダッシュボード</h1>
         <p className="page-header-description">

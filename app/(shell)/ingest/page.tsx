@@ -15,7 +15,7 @@ const ingestSteps = [
 
 export default function IngestPage() {
   return (
-    <main>
+    <main className="page-grid">
       <div className="page-header">
         <h1 className="page-header-title">G3: 取り込み</h1>
         <p className="page-header-description">

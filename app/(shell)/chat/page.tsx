@@ -23,7 +23,7 @@ const featureItems = [
 
 export default function ChatPage() {
   return (
-    <main>
+    <main className="page-grid">
       <div className="page-header">
         <h1 className="page-header-title">G4: 検索 & チャット</h1>
         <p className="page-header-description">

@@ -139,13 +139,13 @@ textarea {
 }
 
 .page-header-title {
-  font-size: 1.6rem;
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .page-header-description {
-  font-size: 0.95rem;
+  font-size: clamp(0.9rem, 1.5vw, 1.05rem);
   opacity: 0.75;
   overflow-wrap: anywhere;
 }
@@ -154,39 +154,29 @@ textarea {
   margin-bottom: 24px;
 }
 
-.settings-page {
+.page-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 24px;
 }
 
-.settings-page .page-header,
-.settings-page .section-card,
-.settings-page .field-group {
+.page-grid .page-header,
+.page-grid .section-card,
+.page-grid .field-group {
   min-width: 0;
 }
 
-.settings-page .inline-code,
-.settings-page input.field-input,
-.settings-page textarea.field-textarea {
+.page-grid .inline-code,
+.page-grid input.field-input,
+.page-grid textarea.field-textarea {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.settings-page .field-grid-two {
+.page-grid .field-grid-two {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
-}
-
-@media (min-width: 1200px) {
-  .settings-page {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .settings-page .field-grid-two {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 .section-card {
@@ -377,11 +367,13 @@ textarea {
 .radio-card-description {
   font-size: 0.8rem;
   opacity: 0.75;
+  overflow-wrap: anywhere;
 }
 
 .radio-card-note {
   font-size: 0.75rem;
   opacity: 0.6;
+  overflow-wrap: anywhere;
 }
 
 .form-actions {

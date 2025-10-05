@@ -15,7 +15,7 @@ const workflow = [
 
 export default function VectorStoresPage() {
   return (
-    <main>
+    <main className="page-grid">
       <div className="page-header">
         <h1 className="page-header-title">G2: Vector Store 管理</h1>
         <p className="page-header-description">
