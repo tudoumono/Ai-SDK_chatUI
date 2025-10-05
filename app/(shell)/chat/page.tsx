@@ -2,7 +2,14 @@
 
 import "./chat.css";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import type { ConnectionSettings } from "@/lib/settings/connection-storage";
 import { loadConnection } from "@/lib/settings/connection-storage";
 import { getAllVectorStores } from "@/lib/storage/indexed-db";
@@ -32,6 +39,11 @@ import { streamAssistantResponse } from "@/lib/chat/streaming";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
 const CONVERSATION_RETENTION_DAYS = 14;
+const DEFAULT_LEFT_WIDTH = 320;
+const DEFAULT_RIGHT_WIDTH = 384;
+const LEFT_MIN_WIDTH = 220;
+const RIGHT_MIN_WIDTH = 260;
+const MAIN_MIN_WIDTH = 520;
 
 const ROLE_LABEL: Record<MessageRecord["role"], string> = {
   user: "You",
@@ -39,6 +51,22 @@ const ROLE_LABEL: Record<MessageRecord["role"], string> = {
   system: "System",
   tool: "Tool",
 };
+
+const DEFAULT_CONVERSATION_TITLE = "新規チャット";
+
+function generateAutoTitle(text: string) {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (!cleaned) {
+    return DEFAULT_CONVERSATION_TITLE;
+  }
+  const sliced = cleaned.slice(0, 30);
+  return cleaned.length > sliced.length ? `${sliced}…` : sliced;
+}
+
+function shouldAutoTitle(conversation: ConversationRecord) {
+  const title = (conversation.title ?? "").trim();
+  return !title || title === DEFAULT_CONVERSATION_TITLE;
+}
 
 function formatTimestamp(value: string) {
   try {
@@ -84,9 +112,25 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [editingTagInput, setEditingTagInput] = useState("");
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>(getDefaultModels());
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(true);
   const [historyPanelOpen, setHistoryPanelOpen] = useState(true);
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_WIDTH);
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(DEFAULT_RIGHT_WIDTH);
+  const [activeResize, setActiveResize] = useState<"left" | "right" | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<{
+    title: ConversationRecord[];
+    tags: ConversationRecord[];
+    messages: ConversationRecord[];
+  } | null>(null);
+
+  const showSearchResults = searchQuery.trim().length > 0;
+  const totalMatches = searchResults
+    ? searchResults.title.length + searchResults.tags.length + searchResults.messages.length
+    : 0;
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeConversationId) ?? null,
@@ -98,16 +142,34 @@ export default function ChatPage() {
   const streamingControllerRef = useRef<AbortController | null>(null);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const assistantSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const layoutRef = useRef<HTMLDivElement | null>(null);
+  const resizeSnapshotRef = useRef<DOMRect | null>(null);
 
-  const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
-    if (assistantSnapshotTimerRef.current) {
-      clearTimeout(assistantSnapshotTimerRef.current);
-    }
-    assistantSnapshotTimerRef.current = setTimeout(() => {
-      void saveMessages([message]);
-      assistantSnapshotTimerRef.current = null;
-    }, 400);
-  }, []);
+const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
+  if (assistantSnapshotTimerRef.current) {
+    clearTimeout(assistantSnapshotTimerRef.current);
+  }
+  assistantSnapshotTimerRef.current = setTimeout(() => {
+    void saveMessages([message]);
+    assistantSnapshotTimerRef.current = null;
+  }, 400);
+}, []);
+
+  const startResize = useCallback(
+    (side: "left" | "right", event: ReactMouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      if ((side === "left" && !historyPanelOpen) || (side === "right" && !settingsPanelOpen)) {
+        return;
+      }
+      const container = layoutRef.current;
+      if (!container) {
+        return;
+      }
+      resizeSnapshotRef.current = container.getBoundingClientRect();
+      setActiveResize(side);
+    },
+    [historyPanelOpen, settingsPanelOpen],
+  );
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -116,6 +178,10 @@ export default function ChatPage() {
   useEffect(() => {
     activeConversationRef.current = activeConversation;
   }, [activeConversation]);
+
+  useEffect(() => {
+    setEditingTagInput("");
+  }, [activeConversationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -205,6 +271,63 @@ export default function ChatPage() {
     }
     messageEndRef.current.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!activeResize) {
+      return;
+    }
+    const handleMouseMove = (event: MouseEvent) => {
+      const container = layoutRef.current;
+      if (!container) {
+        return;
+      }
+      const rect = resizeSnapshotRef.current ?? container.getBoundingClientRect();
+      if (activeResize === "left") {
+        let nextWidth = event.clientX - rect.left;
+        const rightWidth = settingsPanelOpen ? rightSidebarWidth : 0;
+        const maxWidth = Math.max(LEFT_MIN_WIDTH, rect.width - rightWidth - MAIN_MIN_WIDTH);
+        nextWidth = Math.min(Math.max(nextWidth, LEFT_MIN_WIDTH), maxWidth);
+        setLeftSidebarWidth(nextWidth);
+      } else if (activeResize === "right") {
+        const leftWidth = historyPanelOpen ? leftSidebarWidth : 0;
+        let nextWidth = rect.right - event.clientX;
+        const maxWidth = Math.max(RIGHT_MIN_WIDTH, rect.width - leftWidth - MAIN_MIN_WIDTH);
+        nextWidth = Math.min(Math.max(nextWidth, RIGHT_MIN_WIDTH), maxWidth);
+        setRightSidebarWidth(nextWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setActiveResize(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [activeResize, historyPanelOpen, leftSidebarWidth, rightSidebarWidth, settingsPanelOpen]);
+
+  useEffect(() => {
+    if (activeResize) {
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+    } else {
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      resizeSnapshotRef.current = null;
+    }
+  }, [activeResize]);
+
+  useEffect(() => {
+    if (!historyPanelOpen && activeResize === "left") {
+      setActiveResize(null);
+    }
+    if (!settingsPanelOpen && activeResize === "right") {
+      setActiveResize(null);
+    }
+  }, [activeResize, historyPanelOpen, settingsPanelOpen]);
 
   useEffect(() => {
     if (!activeConversation) {
@@ -309,6 +432,10 @@ export default function ChatPage() {
     messagesRef.current = [...messagesRef.current, userMessage, assistantDraft];
     setInputValue("");
 
+    const autoTitle = shouldAutoTitle(conversation)
+      ? generateAutoTitle(prompt)
+      : undefined;
+
     try {
       await saveMessages([userMessage, assistantDraft]);
 
@@ -383,6 +510,7 @@ export default function ChatPage() {
         vectorSearchEnabled,
         vectorStoreIds: vectorSearchEnabled ? selectedVectorStoreIds : [],
         hasContent: true,
+        ...(autoTitle ? { title: autoTitle } : {}),
       });
       setStatusMessage("応答を受信しました。");
     } catch (error) {
@@ -410,10 +538,10 @@ export default function ChatPage() {
           clearTimeout(assistantSnapshotTimerRef.current);
           assistantSnapshotTimerRef.current = null;
         }
-        await saveMessages([failedAssistant]);
+      await saveMessages([failedAssistant]);
       }
 
-      await persistConversation({ hasContent: true });
+      await persistConversation({ hasContent: true, ...(autoTitle ? { title: autoTitle } : {}) });
 
       setSendError(message);
       setStatusMessage("エラーが発生しました。");
@@ -458,6 +586,7 @@ export default function ChatPage() {
   const handleStartEditTitle = useCallback((conversation: ConversationRecord) => {
     setEditingConversationId(conversation.id);
     setEditingTitle(conversation.title);
+    setEditingTagInput("");
   }, []);
 
   const handleSaveTitle = useCallback(async () => {
@@ -480,6 +609,7 @@ export default function ChatPage() {
   const handleCancelEditTitle = useCallback(() => {
     setEditingConversationId(null);
     setEditingTitle("");
+    setEditingTagInput("");
   }, []);
 
   const handleDeleteConversation = useCallback(async (conversation: ConversationRecord) => {
@@ -519,39 +649,48 @@ export default function ChatPage() {
     [],
   );
 
+  const handleAddTag = useCallback(
+    async (conversation: ConversationRecord) => {
+      const value = editingTagInput.trim();
+      if (!value) {
+        return;
+      }
+      const normalized = value.replace(/\s+/g, "-");
+      if (conversation.tags.includes(normalized)) {
+        setEditingTagInput("");
+        return;
+      }
+      const nextTags = [...conversation.tags, normalized];
+      setEditingTagInput("");
+      await persistConversation({ tags: nextTags });
+    },
+    [editingTagInput, persistConversation],
+  );
+
+  const handleRemoveTag = useCallback(
+    async (conversation: ConversationRecord, tag: string) => {
+      const nextTags = conversation.tags.filter((item) => item !== tag);
+      await persistConversation({ tags: nextTags });
+    },
+    [persistConversation],
+  );
+
   const visibleConversations = useMemo(
     () => conversations.filter((conversation) => conversation.hasContent),
     [conversations],
   );
 
-  const connectionReady = !!connection?.apiKey;
-
-  return (
-    <div className="chat-layout">
-      {/* 左サイドバー: 会話履歴 */}
-      {historyPanelOpen && (
-        <aside className="chat-sidebar-left">
-          <header className="chat-sidebar-header">
-            <h1 className="chat-sidebar-title">Chat History</h1>
-            <button
-              className="icon-button primary"
-              onClick={handleCreateNewConversation}
-              title="新しい会話"
-            >
-              +
-            </button>
-          </header>
-        <nav className="chat-history-list">
-          {visibleConversations.map((conv) => {
-            const isActive = conv.id === activeConversationId;
-            const isEditing = conv.id === editingConversationId;
-            return (
-              <div
-                key={conv.id}
-                className={`chat-history-item ${isActive ? 'active' : ''}`}
-              >
-                {isEditing ? (
-                  <>
+  const renderConversationList = (items: ConversationRecord[]) => (
+    <ul className="conversation-list">
+      {items.map((conv) => {
+        const isActive = conv.id === activeConversationId;
+        const isEditing = conv.id === editingConversationId;
+        return (
+          <li key={conv.id}>
+            {isEditing ? (
+              <div className="chat-history-item editing">
+                <div className="chat-history-editing">
+                  <div className="chat-history-edit-row">
                     <input
                       type="text"
                       className="chat-history-edit-input"
@@ -566,76 +705,170 @@ export default function ChatPage() {
                       }}
                       autoFocus
                     />
-                    <button
-                      className="chat-history-action"
-                      onClick={handleSaveTitle}
-                      title="保存"
-                    >
-                      ✓
-                    </button>
-                    <button
-                      className="chat-history-action"
-                      onClick={handleCancelEditTitle}
-                      title="キャンセル"
-                    >
-                      ✕
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span
-                      className="chat-history-icon"
-                      onClick={() => setActiveConversationId(conv.id)}
-                    >
-                      💬
-                    </span>
-                    <span
-                      className="chat-history-title"
-                      onClick={() => setActiveConversationId(conv.id)}
-                    >
-                      {conv.title}
-                    </span>
-                    <button
-                      className={`chat-history-action${conv.isFavorite ? " favorite" : ""}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void handleToggleFavorite(conv);
-                      }}
-                      title={conv.isFavorite ? "お気に入り解除" : "お気に入り登録"}
-                    >
-                      {conv.isFavorite ? "★" : "☆"}
-                    </button>
-                    <button
-                      className="chat-history-action"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStartEditTitle(conv);
-                      }}
-                      title="編集"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      className="chat-history-action"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void handleDeleteConversation(conv);
-                      }}
-                      title="削除"
-                    >
-                      🗑
-                    </button>
-                  </>
-                )}
+                    <div className="chat-history-edit-actions">
+                      <button
+                        className="chat-history-action"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleSaveTitle();
+                        }}
+                        title="保存"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        className="chat-history-action"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancelEditTitle();
+                        }}
+                        title="キャンセル"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                  <div className="chat-history-tag-editor">
+                    <div className="chat-history-tags">
+                      {conv.tags.map((tag) => (
+                        <button
+                          key={tag}
+                          className="chat-history-tag"
+                          onClick={() => void handleRemoveTag(conv, tag)}
+                          title="タグを削除"
+                        >
+                          #{tag} ×
+                        </button>
+                      ))}
+                    </div>
+                    <div className="chat-history-tag-input">
+                      <input
+                        value={editingTagInput}
+                        placeholder="タグ追加"
+                        onChange={(e) => setEditingTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void handleAddTag(conv);
+                          }
+                        }}
+                      />
+                      <button
+                        className="chat-history-action"
+                        onClick={() => void handleAddTag(conv)}
+                        title="タグを追加"
+                      >
+                        追加
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-            );
-          })}
-        </nav>
-      </aside>
+            ) : (
+              <div
+                className={`chat-history-item ${isActive ? "active" : ""}`}
+                onClick={() => setActiveConversationId(conv.id)}
+              >
+                <span className="chat-history-icon">💬</span>
+                <span className="chat-history-title">{conv.title}</span>
+                <button
+                  className={`chat-history-action${conv.isFavorite ? " favorite" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleToggleFavorite(conv);
+                  }}
+                  title={conv.isFavorite ? "お気に入り解除" : "お気に入り登録"}
+                >
+                  {conv.isFavorite ? "★" : "☆"}
+                </button>
+                <button
+                  className="chat-history-action"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartEditTitle(conv);
+                  }}
+                  title="編集"
+                >
+                  ✎
+                </button>
+                <button
+                  className="chat-history-action"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleDeleteConversation(conv);
+                  }}
+                  title="削除"
+                >
+                  🗑
+                </button>
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  const connectionReady = !!connection?.apiKey;
+
+  return (
+    <div className="chat-layout" ref={layoutRef}>
+      {historyPanelOpen && (
+        <aside className="chat-sidebar-left" style={{ width: leftSidebarWidth }}>
+          <header className="chat-sidebar-header">
+            <h1 className="chat-sidebar-title">Chat History</h1>
+            <button
+              className="icon-button primary"
+              onClick={handleCreateNewConversation}
+              title="新しい会話"
+            >
+              +
+            </button>
+          </header>
+          <nav className="chat-history-list">
+            {showSearchResults ? (
+              <div className="conversation-subsections">
+                {searching && (
+                  <div className="status-banner status-loading" role="status">
+                    <div className="status-title">メッセージを検索しています…</div>
+                  </div>
+                )}
+                {!searching && searchResults && totalMatches === 0 ? (
+                  <p className="conversation-empty">入力したキーワードに一致する会話が見つかりませんでした。</p>
+                ) : null}
+                {searchResults?.title.length ? (
+                  <div className="conversation-subsection">
+                    <div className="conversation-subsection-title">タイトルに一致</div>
+                    {renderConversationList(searchResults.title)}
+                  </div>
+                ) : null}
+                {searchResults?.tags.length ? (
+                  <div className="conversation-subsection">
+                    <div className="conversation-subsection-title">タグに一致</div>
+                    {renderConversationList(searchResults.tags)}
+                  </div>
+                ) : null}
+                {searchResults?.messages.length ? (
+                  <div className="conversation-subsection">
+                    <div className="conversation-subsection-title">メッセージ本文に一致</div>
+                    {renderConversationList(searchResults.messages)}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              renderConversationList(visibleConversations)
+            )}
+          </nav>
+        </aside>
+      )}
+      {historyPanelOpen && (
+        <div
+          className={`chat-resizer${activeResize === "left" ? " chat-resizer-active" : ""}`}
+          onMouseDown={(event) => startResize("left", event)}
+        />
       )}
 
-      {/* メインチャットエリア */}
-      <div className="chat-main-area">
+      <div className="chat-main-area" style={{ minWidth: MAIN_MIN_WIDTH }}>
         <header className="chat-header">
           <div className="chat-header-left">
             <button
@@ -788,83 +1021,92 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* 右サイドバー: 設定パネル */}
       {settingsPanelOpen && (
-        <aside className="chat-sidebar-right">
-        <header className="chat-sidebar-header">
-          <h1 className="chat-sidebar-title">Settings</h1>
-        </header>
-        <div className="chat-settings-panel">
-          <div className="field-group">
-            <label className="field-label" htmlFor="model-select">Model</label>
-            <select
-              id="model-select"
-              className="field-input"
-              value={selectedModel}
-              onChange={(e) => {
-                setSelectedModel(e.target.value);
-                void persistConversation({ modelId: e.target.value });
-              }}
-            >
-              {availableModels.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <>
+          <div
+            className={`chat-resizer${activeResize === "right" ? " chat-resizer-active" : ""}`}
+            onMouseDown={(event) => startResize("right", event)}
+          />
+          <aside className="chat-sidebar-right" style={{ width: rightSidebarWidth }}>
+            <header className="chat-sidebar-header">
+              <h1 className="chat-sidebar-title">Settings</h1>
+            </header>
+            <div className="chat-settings-panel">
+              <div className="field-group">
+                <label className="field-label" htmlFor="model-select">Model</label>
+                <select
+                  id="model-select"
+                  className="field-input"
+                  value={selectedModel}
+                  onChange={(e) => {
+                    setSelectedModel(e.target.value);
+                    void persistConversation({ modelId: e.target.value });
+                  }}
+                >
+                  {availableModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div className="settings-toggle">
-            <label className="settings-toggle-label">Web Search</label>
-            <button
-              className={`toggle-switch ${webSearchEnabled ? 'active' : ''}`}
-              onClick={() => {
-                const event = { target: { checked: !webSearchEnabled } } as React.ChangeEvent<HTMLInputElement>;
-                handleWebSearchToggle(event);
-              }}
-            >
-              <span className="toggle-switch-slider"></span>
-            </button>
-          </div>
+              <div className="settings-toggle">
+                <label className="settings-toggle-label">Web Search</label>
+                <button
+                  className={`toggle-switch ${webSearchEnabled ? "active" : ""}`}
+                  onClick={() => {
+                    const event = {
+                      target: { checked: !webSearchEnabled },
+                    } as React.ChangeEvent<HTMLInputElement>;
+                    handleWebSearchToggle(event);
+                  }}
+                >
+                  <span className="toggle-switch-slider"></span>
+                </button>
+              </div>
 
-          <div className="settings-toggle">
-            <label className="settings-toggle-label">Vector Store</label>
-            <button
-              className={`toggle-switch ${vectorSearchEnabled ? 'active' : ''}`}
-              onClick={() => {
-                const event = { target: { checked: !vectorSearchEnabled } } as React.ChangeEvent<HTMLInputElement>;
-                handleVectorSearchToggle(event);
-              }}
-            >
-              <span className="toggle-switch-slider"></span>
-            </button>
-          </div>
+              <div className="settings-toggle">
+                <label className="settings-toggle-label">Vector Store</label>
+                <button
+                  className={`toggle-switch ${vectorSearchEnabled ? "active" : ""}`}
+                  onClick={() => {
+                    const event = {
+                      target: { checked: !vectorSearchEnabled },
+                    } as React.ChangeEvent<HTMLInputElement>;
+                    handleVectorSearchToggle(event);
+                  }}
+                >
+                  <span className="toggle-switch-slider"></span>
+                </button>
+              </div>
 
-          {vectorSearchEnabled && (
-            <div className="field-group">
-              <label className="field-label">Vector Store IDs (カンマ区切りで最大3件)</label>
-              <input
-                type="text"
-                className="field-input"
-                value={selectedVectorStoreIds.join(", ")}
-                onChange={(e) => {
-                  const ids = e.target.value
-                    .split(",")
-                    .map((id) => id.trim())
-                    .filter((id) => id.length > 0)
-                    .slice(0, 3);
-                  setSelectedVectorStoreIds(ids);
-                  void persistConversation({ vectorStoreIds: ids });
-                }}
-                placeholder="例: vs_xxxxx, vs_yyyyy"
-              />
-              <span className="field-hint">
-                Vector Store IDを入力してください（例: vs_abc123）
-              </span>
+              {vectorSearchEnabled && (
+                <div className="field-group">
+                  <label className="field-label">Vector Store IDs (カンマ区切りで最大3件)</label>
+                  <input
+                    type="text"
+                    className="field-input"
+                    value={selectedVectorStoreIds.join(", ")}
+                    onChange={(e) => {
+                      const ids = e.target.value
+                        .split(",")
+                        .map((id) => id.trim())
+                        .filter((id) => id.length > 0)
+                        .slice(0, 3);
+                      setSelectedVectorStoreIds(ids);
+                      void persistConversation({ vectorStoreIds: ids });
+                    }}
+                    placeholder="例: vs_xxxxx, vs_yyyyy"
+                  />
+                  <span className="field-hint">
+                    Vector Store IDを入力してください（例: vs_abc123）
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </aside>
+          </aside>
+        </>
       )}
     </div>
   );

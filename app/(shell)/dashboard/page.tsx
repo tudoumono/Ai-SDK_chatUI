@@ -1,25 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchVectorStoresFromApi } from "@/lib/openai/vector-stores";
 import { pruneConversationsOlderThan } from "@/lib/chat/session";
 import { downloadBundle, parseBundle } from "@/lib/storage/export";
 import {
   getAllConversations,
   getAllVectorStores,
+  getMessages,
   upsertConversations,
-  upsertVectorStores,
   upsertMessages,
+  upsertVectorStores,
 } from "@/lib/storage/indexed-db";
 import {
   buildSeedConversations,
-  buildSeedVectorStores,
   buildSeedMessages,
+  buildSeedVectorStores,
 } from "@/lib/storage/seeds";
-import type {
-  ConversationRecord,
-  VectorStoreRecord,
-} from "@/lib/storage/schema";
+import type { ConversationRecord } from "@/lib/storage/schema";
 
 const INITIAL_STATUS: DashboardStatus = {
   state: "idle",
@@ -34,37 +31,86 @@ type DashboardStatus =
 
 type DataState = {
   conversations: ConversationRecord[];
-  vectorStores: VectorStoreRecord[];
+};
+
+type SearchGroups = {
+  title: ConversationRecord[];
+  tags: ConversationRecord[];
+  messages: ConversationRecord[];
 };
 
 const CONVERSATION_RETENTION_DAYS = 14;
 
 export default function DashboardPage() {
   const [status, setStatus] = useState<DashboardStatus>(INITIAL_STATUS);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filter, setFilter] = useState("");
   const [data, setData] = useState<DataState>({
     conversations: [],
-    vectorStores: [],
   });
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchGroups | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const showSearchResults = filter.trim().length > 0;
+  const totalMatches = searchResults
+    ? searchResults.title.length + searchResults.tags.length + searchResults.messages.length
+    : 0;
+
+  const renderConversationList = useCallback((conversations: ConversationRecord[]) => {
+    return (
+      <ul className="conversation-list">
+        {conversations.map((conversation) => (
+          <li key={conversation.id} className="conversation-item">
+            <div className="conversation-title">{conversation.title}</div>
+            <div className="conversation-meta">
+              {conversation.tags.length > 0 && (
+                <div className="conversation-tags">
+                  {conversation.tags.map((tag) => (
+                    <span key={tag} className="conversation-tag">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="conversation-date">
+                {new Date(conversation.updatedAt).toLocaleString()}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
+  }, []);
+
+  const updateStatus = useCallback((next: DashboardStatus) => {
+    if (statusTimerRef.current) {
+      clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = null;
+    }
+    setStatus(next);
+    if (next.state === "success" || next.state === "error") {
+      statusTimerRef.current = setTimeout(() => {
+        setStatus({ state: "idle", message: "" });
+        statusTimerRef.current = null;
+      }, 3000);
+    }
+  }, []);
 
   const loadData = useCallback(async () => {
     if (typeof window === "undefined") {
       return;
     }
     try {
-      setStatus({ state: "loading", message: "データを読み込み中です…" });
+      updateStatus({ state: "loading", message: "データを読み込み中です…" });
 
       await pruneConversationsOlderThan(CONVERSATION_RETENTION_DAYS);
 
-      const [conversations, vectorStores] = await Promise.all([
-        getAllConversations(),
-        getAllVectorStores(),
-      ]);
+      const conversations = await getAllConversations();
 
-      const filteredConversations = conversations.filter((conversation) => conversation.hasContent);
+      const conversationsWithContent = conversations.filter((conversation) => conversation.hasContent);
 
-      if (filteredConversations.length === 0 && vectorStores.length === 0) {
+      if (conversationsWithContent.length === 0) {
         const seedConversations = buildSeedConversations();
         const seedVectorStores = buildSeedVectorStores();
         const seedMessages = buildSeedMessages();
@@ -73,11 +119,8 @@ export default function DashboardPage() {
           upsertVectorStores(seedVectorStores),
           upsertMessages(seedMessages),
         ]);
-        setData({
-          conversations: seedConversations,
-          vectorStores: seedVectorStores,
-        });
-        setStatus({
+        setData({ conversations: seedConversations });
+        updateStatus({
           state: "success",
           message: "サンプルデータを登録しました。",
         });
@@ -85,14 +128,16 @@ export default function DashboardPage() {
       }
 
       // TODO: G0 で決定した保存ポリシー・暗号化設定を参照し、ここで復号や表示制御を行う。
-      setData({ conversations: filteredConversations, vectorStores });
-      setStatus({
+      setData({ conversations: conversationsWithContent });
+      setSearchResults(null);
+      setSearching(false);
+      updateStatus({
         state: "success",
         message: "IndexedDB からデータを読み込みました。",
       });
     } catch (error) {
       console.error(error);
-      setStatus({
+      updateStatus({
         state: "error",
         message:
           error instanceof Error
@@ -100,36 +145,88 @@ export default function DashboardPage() {
             : "読み込みに失敗しました",
       });
     }
-  }, []);
+  }, [updateStatus]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const filteredConversations = useMemo(() => {
-    if (!filter.trim()) {
-      return data.conversations;
+  useEffect(() => () => {
+    if (statusTimerRef.current) {
+      clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = null;
     }
-    const normalized = filter.trim().toLowerCase();
-    return data.conversations.filter((conversation) =>
-      conversation.title.toLowerCase().includes(normalized) ||
-      conversation.tags.some((tag) => tag.toLowerCase().includes(normalized)),
-    );
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const doSearch = async () => {
+      const keyword = filter.trim();
+      if (!keyword) {
+        setSearchResults(null);
+        setSearching(false);
+        return;
+      }
+      setSearching(true);
+      setSearchResults({ title: [], tags: [], messages: [] });
+      try {
+        const normalized = keyword.toLowerCase();
+        const titleMatches = data.conversations.filter((conversation) =>
+          conversation.title.toLowerCase().includes(normalized),
+        );
+        const tagsMatches = data.conversations.filter((conversation) =>
+          !titleMatches.some((item) => item.id === conversation.id) &&
+          conversation.tags.some((tag) => tag.toLowerCase().includes(normalized)),
+        );
+        const seenIds = new Set([...titleMatches, ...tagsMatches].map((item) => item.id));
+
+        const messageMatches: ConversationRecord[] = [];
+        for (const conversation of data.conversations) {
+          if (seenIds.has(conversation.id)) {
+            continue;
+          }
+          const messages = await getMessages(conversation.id).catch(() => []);
+          const hasMatch = messages.some((message) =>
+            message.parts.some(
+              (part) => part.type === "text" && part.text.toLowerCase().includes(normalized),
+            ),
+          );
+          if (hasMatch) {
+            messageMatches.push(conversation);
+          }
+          if (cancelled) {
+            return;
+          }
+        }
+
+        setSearchResults({ title: titleMatches, tags: tagsMatches, messages: messageMatches });
+      } finally {
+        if (!cancelled) {
+          setSearching(false);
+        }
+      }
+    };
+
+    void doSearch();
+    return () => {
+      cancelled = true;
+    };
   }, [data.conversations, filter]);
 
   const handleExport = useCallback(async () => {
-    if (data.conversations.length === 0 && data.vectorStores.length === 0) {
-      setStatus({ state: "error", message: "エクスポートするデータがありません。" });
+    if (data.conversations.length === 0) {
+      updateStatus({ state: "error", message: "エクスポートするデータがありません。" });
       return;
     }
+    const vectorStores = await getAllVectorStores().catch(() => []);
     await downloadBundle({
       schemaVersion: 1,
       exportedAt: new Date().toISOString(),
       conversations: data.conversations,
-      vectorStores: data.vectorStores,
+      vectorStores,
     });
-    setStatus({ state: "success", message: "JSON エクスポートを開始しました。" });
-  }, [data.conversations, data.vectorStores]);
+    updateStatus({ state: "success", message: "JSON エクスポートを開始しました。" });
+  }, [data.conversations, updateStatus]);
 
   const handleImportClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -146,19 +243,16 @@ export default function DashboardPage() {
       const bundle = parseBundle(json);
       await Promise.all([
         upsertConversations(bundle.conversations),
-        upsertVectorStores(bundle.vectorStores),
+        upsertVectorStores(bundle.vectorStores ?? []),
       ]);
-      setData({
-        conversations: bundle.conversations,
-        vectorStores: bundle.vectorStores,
-      });
-      setStatus({
+      setData({ conversations: bundle.conversations });
+      updateStatus({
         state: "success",
         message: `${file.name} を取り込みました。`,
       });
     } catch (error) {
       console.error(error);
-      setStatus({
+      updateStatus({
         state: "error",
         message:
           error instanceof Error
@@ -168,42 +262,14 @@ export default function DashboardPage() {
     } finally {
       event.target.value = "";
     }
-  }, []);
-
-  const handleSyncFromOpenAi = useCallback(async () => {
-    setStatus({
-      state: "loading",
-      message: "OpenAI API から Vector Store を同期中です…",
-    });
-    try {
-      const remoteStores = await fetchVectorStoresFromApi();
-      await upsertVectorStores(remoteStores);
-      setData((current) => ({
-        conversations: current.conversations,
-        vectorStores: remoteStores,
-      }));
-      setStatus({
-        state: "success",
-        message: "OpenAI API との同期が完了しました。",
-      });
-    } catch (error) {
-      console.error(error);
-      setStatus({
-        state: "error",
-        message:
-          error instanceof Error
-            ? `同期に失敗しました: ${error.message}`
-            : "同期に失敗しました",
-      });
-    }
-  }, []);
+  }, [updateStatus]);
 
   return (
     <main className="page-grid">
       <div className="page-header">
         <h1 className="page-header-title">G1: ダッシュボード</h1>
         <p className="page-header-description">
-          ローカル履歴と OpenAI Vector Store 一覧を俯瞰し、チャット再開やストア管理へ遷移するための画面です。
+          ブラウザに保存された会話履歴を検索・インポート/エクスポートするための画面です。
         </p>
       </div>
 
@@ -225,13 +291,6 @@ export default function DashboardPage() {
           <div className="dashboard-buttons">
             <button className="outline-button" onClick={loadData} type="button">
               再読み込み
-            </button>
-            <button
-              className="outline-button"
-              onClick={handleSyncFromOpenAi}
-              type="button"
-            >
-              OpenAI 同期
             </button>
             <button className="outline-button" onClick={handleExport} type="button">
               JSON エクスポート
@@ -255,64 +314,41 @@ export default function DashboardPage() {
 
       <section className="section-card">
         <div className="section-card-title">会話一覧</div>
-        {filteredConversations.length === 0 ? (
-          <p className="section-card-description">
-            条件に一致する会話がありません。インポートするか、今後チャット画面から会話を作成してください。
-          </p>
-        ) : (
-          <ul className="conversation-list">
-            {filteredConversations.map((conversation) => (
-              <li key={conversation.id} className="conversation-item">
-                <div className="conversation-header">
-                  <span className="conversation-title">{conversation.title}</span>
-                  <span className="conversation-updated">
-                    更新日: {new Date(conversation.updatedAt).toLocaleString()}
-                  </span>
-                </div>
-                <p className="conversation-summary">
-                  {conversation.summary ?? "(要約なし)"}
-                </p>
-                {conversation.tags.length > 0 && (
-                  <div className="conversation-tags">
-                    {conversation.tags.map((tag) => (
-                      <span key={tag} className="conversation-tag">
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="section-card">
-        <div className="section-card-title">Vector Store 一覧</div>
-        {data.vectorStores.length === 0 ? (
-          <p className="section-card-description">
-            Vector Store の登録がまだありません。取り込み画面 (G3) から作成してください。
-          </p>
-        ) : (
-          <div className="vector-store-grid">
-            {data.vectorStores.map((store) => (
-              <article key={store.id} className="vector-store-card">
-                <div className="vector-store-header">
-                  <span className="vector-store-name">{store.name}</span>
-                  <span className="vector-store-updated">
-                    更新日: {new Date(store.updatedAt).toLocaleString()}
-                  </span>
-                </div>
-                <p className="vector-store-description">
-                  {store.description ?? "(説明なし)"}
-                </p>
-                <div className="vector-store-footer">
-                  <span className="vector-store-files">ファイル数: {store.fileCount}</span>
-                  <code className="inline-code vector-store-id">{store.id}</code>
-                </div>
-              </article>
-            ))}
+        {showSearchResults ? (
+          <div className="conversation-subsections">
+            {searching && (
+              <div className="status-banner status-loading" role="status">
+                <div className="status-title">メッセージを検索しています…</div>
+              </div>
+            )}
+            {!searching && totalMatches === 0 ? (
+              <p className="conversation-empty">入力したキーワードに一致する会話が見つかりませんでした。</p>
+            ) : null}
+            {searchResults?.title.length ? (
+              <div className="conversation-subsection">
+                <div className="conversation-subsection-title">タイトルに一致</div>
+                {renderConversationList(searchResults.title)}
+              </div>
+            ) : null}
+            {searchResults?.tags.length ? (
+              <div className="conversation-subsection">
+                <div className="conversation-subsection-title">タグに一致</div>
+                {renderConversationList(searchResults.tags)}
+              </div>
+            ) : null}
+            {searchResults?.messages.length ? (
+              <div className="conversation-subsection">
+                <div className="conversation-subsection-title">メッセージ本文に一致</div>
+                {renderConversationList(searchResults.messages)}
+              </div>
+            ) : null}
           </div>
+        ) : data.conversations.length === 0 ? (
+          <p className="section-card-description">
+            履歴がまだありません。チャット画面から会話を作成するか、JSON をインポートしてください。
+          </p>
+        ) : (
+          renderConversationList(data.conversations)
         )}
       </section>
     </main>
