@@ -657,7 +657,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     }
     const updated = await touchConversation(conversation, {
       title: editingTitle.trim(),
-    });
+    }, true);
     setConversations((prev) =>
       prev.map((conv) => (conv.id === updated.id ? updated : conv)),
     );
@@ -672,6 +672,11 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
   }, []);
 
   const handleDeleteConversation = useCallback(async (conversation: ConversationRecord) => {
+    if (conversation.isFavorite) {
+      alert(`「${conversation.title}」はお気に入りに登録されているため削除できません。\n先にお気に入りを解除してください。`);
+      return;
+    }
+
     if (!confirm(`「${conversation.title}」を削除しますか？この操作は取り消せません。`)) {
       return;
     }
@@ -698,11 +703,9 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     async (conversation: ConversationRecord) => {
       const updated = await touchConversation(conversation, {
         isFavorite: !conversation.isFavorite,
-      });
+      }, true);
       setConversations((prev) =>
-        prev
-          .map((item) => (item.id === updated.id ? updated : item))
-          .sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1)),
+        prev.map((item) => (item.id === updated.id ? updated : item)),
       );
     },
     [],
@@ -721,17 +724,23 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
       }
       const nextTags = [...conversation.tags, normalized];
       setEditingTagInput("");
-      await persistConversation({ tags: nextTags });
+      const updated = await touchConversation(conversation, { tags: nextTags }, true);
+      setConversations((prev) =>
+        prev.map((conv) => (conv.id === updated.id ? updated : conv)),
+      );
     },
-    [editingTagInput, persistConversation],
+    [editingTagInput],
   );
 
   const handleRemoveTag = useCallback(
     async (conversation: ConversationRecord, tag: string) => {
       const nextTags = conversation.tags.filter((item) => item !== tag);
-      await persistConversation({ tags: nextTags });
+      const updated = await touchConversation(conversation, { tags: nextTags }, true);
+      setConversations((prev) =>
+        prev.map((conv) => (conv.id === updated.id ? updated : conv)),
+      );
     },
-    [persistConversation],
+    [],
   );
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {

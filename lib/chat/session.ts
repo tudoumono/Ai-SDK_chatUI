@@ -63,11 +63,12 @@ export async function saveMessages(records: MessageRecord[]) {
 export async function touchConversation(
   record: ConversationRecord,
   updates: Partial<ConversationRecord>,
+  preserveUpdatedAt = false,
 ): Promise<ConversationRecord> {
   const next: ConversationRecord = {
     ...record,
     ...updates,
-    updatedAt: nowIso(),
+    updatedAt: preserveUpdatedAt ? record.updatedAt : nowIso(),
   };
   await upsertConversations([next]);
   return next;

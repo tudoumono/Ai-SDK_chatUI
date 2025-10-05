@@ -377,3 +377,37 @@
   padding: var(--spacing-xl);
   font-size: 1rem;
 }
+
+.vs-favorite-col {
+  width: 50px;
+  min-width: 50px !important;
+  text-align: center;
+}
+
+.vs-favorite-cell {
+  text-align: center;
+}
+
+.vs-favorite-button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: all var(--transition-fast);
+  line-height: 1;
+}
+
+.vs-favorite-button:hover {
+  color: rgba(255, 193, 7, 0.7);
+  transform: scale(1.1);
+}
+
+.vs-favorite-button.is-favorite {
+  color: #ffc107;
+}
+
+.vs-favorite-button.is-favorite:hover {
+  color: #ffb300;
+}

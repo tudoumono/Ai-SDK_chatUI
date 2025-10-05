@@ -204,6 +204,18 @@ export async function upsertVectorStores(records: VectorStoreRecord[]) {
   await tx.done;
 }
 
+export async function updateVectorStore(id: string, updates: Partial<VectorStoreRecord>) {
+  const db = await getDatabase();
+  const existing = await db.get("vectorStores", id);
+  if (!existing) {
+    throw new Error(`Vector store with id ${id} not found`);
+  }
+  const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
+  const tx = db.transaction("vectorStores", "readwrite");
+  await tx.store.put(updated);
+  await tx.done;
+}
+
 export async function deleteVectorStore(id: string) {
   const db = await getDatabase();
   const tx = db.transaction("vectorStores", "readwrite");
@@ -213,9 +225,23 @@ export async function deleteVectorStore(id: string) {
 
 export async function replaceVectorStores(records: VectorStoreRecord[]) {
   const db = await getDatabase();
+
+  // 既存のベクトルストアを取得してお気に入り情報を保持
+  const existing = await db.getAll("vectorStores");
+  const existingMap = new Map(existing.map((store) => [store.id, store]));
+
+  // マージ: リモートのデータを基本とし、ローカルのお気に入り情報を保持
+  const merged = records.map((remoteStore) => {
+    const localStore = existingMap.get(remoteStore.id);
+    return {
+      ...remoteStore,
+      isFavorite: localStore?.isFavorite ?? remoteStore.isFavorite,
+    };
+  });
+
   const tx = db.transaction("vectorStores", "readwrite");
   await tx.store.clear();
-  await Promise.all(records.map((record) => tx.store.put(record)));
+  await Promise.all(merged.map((record) => tx.store.put(record)));
   await tx.done;
 }
 

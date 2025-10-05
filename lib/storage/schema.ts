@@ -70,7 +70,9 @@ export type VectorStoreRecord = {
   name: string;
   fileCount: number;
   updatedAt: string;
+  createdAt: string;
   description?: string;
+  isFavorite?: boolean;
 };
 
 export type ExportBundle = {

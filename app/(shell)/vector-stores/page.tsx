@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { VectorStoreRecord } from "@/lib/storage/schema";
-import { deleteVectorStore, getAllVectorStores, replaceVectorStores } from "@/lib/storage/indexed-db";
+import { deleteVectorStore, getAllVectorStores, replaceVectorStores, updateVectorStore } from "@/lib/storage/indexed-db";
 import { loadConnection } from "@/lib/settings/connection-storage";
 import { deleteVectorStoreFromApi, fetchVectorStoresFromApi } from "@/lib/openai/vector-stores";
 import "./vector-stores.css";
@@ -46,6 +46,7 @@ export default function VectorStoresPage() {
     message: "削除操作はまだ実行されていません。",
   });
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasInitializedRef = useRef(false);
 
   const showStatus = useCallback((next: Status) => {
     if (statusTimerRef.current) {
@@ -61,30 +62,45 @@ export default function VectorStoresPage() {
     }
   }, []);
 
-  const loadStores = useCallback(async () => {
+  const loadStoresFromLocal = useCallback(async () => {
+    setLoading(true);
+    try {
+      const stores = await getAllVectorStores();
+      setVectorStores(stores);
+    } catch (error) {
+      console.error("Failed to load vector stores from local:", error);
+      showStatus({
+        state: "error",
+        message: "ローカルデータの読み込みに失敗しました",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [showStatus]);
+
+  const syncWithRemote = useCallback(async () => {
     setLoading(true);
     try {
       const connection = await loadConnection();
       if (!connection || !connection.apiKey) {
-        const stores = await getAllVectorStores();
-        setVectorStores(stores);
         showStatus({
           state: "error",
-          message: "OpenAI 接続が未設定です。ローカル IndexedDB のみ表示しています。",
+          message: "OpenAI 接続が未設定です。",
         });
         return;
       }
 
       const remoteStores = await fetchVectorStoresFromApi(connection);
       await replaceVectorStores(remoteStores);
-      setVectorStores(remoteStores);
+      const stores = await getAllVectorStores();
+      setVectorStores(stores);
       showStatus({ state: "success", message: "OpenAI と同期しました。" });
     } catch (error) {
-      console.error("Failed to load vector stores:", error);
+      console.error("Failed to sync vector stores:", error);
       showStatus({
         state: "error",
         message:
-          error instanceof Error ? `読み込みに失敗しました: ${error.message}` : "読み込みに失敗しました",
+          error instanceof Error ? `同期に失敗しました: ${error.message}` : "同期に失敗しました",
       });
     } finally {
       setLoading(false);
@@ -92,8 +108,13 @@ export default function VectorStoresPage() {
   }, [showStatus]);
 
   useEffect(() => {
-    void loadStores();
-  }, [loadStores]);
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      void syncWithRemote();
+    } else {
+      void loadStoresFromLocal();
+    }
+  }, []);
 
   useEffect(() => {
     const table = document.querySelector(".vs-table");
@@ -153,9 +174,29 @@ export default function VectorStoresPage() {
     return (b.fileCount || 0) - (a.fileCount || 0);
   });
 
+  const handleToggleFavorite = useCallback(
+    async (store: VectorStoreRecord) => {
+      try {
+        await updateVectorStore(store.id, { isFavorite: !store.isFavorite });
+        await loadStoresFromLocal();
+      } catch (error) {
+        console.error("Failed to toggle favorite", error);
+        showStatus({
+          state: "error",
+          message: "お気に入りの更新に失敗しました",
+        });
+      }
+    },
+    [loadStoresFromLocal, showStatus],
+  );
+
   const handleDelete = useCallback(
-    async (id: string, name: string) => {
-      if (!confirm(`「${name}」を削除しますか？この操作は取り消せません。`)) {
+    async (store: VectorStoreRecord) => {
+      if (store.isFavorite) {
+        alert(`「${store.name}」はお気に入りに登録されているため削除できません。\n先にお気に入りを解除してください。`);
+        return;
+      }
+      if (!confirm(`「${store.name}」を削除しますか？この操作は取り消せません。`)) {
         return;
       }
       setStatus({ state: "loading", message: "ベクトルストアを削除しています…" });
@@ -165,10 +206,10 @@ export default function VectorStoresPage() {
           throw new Error("OpenAI API キーが設定されていません。G0 で接続設定を確認してください。");
         }
 
-        await deleteVectorStoreFromApi(id, connection);
-        await deleteVectorStore(id);
-        await loadStores();
-        showStatus({ state: "success", message: `「${name}」を削除しました。` });
+        await deleteVectorStoreFromApi(store.id, connection);
+        await deleteVectorStore(store.id);
+        await syncWithRemote();
+        showStatus({ state: "success", message: `「${store.name}」を削除しました。` });
       } catch (error) {
         console.error("Failed to delete vector store", error);
         showStatus({
@@ -180,7 +221,7 @@ export default function VectorStoresPage() {
         });
       }
     },
-    [loadStores, showStatus],
+    [syncWithRemote, showStatus],
   );
 
   useEffect(
@@ -253,7 +294,7 @@ export default function VectorStoresPage() {
           <>
             <div className="vs-table-shell">
               <div className="vs-toolbar">
-                <button className="vs-refresh" onClick={() => void loadStores()} type="button">
+                <button className="vs-refresh" onClick={() => void syncWithRemote()} type="button">
                   更新
                 </button>
                 {status.state !== "idle" && (
@@ -266,6 +307,9 @@ export default function VectorStoresPage() {
                 <table className="vs-table">
                   <thead>
                     <tr>
+                    <th className="vs-favorite-col">
+                      <div className="th-content">★</div>
+                    </th>
                     <th className="resizable">
                       <div className="th-content">名前</div>
                       <div className="resize-handle"></div>
@@ -290,13 +334,23 @@ export default function VectorStoresPage() {
                 <tbody>
                   {sortedStores.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="vs-empty">
+                      <td colSpan={6} className="vs-empty">
                         Vector Store が見つかりません
                       </td>
                     </tr>
                   ) : (
                     sortedStores.map((store) => (
                       <tr key={store.id}>
+                        <td className="vs-favorite-cell">
+                          <button
+                            className={`vs-favorite-button ${store.isFavorite ? "is-favorite" : ""}`}
+                            onClick={() => void handleToggleFavorite(store)}
+                            title={store.isFavorite ? "お気に入りを解除" : "お気に入りに追加"}
+                            type="button"
+                          >
+                            ★
+                          </button>
+                        </td>
                         <td className="vs-name">{highlightText(store.name, searchQuery)}</td>
                         <td className="vs-id">{highlightText(store.id, searchQuery)}</td>
                         <td className="vs-date">
@@ -314,7 +368,7 @@ export default function VectorStoresPage() {
                           </Link>
                           <button
                             className="vs-action-button vs-action-delete"
-                            onClick={() => void handleDelete(store.id, store.name)}
+                            onClick={() => void handleDelete(store)}
                           >
                             Delete
                           </button>

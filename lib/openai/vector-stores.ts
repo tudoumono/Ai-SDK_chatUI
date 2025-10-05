@@ -59,6 +59,7 @@ export async function fetchVectorStoresFromApi(
     name: item.name ?? "(名称未設定)",
     fileCount: item.file_counts?.completed ?? 0,
     updatedAt: item.updated_at ?? item.created_at ?? new Date().toISOString(),
+    createdAt: item.created_at ?? new Date().toISOString(),
     description: item.description ?? undefined,
   }));
 }
