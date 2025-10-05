@@ -283,13 +283,14 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .chat-messages {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
-  flex: 1;
+  padding: var(--spacing-lg);
 }
 
 .chat-footer {
@@ -680,6 +681,40 @@
   font-weight: 600;
   color: var(--foreground-secondary);
   opacity: 0.8;
+}
+
+/* トークン使用量表示 */
+.chat-token-usage {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(124, 58, 237, 0.05);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  font-size: 0.75rem;
+}
+
+.token-label {
+  font-weight: 600;
+  color: rgba(124, 58, 237, 0.9);
+  opacity: 0.9;
+}
+
+.token-current {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.token-separator {
+  color: var(--foreground-secondary);
+  opacity: 0.5;
+}
+
+.token-cumulative {
+  color: var(--foreground);
+  font-weight: 600;
 }
 
 .tool-badge {

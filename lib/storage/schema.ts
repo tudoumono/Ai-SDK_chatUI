@@ -37,6 +37,13 @@ export type AttachedFileInfo = {
   purpose?: 'vision' | 'assistants';
 };
 
+export type TokenUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cumulativeTotal?: number; // その時点での会話全体の累計トークン数
+};
+
 export type MessageRecord = {
   id: string;
   conversationId: string;
@@ -50,6 +57,7 @@ export type MessageRecord = {
   errorDetails?: string;
   usedTools?: string[];
   attachedFiles?: AttachedFileInfo[];
+  tokenUsage?: TokenUsage;
 };
 
 export type AttachmentRecord = {

@@ -262,7 +262,11 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     if (!messageEndRef.current) {
       return;
     }
-    messageEndRef.current.scrollIntoView({ behavior: "smooth" });
+    // 少し遅延させてレンダリング完了後にスクロール
+    const timeoutId = setTimeout(() => {
+      messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+    return () => clearTimeout(timeoutId);
   }, [messages]);
 
   useEffect(() => {
@@ -527,6 +531,17 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
         (part): part is MessagePart & { type: "text" } => part.type === "text",
       );
       const finalText = result.text || existingTextPart?.text || "";
+
+      // 累計トークン数を計算
+      const cumulativeTotal = messagesRef.current
+        .reduce((sum, m) => sum + (m.tokenUsage?.totalTokens ?? 0), 0)
+        + (result.tokenUsage?.totalTokens ?? 0);
+
+      const tokenUsageWithCumulative = result.tokenUsage ? {
+        ...result.tokenUsage,
+        cumulativeTotal,
+      } : undefined;
+
       const completedAssistant = withAssistantText(
         assistantSnapshot,
         finalText,
@@ -534,6 +549,8 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
         undefined,
         result.sources,
         result.usedTools,
+        undefined,
+        tokenUsageWithCumulative,
       );
 
       setMessages((current) =>
@@ -1078,6 +1095,20 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                                 {tool}
                               </span>
                             ))}
+                          </div>
+                        )}
+                        {message.role === "assistant" && message.tokenUsage && (
+                          <div className="chat-token-usage">
+                            <span className="token-label">トークン使用量:</span>
+                            <span className="token-current">今回: {message.tokenUsage.totalTokens.toLocaleString()}</span>
+                            {message.tokenUsage.cumulativeTotal !== undefined && (
+                              <>
+                                <span className="token-separator">|</span>
+                                <span className="token-cumulative">
+                                  累計: {message.tokenUsage.cumulativeTotal.toLocaleString()}
+                                </span>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>

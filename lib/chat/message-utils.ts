@@ -47,6 +47,7 @@ export function withAssistantText(
   sources?: MessagePart[],
   usedTools?: string[],
   errorDetails?: string,
+  tokenUsage?: MessageRecord["tokenUsage"],
 ): MessageRecord {
   const nextParts: MessagePart[] = [{ type: "text", text }];
   if (sources && sources.length > 0) {
@@ -59,6 +60,7 @@ export function withAssistantText(
     errorMessage,
     errorDetails,
     usedTools,
+    tokenUsage,
     updatedAt: nowIso(),
   };
 }

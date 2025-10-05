@@ -8,8 +8,8 @@ const NAV_ITEMS = [
   { href: "/welcome", label: "ウェルカム", description: "APIキーと接続設定" },
   { href: "/dashboard", label: "ダッシュボード", description: "会話とVector Storeの一覧" },
   { href: "/vector-stores", label: "Vector Store", description: "ストアの作成と管理" },
-  { href: "/ingest", label: "Vector Store Management", description: "(デバック用で表示してるので後で消す)ファイル登録とOCRサポート" },
-  { href: "/chat", label: "チャット", description: "RAG & Web検索対応UI" },
+  { href: "/ingest", label: "Vector Store Management", description: "ファイル登録・編集・検索" },
+  { href: "/chat", label: "チャット", description: "RAG & Web検索・トークン表示" },
   { href: "/settings", label: "設定", description: "モデル・プロキシ・履歴" },
 ];
 

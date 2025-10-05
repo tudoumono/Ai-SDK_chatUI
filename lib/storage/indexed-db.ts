@@ -101,9 +101,15 @@ export async function getMessages(conversationId: string) {
   const db = await getDatabase();
   const index = db.transaction("messages").store.index("by-conversation");
   const items = await index.getAll(IDBKeyRange.only(conversationId));
-  return items.sort((a, b) =>
-    a.createdAt > b.createdAt ? 1 : a.createdAt < b.createdAt ? -1 : 0,
-  );
+  return items.sort((a, b) => {
+    // 時刻で比較
+    if (a.createdAt > b.createdAt) return 1;
+    if (a.createdAt < b.createdAt) return -1;
+    // 同じ時刻の場合、userが先、assistantが後
+    if (a.role === "user" && b.role === "assistant") return -1;
+    if (a.role === "assistant" && b.role === "user") return 1;
+    return 0;
+  });
 }
 
 export async function upsertMessages(records: MessageRecord[]) {

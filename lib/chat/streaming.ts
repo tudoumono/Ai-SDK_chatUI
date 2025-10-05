@@ -30,6 +30,11 @@ export type StreamResult = {
   sources: MessagePart[];
   rawResponse: Response;
   usedTools: string[];
+  tokenUsage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 };
 
 function toInputMessages(messages: MessageRecord[], attachments?: FileAttachment[]) {
@@ -231,11 +236,22 @@ export async function streamAssistantResponse(
     }
   }
 
+  // トークン使用量を抽出
+  let tokenUsage: StreamResult["tokenUsage"];
+  if (rawResponse.usage) {
+    tokenUsage = {
+      promptTokens: rawResponse.usage.input_tokens || 0,
+      completionTokens: rawResponse.usage.output_tokens || 0,
+      totalTokens: rawResponse.usage.total_tokens || 0,
+    };
+  }
+
   return {
     responseId: rawResponse.id,
     text,
     sources,
     rawResponse,
     usedTools,
+    tokenUsage,
   };
 }
