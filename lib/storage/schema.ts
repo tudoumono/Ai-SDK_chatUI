@@ -40,6 +40,7 @@ export type MessageRecord = {
   status: "pending" | "complete" | "error";
   isSummary?: boolean;
   errorMessage?: string;
+  usedTools?: string[];
 };
 
 export type AttachmentRecord = {

@@ -5,6 +5,7 @@ import { createResponsesClient } from "./openai-client";
 
 export type StreamCallbacks = {
   onTextSnapshot?: (text: string) => void;
+  onStatusChange?: (status: string) => void;
 };
 
 export type StreamRequest = {
@@ -22,6 +23,7 @@ export type StreamResult = {
   text: string;
   sources: MessagePart[];
   rawResponse: Response;
+  usedTools: string[];
 };
 
 function toInputMessages(messages: MessageRecord[]) {
@@ -102,6 +104,18 @@ export async function streamAssistantResponse(
   if (input.length === 0) {
     throw new Error("送信するメッセージがありません。");
   }
+
+  // 初期状態
+  if (request.vectorStoreIds && request.vectorStoreIds.length > 0 && request.webSearchEnabled) {
+    callbacks.onStatusChange?.("Vector検索とWeb検索を準備中…");
+  } else if (request.vectorStoreIds && request.vectorStoreIds.length > 0) {
+    callbacks.onStatusChange?.("Vector検索中…");
+  } else if (request.webSearchEnabled) {
+    callbacks.onStatusChange?.("Web検索中…");
+  } else {
+    callbacks.onStatusChange?.("応答を生成中…");
+  }
+
   const stream = await client.responses.stream(
     {
       model: request.model,
@@ -113,11 +127,39 @@ export async function streamAssistantResponse(
   );
 
   let snapshot = "";
+  let hasSeenFileSearch = false;
+  let hasSeenWebSearch = false;
+
   for await (const event of stream) {
+    // ツール実行の検出
+    if (event.type === "response.output_item.added" && event.item) {
+      if (event.item.type === "file_search_call") {
+        hasSeenFileSearch = true;
+        callbacks.onStatusChange?.("Vector Store検索中…");
+      } else if (event.item.type === "web_search_call") {
+        hasSeenWebSearch = true;
+        callbacks.onStatusChange?.("Web検索中…");
+      }
+    }
+
+    // ツール完了の検出
+    if (event.type === "response.output_item.done" && event.item) {
+      if (event.item.type === "file_search_call" && hasSeenFileSearch) {
+        callbacks.onStatusChange?.("Vector Store検索完了、応答を生成中…");
+      } else if (event.item.type === "web_search_call" && hasSeenWebSearch) {
+        callbacks.onStatusChange?.("Web検索完了、応答を生成中…");
+      }
+    }
+
+    // テキスト生成開始
     if (event.type === "response.output_text.delta") {
+      if (snapshot === "") {
+        callbacks.onStatusChange?.("応答を生成中…");
+      }
       snapshot = snapshot + (event.delta ?? "");
       callbacks.onTextSnapshot?.(snapshot);
     }
+
     if (event.type === "error") {
       const errorMessage = "error" in event && event.error && typeof event.error === "object" && "message" in event.error
         ? (event.error as any).message
@@ -131,10 +173,26 @@ export async function streamAssistantResponse(
   const text = rawResponse.output_text ?? snapshot;
   const sources = extractSources(rawResponse);
 
+  // 使用したツールを抽出
+  const usedTools: string[] = [];
+  for (const item of rawResponse.output ?? []) {
+    if (item.type === "file_search_call") {
+      if (!usedTools.includes("Vector Store")) {
+        usedTools.push("Vector Store");
+      }
+    }
+    if (item.type === "web_search_call") {
+      if (!usedTools.includes("Web Search")) {
+        usedTools.push("Web Search");
+      }
+    }
+  }
+
   return {
     responseId: rawResponse.id,
     text,
     sources,
     rawResponse,
+    usedTools,
   };
 }

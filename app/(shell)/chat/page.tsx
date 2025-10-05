@@ -76,19 +76,6 @@ function formatTimestamp(value: string) {
   }
 }
 
-function sourceLabel(part: MessagePart) {
-  if (part.type !== "source") {
-    return "";
-  }
-  if (part.sourceType === "vector") {
-    return part.title ?? "Vector Store";
-  }
-  if (part.sourceType === "web") {
-    return part.title ?? "Web Search";
-  }
-  return part.title ?? "Attachment";
-}
-
 export default function ChatPage() {
   const [initializing, setInitializing] = useState(true);
   const [connection, setConnection] = useState<ConnectionSettings | null>(null);
@@ -453,6 +440,9 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
           abortSignal: controller.signal,
         },
         {
+          onStatusChange: (status) => {
+            setStatusMessage(status);
+          },
           onTextSnapshot: (text) => {
             let pendingUpdate: MessageRecord | null = null;
             setMessages((current) =>
@@ -487,6 +477,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
         "complete",
         undefined,
         result.sources,
+        result.usedTools,
       );
 
       setMessages((current) =>
@@ -922,10 +913,6 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                     const textPart = message.parts.find(
                       (part) => part.type === "text",
                     );
-                    const sourceParts = message.parts.filter(
-                      (part): part is MessagePart & { type: "source" } =>
-                        part.type === "source",
-                    );
                     const role = ROLE_LABEL[message.role];
                     return (
                       <div
@@ -947,24 +934,34 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                         <div className="chat-bubble">
                           {textPart?.text ?? <span className="chat-placeholder">(本文なし)</span>}
                         </div>
-                        {sourceParts.length > 0 && (
-                          <div className="chat-sources">
-                            {sourceParts.map((source, index) => (
-                              <span
-                                key={`${message.id}-source-${index}`}
-                                className={`chat-source chat-source-${source.sourceType}`}
-                              >
-                                {sourceLabel(source)}
+                        {message.status === "error" && message.errorMessage && (
+                          <p className="chat-error">{message.errorMessage}</p>
+                        )}
+                        {message.role === "assistant" && message.usedTools && message.usedTools.length > 0 && (
+                          <div className="chat-tools-used">
+                            <span className="tools-label">使用ツール:</span>
+                            {message.usedTools.map((tool, index) => (
+                              <span key={index} className={`tool-badge tool-${tool.toLowerCase().replace(/\s+/g, '-')}`}>
+                                {tool}
                               </span>
                             ))}
                           </div>
                         )}
-                        {message.status === "error" && message.errorMessage && (
-                          <p className="chat-error">{message.errorMessage}</p>
-                        )}
                       </div>
                     );
                   })}
+                    {isStreaming && statusMessage && (
+                      <div className="chat-status-indicator">
+                        <div className="status-indicator-content">
+                          <div className="status-spinner">
+                            <div className="spinner-dot"></div>
+                            <div className="spinner-dot"></div>
+                            <div className="spinner-dot"></div>
+                          </div>
+                          <span className="status-indicator-text">{statusMessage}</span>
+                        </div>
+                      </div>
+                    )}
                     <div ref={messageEndRef} />
                   </div>
                 </div>
@@ -1012,9 +1009,6 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                   </div>
                 </div>
                 {sendError && <p className="chat-error">{sendError}</p>}
-                {statusMessage && !sendError && (
-                  <p className="chat-status-text">{statusMessage}</p>
-                )}
             </div>
           </footer>
           </>
