@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getAllVectorStores } from "@/lib/storage/indexed-db";
@@ -37,6 +37,22 @@ type RegisteredFile = {
 };
 
 export default function IngestPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="ingest-page">
+          <main className="ingest-main">
+            <div className="loading-state">Vector Store 情報を読み込み中...</div>
+          </main>
+        </div>
+      }
+    >
+      <IngestContent />
+    </Suspense>
+  );
+}
+
+function IngestContent() {
   const searchParams = useSearchParams();
   const vectorStoreId = searchParams.get("id");
 

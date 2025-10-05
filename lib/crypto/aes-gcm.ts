@@ -33,11 +33,9 @@ function fromBase64(value: string): Uint8Array {
 }
 
 function toArrayBuffer(view: Uint8Array): ArrayBuffer {
-  const { buffer, byteOffset, byteLength } = view;
-  if (byteOffset === 0 && byteLength === buffer.byteLength) {
-    return buffer;
-  }
-  return buffer.slice(byteOffset, byteOffset + byteLength);
+  const copy = new Uint8Array(view.byteLength);
+  copy.set(view);
+  return copy.buffer;
 }
 
 async function deriveKey(passphrase: string, salt: Uint8Array) {
