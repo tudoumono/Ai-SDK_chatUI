@@ -1,5 +1,6 @@
 import { decryptJson, encryptJson, type EncryptedPayload } from "@/lib/crypto/aes-gcm";
 import { sanitizeHeaders } from "@/lib/settings/header-utils";
+import { saveSetting, getSetting, deleteSetting } from "@/lib/storage/indexed-db";
 
 export type StoragePolicy = "none" | "session" | "persistent";
 export type ConnectionHeaders = Record<string, string>;
@@ -31,9 +32,53 @@ type StoredConnectionV1 = {
 
 const SESSION_KEY = "ai-sdk-chatui::connection";
 const PERSISTENT_KEY = "ai-sdk-chatui::connection:persistent";
+const PASSPHRASE_KEY = "encryption-passphrase";
+const PASSPHRASE_IO_TIMEOUT_MS = 1500;
 
 let volatileConnection: ConnectionSettings | null = null;
 let volatilePassphrase: string | null = null;
+
+async function runWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | undefined> {
+  return new Promise<T | undefined>((resolve) => {
+    const timer = setTimeout(() => resolve(undefined), timeoutMs);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        resolve(undefined);
+      });
+  });
+}
+
+// IndexedDB からパスフレーズを自動読み込み
+async function loadPassphraseFromStorage(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = await runWithTimeout(
+      getSetting(PASSPHRASE_KEY),
+      PASSPHRASE_IO_TIMEOUT_MS,
+    );
+    return value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// IndexedDB にパスフレーズを保存
+async function savePassphraseToStorage(passphrase: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    const operation = passphrase
+      ? saveSetting(PASSPHRASE_KEY, passphrase)
+      : deleteSetting(PASSPHRASE_KEY);
+    await runWithTimeout(operation, PASSPHRASE_IO_TIMEOUT_MS);
+  } catch {
+    // エラーは無視（IndexedDB が使えない環境）
+  }
+}
 
 function sanitizeSettings(settings: ConnectionSettings): ConnectionSettings {
   const { passphrase: _passphrase, ...rest } = settings;
@@ -102,9 +147,13 @@ function buildStoredRecord(
 
 export async function saveConnection(settings: ConnectionSettings) {
   volatileConnection = sanitizeSettings(settings);
-  volatilePassphrase = settings.encryptionEnabled
+
+  // パスフレーズを IndexedDB に保存
+  const passphraseToSave = settings.encryptionEnabled
     ? settings.passphrase?.trim() ?? null
     : null;
+  volatilePassphrase = passphraseToSave;
+  await savePassphraseToStorage(passphraseToSave);
 
   if (settings.storagePolicy === "none") {
     writeSession(null);
@@ -137,6 +186,12 @@ export async function loadConnection(): Promise<ConnectionSettings | null> {
   if (volatileConnection) {
     return { ...volatileConnection };
   }
+
+  // IndexedDB からパスフレーズを自動読み込み
+  if (!volatilePassphrase) {
+    volatilePassphrase = await loadPassphraseFromStorage();
+  }
+
   const stored = parseStored(readStoredPayload());
   if (!stored) {
     return null;
@@ -173,17 +228,22 @@ export async function loadConnection(): Promise<ConnectionSettings | null> {
 
 export function hasStoredConnection() {
   if (typeof window === "undefined") {
-    return { session: false, persistent: false };
+    return { session: false, persistent: false, encrypted: false };
   }
+
+  const stored = parseStored(readStoredPayload());
+
   return {
     session: !!window.sessionStorage.getItem(SESSION_KEY),
     persistent: !!window.localStorage.getItem(PERSISTENT_KEY),
+    encrypted: stored?.encryptionEnabled ?? false,
   };
 }
 
-export function clearConnection() {
+export async function clearConnection() {
   volatileConnection = null;
   volatilePassphrase = null;
   writeSession(null);
   writePersistent(null);
+  await savePassphraseToStorage(null);
 }

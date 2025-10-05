@@ -27,10 +27,14 @@ type ChatUiSchema = DBSchema & {
     value: AttachmentRecord;
     indexes: { "by-conversation": string };
   };
+  settings: {
+    key: string;
+    value: { key: string; value: string };
+  };
 };
 
 const DB_NAME = "ai-sdk-chat-ui";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase<ChatUiSchema>> | null = null;
 
@@ -62,6 +66,11 @@ function createDbPromise() {
             keyPath: "id",
           });
           store.createIndex("by-conversation", "conversationId");
+        }
+        if (!database.objectStoreNames.contains("settings")) {
+          database.createObjectStore("settings", {
+            keyPath: "key",
+          });
         }
       },
     });
@@ -258,6 +267,7 @@ export async function clearAll() {
     db.clear("vectorStores"),
     db.clear("messages"),
     db.clear("attachments"),
+    db.clear("settings"),
   ]);
 }
 
@@ -268,4 +278,21 @@ export async function clearConversationHistory() {
     db.clear("messages"),
     db.clear("attachments"),
   ]);
+}
+
+// Settings store functions
+export async function saveSetting(key: string, value: string) {
+  const db = await getDatabase();
+  await db.put("settings", { key, value });
+}
+
+export async function getSetting(key: string): Promise<string | null> {
+  const db = await getDatabase();
+  const record = await db.get("settings", key);
+  return record?.value ?? null;
+}
+
+export async function deleteSetting(key: string) {
+  const db = await getDatabase();
+  await db.delete("settings", key);
 }

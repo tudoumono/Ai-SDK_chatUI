@@ -71,7 +71,11 @@ export default function SettingsPage() {
     state: "idle",
     message: "会話履歴の操作は未実行です。",
   });
-  const [savedFlags, setSavedFlags] = useState({ session: false, persistent: false });
+  const [savedFlags, setSavedFlags] = useState({
+    session: false,
+    persistent: false,
+    encrypted: false,
+  });
   const [loading, setLoading] = useState(true);
   const { entries: logs, addLog, resetLogs } = useLogs();
   const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
@@ -241,9 +245,9 @@ export default function SettingsPage() {
     ],
   );
 
-  const handleClear = useCallback(() => {
-    clearConnection();
-    setSavedFlags({ session: false, persistent: false });
+  const handleClear = useCallback(async () => {
+    await clearConnection();
+    setSavedFlags({ session: false, persistent: false, encrypted: false });
     setApiKey("");
     setBaseUrl("https://api.openai.com/v1");
     setHttpProxy("");
@@ -497,7 +501,9 @@ export default function SettingsPage() {
         <div className={`status-banner status-${status.state}`} role="status">
           <div className="status-title">{status.message}</div>
           <p className="status-message">
-            保存状況: セッション {savedFlags.session ? "✅" : "❌"} / 永続 {savedFlags.persistent ? "✅" : "❌"}
+            保存状況: セッション {savedFlags.session ? "✅" : "❌"} / 永続 {savedFlags.persistent ? "✅" : "❌"} /
+            暗号化 {" "}
+            {savedFlags.encrypted ? "🔒" : "🔓"}
           </p>
         </div>
 

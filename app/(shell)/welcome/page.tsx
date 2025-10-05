@@ -66,15 +66,14 @@ export default function WelcomePage() {
   const [additionalHeaders, setAdditionalHeaders] = useState("");
   const [headersError, setHeadersError] = useState<string | null>(null);
   const [storagePolicy, setStoragePolicy] = useState<StoragePolicy>("none");
-  const [encryptionEnabled, setEncryptionEnabled] = useState(false);
+  const [encryptionEnabled, setEncryptionEnabled] = useState(true);
   const [passphrase, setPassphrase] = useState("");
   const [passphraseError, setPassphraseError] = useState<string | null>(null);
   const [result, setResult] = useState<ConnectionResult>({
     state: "idle",
     message: "接続テストは未実行です。",
   });
-  const [savedFlags, setSavedFlags] = useState({ session: false, persistent: false });
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [savedFlags, setSavedFlags] = useState({ session: false, persistent: false, encrypted: false });
 
   const requestTarget = useMemo(() => {
     const trimmed = baseUrl.trim().replace(/\/$/, "");
@@ -96,9 +95,6 @@ export default function WelcomePage() {
       setAdditionalHeaders(headersToTextarea(stored.additionalHeaders));
       setStoragePolicy(stored.storagePolicy);
       setEncryptionEnabled(stored.encryptionEnabled);
-      if (stored.httpProxy || stored.httpsProxy || stored.additionalHeaders) {
-        setAdvancedOpen(true);
-      }
       setSavedFlags(hasStoredConnection());
     })();
     return () => {
@@ -240,16 +236,16 @@ export default function WelcomePage() {
     ],
   );
 
-  const handleClear = useCallback(() => {
-    clearConnection();
-    setSavedFlags({ session: false, persistent: false });
+  const handleClear = useCallback(async () => {
+    await clearConnection();
+    setSavedFlags({ session: false, persistent: false, encrypted: false });
     setApiKey("");
     setBaseUrl(DEFAULT_BASE_URL);
     setHttpProxy("");
     setHttpsProxy("");
     setAdditionalHeaders("");
     setStoragePolicy("none");
-    setEncryptionEnabled(false);
+    setEncryptionEnabled(true); // デフォルトに戻す
     setPassphrase("");
     setPassphraseError(null);
     setResult({ state: "success", message: "保存済み設定を削除しました。" });
@@ -276,6 +272,10 @@ export default function WelcomePage() {
             <div className={`storage-badge ${savedFlags.persistent ? 'storage-badge-active' : 'storage-badge-inactive'}`}>
               <span className="storage-badge-icon">{savedFlags.persistent ? '✓' : '－'}</span>
               <span className="storage-badge-label">永続保存（オプション）</span>
+            </div>
+            <div className={`storage-badge ${savedFlags.encrypted ? 'storage-badge-encrypted' : 'storage-badge-not-encrypted'}`}>
+              <span className="storage-badge-icon">{savedFlags.encrypted ? '🔒' : '🔓'}</span>
+              <span className="storage-badge-label">暗号化</span>
             </div>
           </div>
           <p className="storage-status-hint">
@@ -323,15 +323,8 @@ export default function WelcomePage() {
             />
           </div>
 
-          <details
-            className="advanced-panel"
-            open={advancedOpen}
-            onToggle={(event) => {
-              const element = event.currentTarget as HTMLDetailsElement;
-              setAdvancedOpen(element.open);
-            }}
-          >
-            <summary>詳細設定（プロキシ、追加ヘッダ、保存ポリシー）</summary>
+          <div className="advanced-panel">
+            <div className="advanced-panel-title">詳細設定（プロキシ、追加ヘッダ、保存ポリシー）</div>
             <div className="advanced-content">
               <div className="field-grid-two">
                 <div className="field-group">
@@ -428,15 +421,25 @@ export default function WelcomePage() {
                     checked={encryptionEnabled}
                     onChange={(event) => {
                       const enabled = event.target.checked;
-                      setEncryptionEnabled(enabled);
+
+                      // 暗号化を無効にする場合は警告を表示
                       if (!enabled) {
+                        const confirmed = window.confirm(
+                          "⚠️ 警告: 暗号化を無効にすると、API キーが平文で保存されます。\n\n" +
+                          "セキュリティリスクが高まりますが、本当に無効化しますか？"
+                        );
+                        if (!confirmed) {
+                          return; // キャンセルされた場合は変更しない
+                        }
                         setPassphrase("");
                         setPassphraseError(null);
                       }
+
+                      setEncryptionEnabled(enabled);
                     }}
                     type="checkbox"
                   />
-                  <span>API キーを AES-GCM で暗号化して保存する</span>
+                  <span>API キーを AES-GCM で暗号化して保存する（推奨）</span>
                 </label>
                 <p className="field-hint">
                   暗号化を有効にするとパスフレーズが必須になります。忘れると復号できません。
@@ -472,7 +475,7 @@ export default function WelcomePage() {
                 </div>
               )}
             </div>
-          </details>
+          </div>
 
           <div className="form-actions">
             <button
@@ -496,7 +499,7 @@ export default function WelcomePage() {
               <li>401/403: API キーまたは権限を再確認してください。</li>
               <li>429: 利用制限に達しています。待機または制限緩和をご検討ください。</li>
               <li>
-                ネットワーク/CORS: プロキシや追加ヘッダが必要な場合は「詳細設定」を展開して入力し直してください。
+                ネットワーク/CORS: プロキシや追加ヘッダが必要な場合は詳細設定欄で再入力してください。
               </li>
               <li>
                 既存設定を編集したい場合は <Link href="/settings">設定</Link> を開いてください。

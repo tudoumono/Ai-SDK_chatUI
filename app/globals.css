@@ -315,6 +315,18 @@ textarea {
   color: rgb(148, 163, 184);
 }
 
+.storage-badge-encrypted {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  color: rgb(34, 197, 94);
+}
+
+.storage-badge-not-encrypted {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: rgb(239, 68, 68);
+}
+
 .storage-badge-icon {
   display: flex;
   align-items: center;
@@ -611,29 +623,13 @@ textarea {
   background: rgba(255, 255, 255, 0.02);
 }
 
-.advanced-panel > summary {
-  cursor: pointer;
+.advanced-panel-title {
   font-weight: 600;
-  list-style: none;
-}
-
-.advanced-panel > summary::-webkit-details-marker {
-  display: none;
-}
-
-.advanced-panel > summary::before {
-  content: "▶";
-  display: inline-block;
-  margin-right: 8px;
-  transition: transform 0.2s ease;
-}
-
-.advanced-panel[open] > summary::before {
-  transform: rotate(90deg);
+  margin-bottom: 12px;
 }
 
 .advanced-content {
-  margin-top: 16px;
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
   gap: 16px;
