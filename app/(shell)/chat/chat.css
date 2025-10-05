@@ -239,7 +239,6 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: calc(100vh - 64px - 140px);
 }
 
 .chat-welcome {
@@ -280,12 +279,17 @@
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .chat-messages {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
+  flex: 1;
 }
 
 .chat-footer {
@@ -340,6 +344,50 @@
   position: absolute;
   right: var(--spacing-md);
   bottom: var(--spacing-md);
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.chat-actions button {
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  border: none;
+}
+
+.chat-actions .primary {
+  background: var(--accent);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.chat-actions .primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.chat-actions .primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.chat-actions .primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-actions .ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.chat-actions .ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--border-hover);
 }
 
 /* 右サイドバー - 設定 */
