@@ -267,7 +267,7 @@ export default function DashboardPage() {
   return (
     <main className="page-grid">
       <div className="page-header">
-        <h1 className="page-header-title">G1: ダッシュボード</h1>
+        <h1 className="page-header-title">ダッシュボード</h1>
         <p className="page-header-description">
           ブラウザに保存された会話履歴を検索・インポート/エクスポートするための画面です。
         </p>

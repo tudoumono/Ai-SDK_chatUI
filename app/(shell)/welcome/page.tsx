@@ -261,17 +261,28 @@ export default function WelcomePage() {
   }, []);
 
   return (
-    <main className="welcome-page">
-      <section className="section-card">
+    <main className="page-grid">
+      <div className="page-header">
         <h1 className="page-header-title">ようこそ！まずは接続を確認しましょう</h1>
         <p className="page-header-description">
           API キーと（必要に応じて）プロキシ設定を入力して `/v1/models` への接続をテストします。
-          初回セットアップが完了したら「ダッシュボード (G1)」へ進み、以降の運用設定は G5 設定画面で調整できます。
         </p>
-        <p className="page-header-description">
-          保存状況: セッション {savedFlags.session ? "✅" : "❌"} / 永続 {savedFlags.persistent ? "✅" : "❌"}
-        </p>
-      </section>
+        <div className="storage-status-container">
+          <div className="storage-status-badges">
+            <div className={`storage-badge ${savedFlags.session ? 'storage-badge-active' : 'storage-badge-inactive'}`}>
+              <span className="storage-badge-icon">{savedFlags.session ? '✓' : '－'}</span>
+              <span className="storage-badge-label">セッション保存</span>
+            </div>
+            <div className={`storage-badge ${savedFlags.persistent ? 'storage-badge-active' : 'storage-badge-inactive'}`}>
+              <span className="storage-badge-icon">{savedFlags.persistent ? '✓' : '－'}</span>
+              <span className="storage-badge-label">永続保存（オプション）</span>
+            </div>
+          </div>
+          <p className="storage-status-hint">
+            ※ セッション保存のみでも利用可能です。永続保存は共有端末では推奨されません。
+          </p>
+        </div>
+      </div>
 
       <section className="section-card">
         <div className="section-card-title">接続テスト</div>
@@ -455,7 +466,7 @@ export default function WelcomePage() {
                     <p className="field-error">{passphraseError}</p>
                   ) : (
                     <p className="field-hint">
-                      G5 設定画面などで復号する際に必要です。忘れると API キーを復元できません。
+                      設定画面などで復号する際に必要です。忘れると API キーを復元できません。
                     </p>
                   )}
                 </div>
@@ -488,7 +499,7 @@ export default function WelcomePage() {
                 ネットワーク/CORS: プロキシや追加ヘッダが必要な場合は「詳細設定」を展開して入力し直してください。
               </li>
               <li>
-                既存設定を編集したい場合は <Link href="/settings">G5 設定</Link> を開いてください。
+                既存設定を編集したい場合は <Link href="/settings">設定</Link> を開いてください。
               </li>
             </ul>
           )}
@@ -498,12 +509,6 @@ export default function WelcomePage() {
           <button className="outline-button" onClick={handleClear} type="button">
             保存済み接続を削除
           </button>
-          <Link className="outline-button" href="/settings">
-            詳細設定 (G5) へ移動
-          </Link>
-          <Link className="primary-button" href="/dashboard">
-            ダッシュボード (G1) へ進む
-          </Link>
         </div>
       </section>
     </main>

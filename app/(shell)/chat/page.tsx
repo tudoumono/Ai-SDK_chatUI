@@ -14,6 +14,7 @@ import type { ConnectionSettings } from "@/lib/settings/connection-storage";
 import { loadConnection } from "@/lib/settings/connection-storage";
 import { getAllVectorStores } from "@/lib/storage/indexed-db";
 import { fetchModelsFromApi, getDefaultModels, type ModelInfo } from "@/lib/openai/models";
+import { PageLoading } from "@/components/ui/page-loading";
 import type {
   ConversationRecord,
   MessagePart,
@@ -932,6 +933,10 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
 
   const connectionReady = !!connection?.apiKey;
 
+  if (initializing) {
+    return <PageLoading message="チャット画面を読み込み中..." />;
+  }
+
   return (
     <div className="chat-layout" ref={layoutRef}>
       {historyPanelOpen && (
@@ -1218,7 +1223,17 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
             </header>
             <div className="chat-settings-panel">
               <div className="field-group">
-                <label className="field-label" htmlFor="model-select">Model</label>
+                <label className="field-label" htmlFor="model-select">
+                  Model{" "}
+                  <a
+                    href="https://platform.openai.com/docs/models"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="field-label-link"
+                  >
+                    (📖 ドキュメント)
+                  </a>
+                </label>
                 <select
                   id="model-select"
                   className="field-input"

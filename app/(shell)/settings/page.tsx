@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLogs } from "@/lib/logs/store";
 import type { LogEntry } from "@/lib/logs/types";
@@ -296,7 +297,7 @@ export default function SettingsPage() {
   return (
     <main className="page-grid">
       <div className="page-header settings-header">
-        <h1 className="page-header-title">G5: 設定</h1>
+        <h1 className="page-header-title">設定</h1>
         <p className="page-header-description">
           モデル一覧、プロキシ設定、履歴保存ポリシーを集約し、Responses API との接続性をコントロールします。
         </p>
@@ -305,8 +306,17 @@ export default function SettingsPage() {
       <section className="section-card">
         <div className="section-card-title">接続設定</div>
         <p className="section-card-description">
-          現在の接続先: <code className="inline-code">{requestTarget}</code>
+          API キーやプロキシなどの接続設定は Welcome 画面で行ってください。
         </p>
+        <div className="form-navigation">
+          <Link href="/welcome" className="primary-button">
+            Welcome 画面へ
+          </Link>
+        </div>
+      </section>
+
+      <section className="section-card" style={{ display: 'none' }}>
+        <div className="section-card-title">旧接続設定（非表示）</div>
         <form className="form-grid" onSubmit={handleSave}>
           <div className="field-group">
             <label className="field-label" htmlFor="settings-api-key">
