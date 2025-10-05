@@ -1,0 +1,287 @@
+.vector-stores-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.vs-header {
+  border-bottom: 1px solid var(--border);
+  padding: var(--spacing-lg) var(--spacing-xl);
+}
+
+.vs-header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.vs-back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  text-decoration: none;
+  font-size: 1.25rem;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.vs-back-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.vs-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.vs-button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.vs-button-primary:hover {
+  background: var(--accent-hover);
+}
+
+.vs-main {
+  flex: 1;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--spacing-xl);
+}
+
+.vs-search-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.vs-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md) var(--spacing-lg);
+  gap: var(--spacing-md);
+}
+
+.vs-search-icon {
+  font-size: 1.25rem;
+  opacity: 0.6;
+}
+
+.vs-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--foreground);
+  font-size: 1rem;
+  outline: none;
+}
+
+.vs-search-input::placeholder {
+  color: var(--foreground-secondary);
+  opacity: 0.6;
+}
+
+.vs-filters {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.vs-filter-button {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.vs-filter-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.vs-filter-button.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.vs-filter-icon {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.vs-table-container {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: auto;
+  margin-bottom: var(--spacing-lg);
+  height: calc(100vh - 400px);
+  min-height: 400px;
+  position: relative;
+}
+
+.vs-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.vs-table thead {
+  background: rgba(255, 255, 255, 0.03);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.vs-table th {
+  padding: var(--spacing-md) var(--spacing-lg);
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+  position: relative;
+  min-width: 100px;
+}
+
+.vs-table th.resizable {
+  position: relative;
+}
+
+.th-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  background: transparent;
+  transition: background var(--transition-fast);
+}
+
+.resize-handle:hover {
+  background: var(--accent);
+}
+
+.resize-handle:active {
+  background: var(--accent-hover);
+}
+
+.vs-table tbody tr {
+  border-top: 1px solid var(--border);
+  transition: background var(--transition-fast);
+}
+
+.vs-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.vs-table td {
+  padding: var(--spacing-lg);
+  font-size: 0.875rem;
+}
+
+.vs-table td.vs-name {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.vs-table td.vs-id {
+  color: var(--foreground-secondary);
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.vs-table td.vs-date,
+.vs-table td.vs-size {
+  color: var(--foreground-secondary);
+}
+
+.vs-actions-cell {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.vs-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1f2937;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.vs-action-button:hover {
+  background: #f3f4f6;
+}
+
+.vs-action-button.vs-action-delete {
+  color: #ef4444;
+}
+
+.vs-action-button.vs-action-delete:hover {
+  background: #fee2e2;
+}
+
+.vs-empty {
+  text-align: center;
+  color: var(--foreground-secondary);
+  padding: var(--spacing-xl) !important;
+}
+
+.vs-loading {
+  text-align: center;
+  color: var(--foreground-secondary);
+  padding: var(--spacing-xl);
+  font-size: 1rem;
+}

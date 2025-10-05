@@ -28,3 +28,6 @@ pnpm-debug.log*
 
 # Cipher/SDK caches
 data/cipher-sessions.db*
+
+
+デバック

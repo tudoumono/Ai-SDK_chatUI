@@ -1,0 +1,344 @@
+.ingest-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  margin: -24px;
+  width: calc(100vw - 280px);
+}
+
+@media (max-width: 768px) {
+  .ingest-page {
+    margin: -16px;
+    width: 100vw;
+  }
+}
+
+.ingest-header {
+  border-bottom: 1px solid var(--border);
+  padding: var(--spacing-lg) var(--spacing-xl);
+}
+
+.ingest-header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.ingest-back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  text-decoration: none;
+  font-size: 1.25rem;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.ingest-back-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ingest-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.ingest-main {
+  flex: 1;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--spacing-xl);
+}
+
+.loading-state {
+  text-align: center;
+  color: var(--foreground-secondary);
+  padding: var(--spacing-xl);
+  font-size: 1rem;
+}
+
+.ingest-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.ingest-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  max-width: 800px;
+}
+
+.ingest-form-label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.ingest-form-input {
+  width: 100%;
+  height: 56px;
+  padding: 0 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.ingest-form-input:focus {
+  border-color: var(--accent);
+}
+
+.ingest-form-input::placeholder {
+  color: var(--foreground-secondary);
+  opacity: 0.6;
+}
+
+.ingest-form-textarea {
+  width: 100%;
+  min-height: 144px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  font-size: 1rem;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color var(--transition-fast);
+}
+
+.ingest-form-textarea:focus {
+  border-color: var(--accent);
+}
+
+.ingest-form-textarea::placeholder {
+  color: var(--foreground-secondary);
+  opacity: 0.6;
+}
+
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 56px 24px;
+  transition: all var(--transition-fast);
+}
+
+.dropzone.dragging {
+  border-color: var(--accent);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.dropzone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.dropzone-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--foreground);
+}
+
+.dropzone-description {
+  font-size: 0.875rem;
+  color: var(--foreground-secondary);
+  margin: 0;
+}
+
+.dropzone-button {
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.dropzone-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.dropzone-input {
+  display: none;
+}
+
+.upload-progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progress-label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.progress-bar-container {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: white;
+  border-radius: var(--radius-full);
+  transition: width var(--transition-base);
+}
+
+.progress-percentage {
+  font-size: 0.875rem;
+  color: var(--foreground-secondary);
+}
+
+.section-title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  margin: var(--spacing-lg) 0 var(--spacing-md) 0;
+  color: var(--foreground);
+}
+
+.files-table-container {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.files-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.files-table thead {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.files-table th {
+  padding: var(--spacing-md) var(--spacing-lg);
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.files-table tbody tr {
+  border-top: 1px solid var(--border);
+  transition: background var(--transition-fast);
+}
+
+.files-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.files-table td {
+  padding: var(--spacing-lg);
+  font-size: 0.875rem;
+}
+
+.files-table td.file-name {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.files-table td.file-size {
+  color: var(--foreground-secondary);
+}
+
+.files-table td.file-actions {
+  color: var(--foreground-secondary);
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--foreground-secondary);
+  padding: var(--spacing-xl) !important;
+}
+
+.file-delete-button {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.file-delete-button:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+  margin-top: var(--spacing-lg);
+}
+
+.button-primary {
+  padding: 10px 16px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.button-primary:hover {
+  background: var(--accent-hover);
+}
+
+.button-secondary {
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.button-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
