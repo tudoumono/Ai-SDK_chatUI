@@ -1,0 +1,30 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+.vercel/
+
+# Testing outputs
+coverage/
+
+# Env files
+.env*
+.env
+
+# Editor directories and files
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local data caches
+*.local
+
+# Cipher/SDK caches
+data/cipher-sessions.db*

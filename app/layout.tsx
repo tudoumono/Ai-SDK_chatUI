@@ -1,0 +1,24 @@
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import "./globals.css";
+import { Providers } from "./providers";
+
+export const metadata: Metadata = {
+  title: "AI SDK Chat UI",
+  description:
+    "OpenAI Responses API と Vercel AI SDK を活用した RAG 対応チャット UI デモ",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <html lang="ja">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
