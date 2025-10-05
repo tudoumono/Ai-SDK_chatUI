@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 
 const NAV_ITEMS = [
+  { href: "/welcome", label: "ウェルカム", description: "APIキーと接続設定" },
   { href: "/dashboard", label: "ダッシュボード", description: "会話とVector Storeの一覧" },
   { href: "/vector-stores", label: "Vector Store", description: "ストアの作成と管理" },
   { href: "/ingest", label: "取り込み", description: "ファイル登録とOCRサポート" },

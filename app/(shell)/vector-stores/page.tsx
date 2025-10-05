@@ -38,7 +38,7 @@ export default function VectorStoresPage() {
       <section className="section-card">
         <div className="section-card-title">ファイルバッチ監視</div>
         <p className="section-card-description">
-          vector_stores/{id}/file_batches をポーリングし、in_progress/completed/failed をバッジ表示する予定です。
+          vector_stores/{'{'}id{'}'}/file_batches をポーリングし、in_progress/completed/failed をバッジ表示する予定です。
         </p>
       </section>
     </main>
