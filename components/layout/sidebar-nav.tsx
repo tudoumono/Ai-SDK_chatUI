@@ -6,6 +6,7 @@ import clsx from "clsx";
 
 const NAV_ITEMS = [
   { href: "/welcome", label: "ウェルカム", description: "APIキーと接続設定" },
+  { href: "/guide", label: "📖 利用ガイド", description: "使い方とよくある質問" },
   { href: "/dashboard", label: "ダッシュボード", description: "会話とVector Storeの一覧" },
   { href: "/vector-stores", label: "Vector Store", description: "ストアの作成と管理" },
   // { href: "/ingest", label: "Vector Store Management", description: "ファイル登録・編集・検索" },
