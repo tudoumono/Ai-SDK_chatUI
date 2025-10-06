@@ -16,7 +16,7 @@ import {
   buildSeedMessages,
   buildSeedVectorStores,
 } from "@/lib/storage/seeds";
-import type { ConversationRecord, MessageRecord } from "@/lib/storage/schema";
+import type { ConversationRecord } from "@/lib/storage/schema";
 import { highlightText, highlightTags, extractMatchPreview } from "@/lib/utils/highlight";
 import { Search, Calendar, SortAsc, Tag } from "lucide-react";
 

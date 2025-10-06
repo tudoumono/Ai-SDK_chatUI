@@ -142,7 +142,7 @@ export default function GuidePage() {
           </ul>
         </div>
 
-        <div>
+        <div style={{ marginBottom: "1.5rem" }}>
           <h3 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem" }}>
             データのバックアップ
           </h3>
@@ -157,6 +157,81 @@ export default function GuidePage() {
               <strong>インポート</strong>: 保存したJSONファイルを読み込んで復元
             </li>
           </ul>
+        </div>
+
+        <div>
+          <h3 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+            🔍 ダッシュボードの検索機能
+          </h3>
+          <p style={{ marginLeft: "1rem", lineHeight: "1.6" }}>
+            ダッシュボード画面で過去の会話を素早く見つけられます:
+          </p>
+          <ul style={{ marginLeft: "1.5rem", lineHeight: "1.8" }}>
+            <li>
+              <strong>キーワード検索</strong>: タイトル、タグ、メッセージ本文から検索
+            </li>
+            <li>
+              <strong>ハイライト表示</strong>: 検索結果のキーワードが黄色でハイライト
+            </li>
+            <li>
+              <strong>タグサジェスト</strong>: よく使うタグをクリックで即検索
+            </li>
+            <li>
+              <strong>日付フィルター</strong>: 今日/今週/今月/全期間で絞り込み
+            </li>
+            <li>
+              <strong>並び替え</strong>: 更新日時やタイトルで並び替え可能
+            </li>
+            <li>
+              <strong>メッセージプレビュー</strong>: マッチしたメッセージの一部を表示
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="section-card">
+        <div className="section-card-title">🚨 トラブルシューティング</div>
+
+        <div style={{ marginBottom: "1.5rem" }}>
+          <h3 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+            エラーが発生した場合
+          </h3>
+          <p style={{ marginLeft: "1rem", lineHeight: "1.6" }}>
+            予期せぬエラーが発生した場合、以下の手順で対処できます:
+          </p>
+          <ol style={{ marginLeft: "2rem", lineHeight: "1.8" }}>
+            <li>設定画面（⚙️）を開く</li>
+            <li>「🚨 詳細エラーログ（開発者向け）」セクションまでスクロール</li>
+            <li>「ログをエクスポート」ボタンをクリック</li>
+            <li>ダウンロードされたJSONファイルを開発者に送信</li>
+          </ol>
+          <p style={{ marginLeft: "1rem", marginTop: "0.5rem", lineHeight: "1.6", fontSize: "0.9rem", color: "#888" }}>
+            ※ エクスポートされたログには、APIキーなどの機密情報は含まれません（自動的に削除されます）
+          </p>
+        </div>
+
+        <div style={{ marginBottom: "1.5rem" }}>
+          <h3 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+            接続できない場合
+          </h3>
+          <p style={{ marginLeft: "1rem", lineHeight: "1.6" }}>
+            設定画面の「接続状況ログ」を確認してください:
+          </p>
+          <ul style={{ marginLeft: "1.5rem", lineHeight: "1.8" }}>
+            <li>APIキーが正しく入力されているか</li>
+            <li>インターネット接続があるか</li>
+            <li>OpenAI APIのステータス（障害が発生していないか）</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+            デバッグモード
+          </h3>
+          <p style={{ marginLeft: "1rem", lineHeight: "1.6" }}>
+            設定画面の「🧪 テストエラーを生成」ボタンで、エラーログ機能をテストできます。
+            正常に動作しているか確認したい場合にご利用ください。
+          </p>
         </div>
       </section>
 
