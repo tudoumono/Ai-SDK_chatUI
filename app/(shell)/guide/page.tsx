@@ -213,6 +213,38 @@ export default function GuidePage() {
             Vector Stores一覧ページで保管期限を確認できます。期限が近い場合は警告が表示されます。
           </p>
         </div>
+
+        <div>
+          <h3 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+            📋 Vector Stores一覧画面の機能
+          </h3>
+          <p style={{ marginLeft: "1rem", lineHeight: "1.6" }}>
+            Vector Stores一覧画面では以下の機能が利用できます:
+          </p>
+          <ul style={{ marginLeft: "1.5rem", lineHeight: "1.8" }}>
+            <li>
+              <strong>検索機能</strong>: 名前やIDで検索可能（ツールバー右側）
+            </li>
+            <li>
+              <strong>カラム選択</strong>: 表示する列を自由に選択可能（列選択ボタン）
+            </li>
+            <li>
+              <strong>ソート機能</strong>: カラムヘッダーをクリックして昇順/降順を切り替え
+            </li>
+            <li>
+              <strong>表示項目</strong>: 名前、ID、作成日、最終利用日、ファイル数、保管期限、期限日時
+            </li>
+            <li>
+              <strong>期限表示</strong>: 「○日後」「明日期限」「期限切れ」など分かりやすく表示
+            </li>
+            <li>
+              <strong>お気に入り機能</strong>: ★マークで重要なVector Storeを管理
+            </li>
+            <li>
+              <strong>同期機能</strong>: 「更新」ボタンでOpenAIと同期
+            </li>
+          </ul>
+        </div>
       </section>
 
       <section className="section-card">
