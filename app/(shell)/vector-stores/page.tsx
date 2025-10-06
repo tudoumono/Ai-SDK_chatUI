@@ -37,10 +37,12 @@ function highlightText(text: string, query: string) {
 }
 
 function formatExpiration(store: VectorStoreRecord): string {
+  // 無期限の場合
   if (!store.expiresAfter || store.expiresAfter.days === null) {
     return "無期限";
   }
 
+  // expiresAt がある場合は具体的な期限日を表示
   if (store.expiresAt) {
     const expiresDate = new Date(store.expiresAt);
     const now = new Date();
@@ -55,18 +57,27 @@ function formatExpiration(store: VectorStoreRecord): string {
       return "明日期限";
     } else if (diffDays <= 7) {
       return `${diffDays}日後`;
-    } else {
-      return `${store.expiresAfter.days}日設定`;
     }
   }
 
-  return `${store.expiresAfter.days}日設定`;
+  // expiresAt がない、または7日以上先の場合は設定日数を表示
+  const anchor = store.expiresAfter.anchor === "created_at" ? "作成" : "最終利用";
+  return `${anchor}から${store.expiresAfter.days}日`;
 }
+
+type ColumnKey = "name" | "id" | "createdAt" | "lastActiveAt" | "fileCount" | "expiration" | "expiresAt";
+type SortConfig = {
+  column: ColumnKey | null;
+  direction: "asc" | "desc";
+};
 
 export default function VectorStoresPage() {
   const [vectorStores, setVectorStores] = useState<VectorStoreRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"date" | "size">("date");
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    column: "createdAt",
+    direction: "desc",
+  });
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>({
@@ -74,6 +85,10 @@ export default function VectorStoresPage() {
     message: "削除操作はまだ実行されていません。",
   });
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(
+    new Set(["name", "id", "createdAt", "fileCount", "expiration"])
+  );
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
 
   const showStatus = useCallback((next: Status) => {
     if (statusTimerRef.current) {
@@ -177,6 +192,24 @@ export default function VectorStoresPage() {
     });
   }, [loading]);
 
+  // カラム選択ドロップダウンの外側クリックで閉じる
+  useEffect(() => {
+    if (!showColumnSelector) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const wrapper = document.querySelector(".vs-column-selector-wrapper");
+      if (wrapper && !wrapper.contains(target)) {
+        setShowColumnSelector(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showColumnSelector]);
+
   const filteredStores = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) {
@@ -189,12 +222,76 @@ export default function VectorStoresPage() {
     });
   }, [vectorStores, searchQuery]);
 
-  const sortedStores = [...filteredStores].sort((a, b) => {
-    if (sortBy === "date") {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    }
-    return (b.fileCount || 0) - (a.fileCount || 0);
-  });
+  const handleSort = useCallback((column: ColumnKey) => {
+    setSortConfig((prev) => {
+      if (prev.column === column) {
+        // 同じカラムをクリックした場合は昇順/降順を切り替え
+        return {
+          column,
+          direction: prev.direction === "asc" ? "desc" : "asc",
+        };
+      }
+      // 新しいカラムの場合はデフォルトで降順
+      return { column, direction: "desc" };
+    });
+  }, []);
+
+  const sortedStores = useMemo(() => {
+    if (!sortConfig.column) return filteredStores;
+
+    return [...filteredStores].sort((a, b) => {
+      const { column, direction } = sortConfig;
+      const multiplier = direction === "asc" ? 1 : -1;
+
+      switch (column) {
+        case "name":
+          return multiplier * a.name.localeCompare(b.name, "ja");
+        case "id":
+          return multiplier * a.id.localeCompare(b.id);
+        case "createdAt":
+          return multiplier * (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        case "lastActiveAt": {
+          const aTime = a.lastActiveAt ? new Date(a.lastActiveAt).getTime() : 0;
+          const bTime = b.lastActiveAt ? new Date(b.lastActiveAt).getTime() : 0;
+          return multiplier * (aTime - bTime);
+        }
+        case "fileCount":
+          return multiplier * ((a.fileCount || 0) - (b.fileCount || 0));
+        case "expiresAt": {
+          const aTime = a.expiresAt ? new Date(a.expiresAt).getTime() : 0;
+          const bTime = b.expiresAt ? new Date(b.expiresAt).getTime() : 0;
+          return multiplier * (aTime - bTime);
+        }
+        default:
+          return 0;
+      }
+    });
+  }, [filteredStores, sortConfig]);
+
+  const columnDefinitions: Record<ColumnKey, string> = {
+    name: "名前",
+    id: "ID",
+    createdAt: "作成日",
+    lastActiveAt: "最終利用",
+    fileCount: "ファイル数",
+    expiration: "保管期限",
+    expiresAt: "期限日時",
+  };
+
+  const toggleColumn = useCallback((column: ColumnKey) => {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(column)) {
+        // 最低1列は表示する
+        if (next.size > 1) {
+          next.delete(column);
+        }
+      } else {
+        next.add(column);
+      }
+      return next;
+    });
+  }, []);
 
   const handleToggleFavorite = useCallback(
     async (store: VectorStoreRecord) => {
@@ -282,47 +379,6 @@ export default function VectorStoresPage() {
       </header>
 
       <main className="vs-main">
-        <div className="vs-search-section">
-          <div className="vs-search-box">
-            <span className="vs-search-icon">🔍</span>
-            <input
-              type="text"
-              className="vs-search-input"
-              placeholder="ベクトルストアを検索"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button
-                className="vs-clear"
-                onClick={() => setSearchQuery("")}
-                type="button"
-              >
-                ×
-              </button>
-            )}
-          </div>
-
-          <div className="vs-filters">
-            <button
-              className={`vs-filter-button ${sortBy === "date" ? "active" : ""}`}
-              onClick={() => setSortBy("date")}
-              disabled={!!deletingId}
-            >
-              作成日
-              <span className="vs-filter-icon">▼</span>
-            </button>
-            <button
-              className={`vs-filter-button ${sortBy === "size" ? "active" : ""}`}
-              onClick={() => setSortBy("size")}
-              disabled={!!deletingId}
-            >
-              ファイル数
-              <span className="vs-filter-icon">▼</span>
-            </button>
-          </div>
-        </div>
-
         {loading ? (
           <div className="vs-loading">読み込み中...</div>
         ) : (
@@ -338,15 +394,60 @@ export default function VectorStoresPage() {
                   >
                     更新
                   </button>
+                  <div className="vs-column-selector-wrapper">
+                    <button
+                      className="vs-refresh"
+                      onClick={() => setShowColumnSelector(!showColumnSelector)}
+                      type="button"
+                      disabled={!!deletingId}
+                    >
+                      列選択 {showColumnSelector ? "▲" : "▼"}
+                    </button>
+                    {showColumnSelector && (
+                      <div className="vs-column-selector">
+                        {(Object.entries(columnDefinitions) as [ColumnKey, string][]).map(([key, label]) => (
+                          <label key={key} className="vs-column-option">
+                            <input
+                              type="checkbox"
+                              checked={visibleColumns.has(key)}
+                              onChange={() => toggleColumn(key)}
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <span className="vs-sync-note">
                     ※ OpenAIとの同期は「更新」ボタン押下時と削除時のみ実行されます
                   </span>
                 </div>
-                {status.state !== "idle" && (
-                  <div className={`vs-status vs-status-${status.state}`} role="status">
-                    {status.message}
+                <div className="vs-toolbar-right">
+                  {status.state !== "idle" && (
+                    <div className={`vs-status vs-status-${status.state}`} role="status">
+                      {status.message}
+                    </div>
+                  )}
+                  <div className="vs-search-box-compact">
+                    <span className="vs-search-icon">🔍</span>
+                    <input
+                      type="text"
+                      className="vs-search-input-compact"
+                      placeholder="検索"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {searchQuery && (
+                      <button
+                        className="vs-clear"
+                        onClick={() => setSearchQuery("")}
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
               <div className="vs-table-container">
                 <table className="vs-table">
@@ -355,26 +456,78 @@ export default function VectorStoresPage() {
                     <th className="vs-favorite-col">
                       <div className="th-content">★</div>
                     </th>
-                    <th className="resizable">
-                      <div className="th-content">名前</div>
-                      <div className="resize-handle"></div>
-                    </th>
-                    <th className="resizable">
-                      <div className="th-content">ID</div>
-                      <div className="resize-handle"></div>
-                    </th>
-                    <th className="resizable">
-                      <div className="th-content">作成日</div>
-                      <div className="resize-handle"></div>
-                    </th>
-                    <th className="resizable">
-                      <div className="th-content">ファイル数</div>
-                      <div className="resize-handle"></div>
-                    </th>
-                    <th className="resizable">
-                      <div className="th-content">保管期限</div>
-                      <div className="resize-handle"></div>
-                    </th>
+                    {visibleColumns.has("name") && (
+                      <th className="resizable sortable" onClick={() => handleSort("name")}>
+                        <div className="th-content">
+                          名前
+                          {sortConfig.column === "name" && (
+                            <span className="sort-indicator">{sortConfig.direction === "asc" ? "▲" : "▼"}</span>
+                          )}
+                        </div>
+                        <div className="resize-handle"></div>
+                      </th>
+                    )}
+                    {visibleColumns.has("id") && (
+                      <th className="resizable sortable" onClick={() => handleSort("id")}>
+                        <div className="th-content">
+                          ID
+                          {sortConfig.column === "id" && (
+                            <span className="sort-indicator">{sortConfig.direction === "asc" ? "▲" : "▼"}</span>
+                          )}
+                        </div>
+                        <div className="resize-handle"></div>
+                      </th>
+                    )}
+                    {visibleColumns.has("createdAt") && (
+                      <th className="resizable sortable" onClick={() => handleSort("createdAt")}>
+                        <div className="th-content">
+                          作成日
+                          {sortConfig.column === "createdAt" && (
+                            <span className="sort-indicator">{sortConfig.direction === "asc" ? "▲" : "▼"}</span>
+                          )}
+                        </div>
+                        <div className="resize-handle"></div>
+                      </th>
+                    )}
+                    {visibleColumns.has("lastActiveAt") && (
+                      <th className="resizable sortable" onClick={() => handleSort("lastActiveAt")}>
+                        <div className="th-content">
+                          最終利用
+                          {sortConfig.column === "lastActiveAt" && (
+                            <span className="sort-indicator">{sortConfig.direction === "asc" ? "▲" : "▼"}</span>
+                          )}
+                        </div>
+                        <div className="resize-handle"></div>
+                      </th>
+                    )}
+                    {visibleColumns.has("fileCount") && (
+                      <th className="resizable sortable" onClick={() => handleSort("fileCount")}>
+                        <div className="th-content">
+                          ファイル数
+                          {sortConfig.column === "fileCount" && (
+                            <span className="sort-indicator">{sortConfig.direction === "asc" ? "▲" : "▼"}</span>
+                          )}
+                        </div>
+                        <div className="resize-handle"></div>
+                      </th>
+                    )}
+                    {visibleColumns.has("expiration") && (
+                      <th className="resizable">
+                        <div className="th-content">保管期限</div>
+                        <div className="resize-handle"></div>
+                      </th>
+                    )}
+                    {visibleColumns.has("expiresAt") && (
+                      <th className="resizable sortable" onClick={() => handleSort("expiresAt")}>
+                        <div className="th-content">
+                          期限日時
+                          {sortConfig.column === "expiresAt" && (
+                            <span className="sort-indicator">{sortConfig.direction === "asc" ? "▲" : "▼"}</span>
+                          )}
+                        </div>
+                        <div className="resize-handle"></div>
+                      </th>
+                    )}
                     <th>
                       <div className="th-content">操作</div>
                     </th>
@@ -383,7 +536,7 @@ export default function VectorStoresPage() {
                 <tbody>
                   {sortedStores.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="vs-empty">
+                      <td colSpan={visibleColumns.size + 2} className="vs-empty">
                         Vector Store が見つかりません
                       </td>
                     </tr>
@@ -401,19 +554,49 @@ export default function VectorStoresPage() {
                             ★
                           </button>
                         </td>
-                        <td className="vs-name">{highlightText(store.name, searchQuery)}</td>
-                        <td className="vs-id">{highlightText(store.id, searchQuery)}</td>
-                        <td className="vs-date">
-                          {new Date(store.createdAt).toLocaleDateString("ja-JP")}
-                        </td>
-                        <td className="vs-size">
-                          {store.fileCount ? `${store.fileCount} files` : "—"}
-                        </td>
-                        <td className="vs-expiration">
-                          <span className={`expiration-badge ${!store.expiresAfter || store.expiresAfter.days === null ? "unlimited" : ""}`}>
-                            {formatExpiration(store)}
-                          </span>
-                        </td>
+                        {visibleColumns.has("name") && (
+                          <td className="vs-name">{highlightText(store.name, searchQuery)}</td>
+                        )}
+                        {visibleColumns.has("id") && (
+                          <td className="vs-id">{highlightText(store.id, searchQuery)}</td>
+                        )}
+                        {visibleColumns.has("createdAt") && (
+                          <td className="vs-date">
+                            {new Date(store.createdAt).toLocaleDateString("ja-JP")}
+                          </td>
+                        )}
+                        {visibleColumns.has("lastActiveAt") && (
+                          <td className="vs-date">
+                            {store.lastActiveAt
+                              ? new Date(store.lastActiveAt).toLocaleDateString("ja-JP")
+                              : "—"}
+                          </td>
+                        )}
+                        {visibleColumns.has("fileCount") && (
+                          <td className="vs-size">
+                            {store.fileCount ? `${store.fileCount} files` : "—"}
+                          </td>
+                        )}
+                        {visibleColumns.has("expiration") && (
+                          <td className="vs-expiration">
+                            <span className={`expiration-badge ${!store.expiresAfter || store.expiresAfter.days === null ? "unlimited" : ""}`}>
+                              {formatExpiration(store)}
+                            </span>
+                          </td>
+                        )}
+                        {visibleColumns.has("expiresAt") && (
+                          <td className="vs-date">
+                            {store.expiresAt
+                              ? new Date(store.expiresAt).toLocaleDateString("ja-JP", {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "—"}
+                          </td>
+                        )}
                         <td className="vs-actions-cell">
                           <Link
                             href={`/ingest?id=${store.id}`}

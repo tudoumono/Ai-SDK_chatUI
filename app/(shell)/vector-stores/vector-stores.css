@@ -211,7 +211,8 @@
 }
 
 .vs-table-container {
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   height: 100%;
   position: relative;
 }
@@ -223,9 +224,18 @@
   padding: var(--spacing-md) var(--spacing-lg);
   border-bottom: 1px solid var(--border);
   gap: var(--spacing-md);
+  flex-wrap: wrap;
 }
 
 .vs-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex: 1;
+  min-width: 0;
+}
+
+.vs-toolbar-right {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
@@ -255,6 +265,7 @@
 
 .vs-table {
   width: 100%;
+  min-width: 1200px;
   border-collapse: collapse;
   table-layout: fixed;
   border-left: 1px solid var(--border);
@@ -323,6 +334,9 @@
   padding: var(--spacing-lg);
   font-size: 0.875rem;
   border-right: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .vs-table td.vs-name {
@@ -346,6 +360,7 @@
   display: flex;
   gap: var(--spacing-sm);
   align-items: center;
+  white-space: normal !important;
 }
 
 .vs-action-button {
@@ -477,4 +492,105 @@
   background: var(--warning-bg);
   color: var(--warning);
   border: 1px solid var(--warning);
+}
+
+.vs-column-selector-wrapper {
+  position: relative;
+}
+
+.vs-column-selector {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  min-width: 200px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.vs-column-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+  user-select: none;
+}
+
+.vs-column-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.vs-column-option input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.vs-column-option span {
+  flex: 1;
+  font-size: 0.875rem;
+  color: var(--foreground);
+}
+
+.vs-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.vs-table th.sortable:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sort-indicator {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.vs-search-box-compact {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  gap: 8px;
+  min-width: 200px;
+  transition: all var(--transition-fast);
+}
+
+.vs-search-box-compact:focus-within {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.vs-search-input-compact {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  outline: none;
+  min-width: 0;
+}
+
+.vs-search-input-compact::placeholder {
+  color: var(--foreground-secondary);
+  opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+  .vs-toolbar-right {
+    width: 100%;
+  }
+
+  .vs-search-box-compact {
+    flex: 1;
+  }
 }

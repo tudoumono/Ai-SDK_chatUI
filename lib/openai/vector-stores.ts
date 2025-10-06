@@ -28,15 +28,15 @@ type VectorStoreListResponse = {
     id: string;
     name: string | null;
     file_counts?: { completed?: number };
-    updated_at?: string | null;
-    created_at?: string | null;
-    description?: string | null;
-    metadata?: { description?: string | null } | null;
+    created_at?: number;
+    last_active_at?: number;
     expires_after?: {
       anchor?: "last_active_at" | "created_at" | null;
       days?: number | null;
     } | null;
-    expires_at?: string | null;
+    expires_at?: number | null;
+    description?: string | null;
+    metadata?: { description?: string | null } | null;
   }>;
 };
 
@@ -102,16 +102,26 @@ export async function fetchVectorStoresFromApi(
         }
       : null;
 
+    const createdAt = item.created_at
+      ? new Date(item.created_at * 1000).toISOString()
+      : new Date().toISOString();
+    const lastActiveAt = item.last_active_at
+      ? new Date(item.last_active_at * 1000).toISOString()
+      : undefined;
+
     return {
       id: item.id,
       name: item.name ?? "(名称未設定)",
       fileCount: item.file_counts?.completed ?? 0,
-      updatedAt: item.updated_at ?? item.created_at ?? new Date().toISOString(),
-      createdAt: item.created_at ?? new Date().toISOString(),
+      updatedAt: lastActiveAt ?? createdAt,
+      createdAt,
+      lastActiveAt,
       description:
         item.description ?? item.metadata?.description ?? undefined,
       expiresAfter,
-      expiresAt: item.expires_at ?? null,
+      expiresAt: item.expires_at
+        ? new Date(item.expires_at * 1000).toISOString()
+        : null,
     };
   });
 }

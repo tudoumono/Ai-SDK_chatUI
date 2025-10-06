@@ -79,6 +79,7 @@ export type VectorStoreRecord = {
   fileCount: number;
   updatedAt: string;
   createdAt: string;
+  lastActiveAt?: string;
   description?: string;
   isFavorite?: boolean;
   expiresAfter?: {
