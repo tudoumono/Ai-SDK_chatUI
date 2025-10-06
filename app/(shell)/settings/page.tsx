@@ -483,14 +483,14 @@ export default function SettingsPage() {
         state: "success",
         message: `データをエクスポートしました（会話: ${conversations.length}件、ベクターストア: ${vectorStores.length}件）`
       });
-      addLog("info", "data-export", "データをエクスポートしました");
+      addLog("info", "setup", "データをエクスポートしました");
     } catch (error) {
       console.error(error);
       setDataStatus({
         state: "error",
         message: error instanceof Error ? `エクスポートに失敗: ${error.message}` : "エクスポートに失敗しました",
       });
-      addLog("error", "data-export", "エクスポートに失敗", error instanceof Error ? error.message : String(error));
+      addLog("error", "setup", "エクスポートに失敗", error instanceof Error ? error.message : String(error));
     }
   }, [addLog]);
 
@@ -517,7 +517,7 @@ export default function SettingsPage() {
         state: "success",
         message: `${file.name} をインポートしました（会話: ${bundle.conversations.length}件、ベクターストア: ${bundle.vectorStores?.length ?? 0}件）`,
       });
-      addLog("info", "data-import", `${file.name} をインポートしました`);
+      addLog("info", "setup", `${file.name} をインポートしました`);
 
       // ファイル入力をリセット
       if (event.target) {
@@ -529,7 +529,7 @@ export default function SettingsPage() {
         state: "error",
         message: error instanceof Error ? `インポートに失敗: ${error.message}` : "インポートに失敗しました",
       });
-      addLog("error", "data-import", "インポートに失敗", error instanceof Error ? error.message : String(error));
+      addLog("error", "setup", "インポートに失敗", error instanceof Error ? error.message : String(error));
     }
   }, [addLog]);
 
