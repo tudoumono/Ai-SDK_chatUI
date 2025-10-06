@@ -1360,3 +1360,27 @@ textarea {
   color: var(--foreground-secondary);
   margin: var(--spacing-sm) 0;
 }
+
+/* 作成者透かし */
+.app-watermark {
+  position: fixed;
+  bottom: 12px;
+  right: 16px;
+  font-size: 11px;
+  color: rgba(128, 128, 128, 0.4);
+  font-family: 'Courier New', monospace;
+  pointer-events: none;
+  user-select: none;
+  z-index: 9999;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .app-watermark {
+    font-size: 9px;
+    bottom: 8px;
+    right: 12px;
+  }
+}

@@ -18,6 +18,7 @@ export default function RootLayout({
     <html lang="ja">
       <body>
         <Providers>{children}</Providers>
+        <div className="app-watermark">Created by tudoumono</div>
       </body>
     </html>
   );
