@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { Providers } from "./providers";
+// エラーロガーを初期化（グローバルハンドラーを設定）
+import "@/lib/logging/error-logger";
 
 export const metadata: Metadata = {
   title: "AI SDK Chat UI",

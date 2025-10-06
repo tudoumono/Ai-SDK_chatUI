@@ -15,6 +15,17 @@ import {
 import { clearConversationHistory, listConversations, upsertConversations } from "@/lib/chat/session";
 import { getAllVectorStores, upsertVectorStores } from "@/lib/storage/indexed-db";
 import { downloadBundle, parseBundle } from "@/lib/export/bundle";
+import {
+  getAllLogs,
+  clearAllLogs,
+  getLogStats,
+  saveLog as saveErrorLog,
+} from "@/lib/logging/error-logger";
+import { createLogExportBundle, downloadLogBundle } from "@/lib/logging/log-sanitizer";
+import type { LogEntry as ErrorLogEntry } from "@/lib/logging/error-logger";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { AlertCircle, Download, Trash2, Database } from "lucide-react";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -87,6 +98,18 @@ export default function SettingsPage() {
   const { entries: logs, addLog, resetLogs } = useLogs();
   const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
 
+  // エラーログ管理用のState
+  const [errorLogs, setErrorLogs] = useState<ErrorLogEntry[]>([]);
+  const [logStats, setLogStats] = useState<{
+    total: number;
+    byLevel: Record<string, number>;
+    byCategory: Record<string, number>;
+  }>({ total: 0, byLevel: {}, byCategory: {} });
+  const [errorLogStatus, setErrorLogStatus] = useState<Status>({
+    state: "idle",
+    message: "エラーログを管理できます。",
+  });
+
   const handleCopyLog = useCallback(async (log: LogEntry) => {
     const text = JSON.stringify(log, null, 2);
     try {
@@ -108,6 +131,134 @@ export default function SettingsPage() {
     const trimmed = baseUrl.trim().replace(/\/$/, "");
     return `${trimmed}/models`;
   }, [baseUrl]);
+
+  // エラーログを読み込む
+  const loadErrorLogs = useCallback(async () => {
+    try {
+      const [logsData, statsData] = await Promise.all([
+        getAllLogs(),
+        getLogStats(),
+      ]);
+      setErrorLogs(logsData);
+      setLogStats(statsData);
+    } catch (error) {
+      console.error("Failed to load error logs:", error);
+      await saveErrorLog(
+        "error",
+        "storage",
+        "エラーログの読み込みに失敗しました",
+        error instanceof Error ? error : undefined
+      );
+    }
+  }, []);
+
+  // エラーログをエクスポート
+  const handleExportErrorLogs = useCallback(async () => {
+    setErrorLogStatus({ state: "loading", message: "エラーログをエクスポート中..." });
+    try {
+      if (errorLogs.length === 0) {
+        setErrorLogStatus({ state: "error", message: "エクスポートするログがありません。" });
+        return;
+      }
+
+      const bundle = createLogExportBundle(errorLogs);
+      downloadLogBundle(bundle);
+
+      setErrorLogStatus({
+        state: "success",
+        message: `エラーログをエクスポートしました（${errorLogs.length}件）`,
+      });
+      await saveErrorLog("info", "storage", "エラーログをエクスポートしました");
+    } catch (error) {
+      console.error("Failed to export error logs:", error);
+      setErrorLogStatus({
+        state: "error",
+        message: error instanceof Error ? `エクスポート失敗: ${error.message}` : "エクスポートに失敗しました",
+      });
+      await saveErrorLog(
+        "error",
+        "storage",
+        "エラーログのエクスポートに失敗しました",
+        error instanceof Error ? error : undefined
+      );
+    }
+  }, [errorLogs]);
+
+  // エラーログをクリア
+  const handleClearErrorLogs = useCallback(async () => {
+    if (!confirm("すべてのエラーログを削除しますか？この操作は取り消せません。")) {
+      return;
+    }
+
+    setErrorLogStatus({ state: "loading", message: "エラーログを削除中..." });
+    try {
+      await clearAllLogs();
+      await loadErrorLogs();
+      setErrorLogStatus({ state: "success", message: "エラーログを削除しました。" });
+    } catch (error) {
+      console.error("Failed to clear error logs:", error);
+      setErrorLogStatus({
+        state: "error",
+        message: error instanceof Error ? `削除失敗: ${error.message}` : "削除に失敗しました",
+      });
+    }
+  }, [loadErrorLogs]);
+
+  // デバッグ用: テストエラーを生成
+  const handleGenerateTestErrors = useCallback(async () => {
+    // 様々な種類のテストエラーを生成
+    await saveErrorLog(
+      "error",
+      "runtime",
+      "テストエラー: ランタイムエラーが発生しました",
+      new Error("This is a test runtime error"),
+      { testData: "sample", apiKey: "sk-test1234567890", password: "secret123" }
+    );
+
+    await saveErrorLog(
+      "error",
+      "api",
+      "テストエラー: API呼び出しに失敗しました",
+      new Error("API connection failed"),
+      { endpoint: "https://api.openai.com/v1/chat/completions", statusCode: 500 }
+    );
+
+    await saveErrorLog(
+      "warning",
+      "storage",
+      "テストWarning: ストレージ容量が不足しています",
+      undefined,
+      { available: "10MB", required: "50MB" }
+    );
+
+    await saveErrorLog(
+      "error",
+      "startup",
+      "テストエラー: アプリケーション起動時にエラーが発生しました",
+      new Error("Initialization failed"),
+      {
+        config: { apiKey: "sk-proj-abcdefghijklmnopqrstuvwxyz", baseUrl: "https://api.openai.com/v1" },
+        token: "bearer_token_12345",
+        passphrase: "my-secret-passphrase-2024"
+      }
+    );
+
+    await saveErrorLog(
+      "info",
+      "ui",
+      "テストInfo: ユーザーがボタンをクリックしました",
+      undefined,
+      { buttonId: "test-button", timestamp: Date.now() }
+    );
+
+    // ログを再読み込み
+    await loadErrorLogs();
+
+    setErrorLogStatus({
+      state: "success",
+      message: "5件のテストエラーを生成しました。エクスポートして内容を確認してください。",
+    });
+  }, [loadErrorLogs]);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,6 +316,11 @@ export default function SettingsPage() {
       cancelled = true;
     };
   }, [addLog]);
+
+  // エラーログを初回読み込み
+  useEffect(() => {
+    loadErrorLogs();
+  }, [loadErrorLogs]);
 
   const handleSave = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -670,9 +826,9 @@ export default function SettingsPage() {
       </section>
 
       <section className="section-card">
-        <div className="section-card-title">接続・API ログ</div>
+        <div className="section-card-title">接続状況ログ</div>
         <p className="section-card-description">
-          接続テストや設定保存で生成されたログです。問題調査時に活用してください。
+          接続テストや設定保存で生成されたログです。APIキーが正しく設定されているか、接続できない場合はこちらを確認してください。
         </p>
         <div className="log-toolbar">
           <button className="outline-button" onClick={resetLogs} type="button">
@@ -711,6 +867,122 @@ export default function SettingsPage() {
                 </li>
               ))}
           </ul>
+        )}
+      </section>
+
+      <section className="section-card">
+        <div className="section-card-title">🚨 詳細エラーログ（開発者向け）</div>
+        <p className="section-card-description">
+          アプリケーション全体で発生したエラーの詳細情報を記録します。
+          予期せぬエラーやトラブルが発生した際は、このログをエクスポートして開発者に送信してください。
+        </p>
+
+        {/* 統計情報 */}
+        <div className="error-log-stats">
+          <div className="stat-card">
+            <Database size={20} color="var(--accent)" />
+            <div className="stat-content">
+              <div className="stat-value">{logStats.total}</div>
+              <div className="stat-label">総ログ数</div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <AlertCircle size={20} color="var(--error)" />
+            <div className="stat-content">
+              <div className="stat-value">{logStats.byLevel.error || 0}</div>
+              <div className="stat-label">エラー</div>
+            </div>
+          </div>
+        </div>
+
+        {/* アクションボタン */}
+        <div className="form-navigation">
+          <button
+            className="primary-button"
+            onClick={handleExportErrorLogs}
+            disabled={errorLogStatus.state === "loading" || errorLogs.length === 0}
+            type="button"
+          >
+            <Download size={16} />
+            {errorLogStatus.state === "loading" ? "エクスポート中..." : "ログをエクスポート"}
+          </button>
+          <button
+            className="outline-button"
+            onClick={handleClearErrorLogs}
+            disabled={errorLogStatus.state === "loading" || errorLogs.length === 0}
+            type="button"
+          >
+            <Trash2 size={16} />
+            ログを削除
+          </button>
+          <button
+            className="outline-button"
+            onClick={handleGenerateTestErrors}
+            disabled={errorLogStatus.state === "loading"}
+            type="button"
+            style={{ borderColor: "var(--warning)", color: "var(--warning)" }}
+          >
+            🧪 テストエラーを生成
+          </button>
+        </div>
+
+        {/* ステータス表示 */}
+        <div className={`status-banner status-${errorLogStatus.state}`} role="status">
+          <div className="status-title">{errorLogStatus.message}</div>
+          <p className="status-message">
+            エクスポートされたJSONファイルにはAPIキーなどの機密情報は含まれません（自動的にサニタイズされます）。
+          </p>
+        </div>
+
+        {/* ログ一覧 */}
+        {errorLogs.length === 0 ? (
+          <EmptyState
+            icon={AlertCircle}
+            title="エラーログはありません"
+            description="アプリケーションでエラーが発生すると、ここに記録されます。"
+          />
+        ) : (
+          <div className="error-log-list">
+            <div className="error-log-header">
+              <span>レベル</span>
+              <span>カテゴリ</span>
+              <span>メッセージ</span>
+              <span>日時</span>
+            </div>
+            {errorLogs.slice(0, 50).map((log, index) => (
+              <div key={log.id || index} className="error-log-item">
+                <div className="error-log-level">
+                  <StatusBadge
+                    status={
+                      log.level === "error"
+                        ? "error"
+                        : log.level === "warning"
+                        ? "warning"
+                        : log.level === "info"
+                        ? "idle"
+                        : "idle"
+                    }
+                    text={log.level}
+                  />
+                </div>
+                <div className="error-log-category">{log.category}</div>
+                <div className="error-log-message">{log.message}</div>
+                <div className="error-log-time">
+                  {new Date(log.timestamp).toLocaleString("ja-JP", {
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+              </div>
+            ))}
+            {errorLogs.length > 50 && (
+              <p className="error-log-footer">
+                最新50件を表示しています（全{errorLogs.length}件）
+              </p>
+            )}
+          </div>
         )}
       </section>
     </main>
