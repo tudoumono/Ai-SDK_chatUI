@@ -2147,3 +2147,175 @@ textarea {
   align-items: center;
   gap: 8px;
 }
+
+/* ===========================
+   Dashboard Search Enhancements
+   =========================== */
+
+.dashboard-search-area {
+  margin-bottom: 20px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--foreground-tertiary);
+  pointer-events: none;
+}
+
+.search-input {
+  padding-left: 44px !important;
+}
+
+/* ハイライト表示 */
+.search-highlight {
+  background-color: #ffd700;
+  color: #000;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+/* タグサジェスト */
+.tag-suggestions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: clamp(0.8rem, 1.6vw, 0.9rem);
+}
+
+.tag-suggestions-label {
+  color: var(--foreground-secondary);
+  font-weight: 500;
+}
+
+.tag-suggestion-button {
+  padding: 4px 10px;
+  background: var(--accent-lighter);
+  border: 1px solid var(--accent-light);
+  border-radius: var(--radius-full);
+  color: var(--accent);
+  font-size: clamp(0.75rem, 1.5vw, 0.85rem);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.tag-suggestion-button:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+
+/* フィルター・ソートバー */
+.filter-sort-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 16px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+}
+
+.date-filter-group,
+.sort-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: clamp(0.8rem, 1.6vw, 0.9rem);
+  font-weight: 500;
+  color: var(--foreground-secondary);
+}
+
+.filter-button {
+  padding: 6px 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  font-size: clamp(0.8rem, 1.6vw, 0.9rem);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.filter-button:hover {
+  border-color: var(--accent);
+  background: var(--accent-lighter);
+}
+
+.filter-button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+
+.sort-select {
+  padding: 6px 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  font-size: clamp(0.8rem, 1.6vw, 0.9rem);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.sort-select:hover,
+.sort-select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* メッセージプレビュー */
+.conversation-preview {
+  font-size: clamp(0.8rem, 1.6vw, 0.9rem);
+  color: var(--foreground-tertiary);
+  line-height: 1.5;
+  margin: 6px 0;
+  padding: 8px 12px;
+  background: var(--background-secondary);
+  border-left: 3px solid var(--accent-light);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-style: italic;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .filter-sort-bar {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .date-filter-group,
+  .sort-group {
+    width: 100%;
+  }
+
+  .filter-button {
+    flex: 1;
+    text-align: center;
+  }
+
+  .sort-select {
+    width: 100%;
+  }
+}

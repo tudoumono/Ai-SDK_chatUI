@@ -16,7 +16,9 @@ import {
   buildSeedMessages,
   buildSeedVectorStores,
 } from "@/lib/storage/seeds";
-import type { ConversationRecord } from "@/lib/storage/schema";
+import type { ConversationRecord, MessageRecord } from "@/lib/storage/schema";
+import { highlightText, highlightTags, extractMatchPreview } from "@/lib/utils/highlight";
+import { Search, Calendar, SortAsc, Tag } from "lucide-react";
 
 const INITIAL_STATUS: DashboardStatus = {
   state: "idle",
@@ -33,11 +35,18 @@ type DataState = {
   conversations: ConversationRecord[];
 };
 
-type SearchGroups = {
-  title: ConversationRecord[];
-  tags: ConversationRecord[];
-  messages: ConversationRecord[];
+type ConversationWithPreview = ConversationRecord & {
+  messagePreview?: string;
 };
+
+type SearchGroups = {
+  title: ConversationWithPreview[];
+  tags: ConversationWithPreview[];
+  messages: ConversationWithPreview[];
+};
+
+type DateFilter = "all" | "today" | "week" | "month";
+type SortOption = "updated-desc" | "updated-asc" | "title-asc" | "title-desc";
 
 const CONVERSATION_RETENTION_DAYS = 14;
 
@@ -52,21 +61,80 @@ export default function DashboardPage() {
   const [searchResults, setSearchResults] = useState<SearchGroups | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // 新機能のState
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [sortOption, setSortOption] = useState<SortOption>("updated-desc");
+  const [allTags, setAllTags] = useState<string[]>([]);
+
   const showSearchResults = filter.trim().length > 0;
   const totalMatches = searchResults
     ? searchResults.title.length + searchResults.tags.length + searchResults.messages.length
     : 0;
 
-  const renderConversationList = useCallback((conversations: ConversationRecord[]) => {
+  // 日付フィルター関数
+  const filterByDate = useCallback((conversations: ConversationWithPreview[]): ConversationWithPreview[] => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const monthAgo = new Date(today);
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+    return conversations.filter((conv) => {
+      const updatedAt = new Date(conv.updatedAt);
+      switch (dateFilter) {
+        case "today":
+          return updatedAt >= today;
+        case "week":
+          return updatedAt >= weekAgo;
+        case "month":
+          return updatedAt >= monthAgo;
+        default:
+          return true;
+      }
+    });
+  }, [dateFilter]);
+
+  // ソート関数
+  const sortConversations = useCallback((conversations: ConversationWithPreview[]): ConversationWithPreview[] => {
+    const sorted = [...conversations];
+    switch (sortOption) {
+      case "updated-desc":
+        return sorted.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      case "updated-asc":
+        return sorted.sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
+      case "title-asc":
+        return sorted.sort((a, b) => a.title.localeCompare(b.title, 'ja'));
+      case "title-desc":
+        return sorted.sort((a, b) => b.title.localeCompare(a.title, 'ja'));
+      default:
+        return sorted;
+    }
+  }, [sortOption]);
+
+  // フィルター・ソート適用後の会話リスト
+  const filteredAndSortedConversations = useMemo(() => {
+    const filtered = filterByDate(data.conversations);
+    return sortConversations(filtered);
+  }, [data.conversations, filterByDate, sortConversations]);
+
+  const renderConversationList = useCallback((conversations: ConversationWithPreview[], keyword = "") => {
     return (
       <ul className="conversation-list">
         {conversations.map((conversation) => (
           <li key={conversation.id} className="conversation-item">
-            <div className="conversation-title">{conversation.title}</div>
+            <div className="conversation-title">
+              {keyword ? highlightText(conversation.title, keyword) : conversation.title}
+            </div>
+            {conversation.messagePreview && (
+              <div className="conversation-preview">
+                {keyword ? highlightText(conversation.messagePreview, keyword) : conversation.messagePreview}
+              </div>
+            )}
             <div className="conversation-meta">
               {conversation.tags.length > 0 && (
                 <div className="conversation-tags">
-                  {conversation.tags.map((tag) => (
+                  {keyword ? highlightTags(conversation.tags, keyword) : conversation.tags.map((tag) => (
                     <span key={tag} className="conversation-tag">
                       #{tag}
                     </span>
@@ -129,6 +197,14 @@ export default function DashboardPage() {
 
       // TODO: G0 で決定した保存ポリシー・暗号化設定を参照し、ここで復号や表示制御を行う。
       setData({ conversations: conversationsWithContent });
+
+      // 全タグを抽出
+      const tags = new Set<string>();
+      conversationsWithContent.forEach((conv) => {
+        conv.tags.forEach((tag) => tags.add(tag));
+      });
+      setAllTags(Array.from(tags).sort());
+
       setSearchResults(null);
       setSearching(false);
       updateStatus({
@@ -180,20 +256,28 @@ export default function DashboardPage() {
         );
         const seenIds = new Set([...titleMatches, ...tagsMatches].map((item) => item.id));
 
-        const messageMatches: ConversationRecord[] = [];
+        const messageMatches: ConversationWithPreview[] = [];
         for (const conversation of data.conversations) {
           if (seenIds.has(conversation.id)) {
             continue;
           }
           const messages = await getMessages(conversation.id).catch(() => []);
-          const hasMatch = messages.some((message) =>
-            message.parts.some(
-              (part) => part.type === "text" && part.text.toLowerCase().includes(normalized),
-            ),
-          );
-          if (hasMatch) {
-            messageMatches.push(conversation);
+
+          // メッセージ内でマッチを探し、プレビューを生成
+          for (const message of messages) {
+            const textPart = message.parts.find(
+              (part) => part.type === "text" && part.text.toLowerCase().includes(normalized)
+            );
+            if (textPart && textPart.type === "text") {
+              const preview = extractMatchPreview(textPart.text, keyword, 60);
+              messageMatches.push({
+                ...conversation,
+                messagePreview: preview,
+              });
+              break; // 最初のマッチのみ
+            }
           }
+
           if (cancelled) {
             return;
           }
@@ -275,45 +359,119 @@ export default function DashboardPage() {
 
       <section className="section-card">
         <div className="section-card-title">履歴データの管理</div>
-        <div className="dashboard-actions">
-          <div className="dashboard-search">
-            <label className="field-label" htmlFor="conversation-filter">
-              会話検索
-            </label>
+
+        {/* 検索エリア */}
+        <div className="dashboard-search-area">
+          <div className="search-input-wrapper">
+            <Search size={20} className="search-icon" />
             <input
-              className="field-input"
+              className="field-input search-input"
               id="conversation-filter"
-              placeholder="キーワードまたはタグでフィルタ"
+              placeholder="キーワードまたはタグで検索..."
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
             />
           </div>
-          <div className="dashboard-buttons">
-            <button className="outline-button" onClick={loadData} type="button">
-              再読み込み
+
+          {/* タグサジェスト */}
+          {allTags.length > 0 && !filter && (
+            <div className="tag-suggestions">
+              <Tag size={16} />
+              <span className="tag-suggestions-label">よく使うタグ:</span>
+              {allTags.slice(0, 8).map((tag) => (
+                <button
+                  key={tag}
+                  className="tag-suggestion-button"
+                  onClick={() => setFilter(tag)}
+                  type="button"
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* フィルター・ソートバー */}
+        <div className="filter-sort-bar">
+          <div className="date-filter-group">
+            <Calendar size={16} />
+            <span className="filter-label">期間:</span>
+            <button
+              className={`filter-button ${dateFilter === "all" ? "active" : ""}`}
+              onClick={() => setDateFilter("all")}
+              type="button"
+            >
+              全期間
             </button>
-            <button className="outline-button" onClick={handleExport} type="button">
-              JSON エクスポート
+            <button
+              className={`filter-button ${dateFilter === "today" ? "active" : ""}`}
+              onClick={() => setDateFilter("today")}
+              type="button"
+            >
+              今日
             </button>
-            <button className="primary-button" onClick={handleImportClick} type="button">
-              JSON インポート
+            <button
+              className={`filter-button ${dateFilter === "week" ? "active" : ""}`}
+              onClick={() => setDateFilter("week")}
+              type="button"
+            >
+              今週
             </button>
-            <input
-              accept="application/json"
-              hidden
-              ref={fileInputRef}
-              type="file"
-              onChange={handleImportFile}
-            />
+            <button
+              className={`filter-button ${dateFilter === "month" ? "active" : ""}`}
+              onClick={() => setDateFilter("month")}
+              type="button"
+            >
+              今月
+            </button>
+          </div>
+
+          <div className="sort-group">
+            <SortAsc size={16} />
+            <span className="filter-label">並び替え:</span>
+            <select
+              className="sort-select"
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value as SortOption)}
+            >
+              <option value="updated-desc">更新日時（新しい順）</option>
+              <option value="updated-asc">更新日時（古い順）</option>
+              <option value="title-asc">タイトル（あ→ん）</option>
+              <option value="title-desc">タイトル（ん→あ）</option>
+            </select>
           </div>
         </div>
+
+        {/* アクションボタン */}
+        <div className="dashboard-buttons">
+          <button className="outline-button" onClick={loadData} type="button">
+            再読み込み
+          </button>
+          <button className="outline-button" onClick={handleExport} type="button">
+            JSON エクスポート
+          </button>
+          <button className="primary-button" onClick={handleImportClick} type="button">
+            JSON インポート
+          </button>
+          <input
+            accept="application/json"
+            hidden
+            ref={fileInputRef}
+            type="file"
+            onChange={handleImportFile}
+          />
+        </div>
+
         {status.message && (
           <div className={`status-banner status-${status.state}`} role="status">
             <div className="status-title">{status.message}</div>
           </div>
         )}
 
-        <div className="section-card-title">会話一覧</div>
+        <div className="section-card-title">
+          会話一覧 ({showSearchResults ? `検索結果: ${totalMatches}件` : `全${filteredAndSortedConversations.length}件`})
+        </div>
         {showSearchResults ? (
           <div className="conversation-subsections">
             {searching && (
@@ -326,29 +484,31 @@ export default function DashboardPage() {
             ) : null}
             {searchResults?.title.length ? (
               <div className="conversation-subsection">
-                <div className="conversation-subsection-title">タイトルに一致</div>
-                {renderConversationList(searchResults.title)}
+                <div className="conversation-subsection-title">📝 タイトルに一致 ({searchResults.title.length}件)</div>
+                {renderConversationList(searchResults.title, filter)}
               </div>
             ) : null}
             {searchResults?.tags.length ? (
               <div className="conversation-subsection">
-                <div className="conversation-subsection-title">タグに一致</div>
-                {renderConversationList(searchResults.tags)}
+                <div className="conversation-subsection-title">🏷️ タグに一致 ({searchResults.tags.length}件)</div>
+                {renderConversationList(searchResults.tags, filter)}
               </div>
             ) : null}
             {searchResults?.messages.length ? (
               <div className="conversation-subsection">
-                <div className="conversation-subsection-title">メッセージ本文に一致</div>
-                {renderConversationList(searchResults.messages)}
+                <div className="conversation-subsection-title">💬 メッセージ本文に一致 ({searchResults.messages.length}件)</div>
+                {renderConversationList(searchResults.messages, filter)}
               </div>
             ) : null}
           </div>
-        ) : data.conversations.length === 0 ? (
+        ) : filteredAndSortedConversations.length === 0 ? (
           <p className="section-card-description">
-            履歴がまだありません。チャット画面から会話を作成するか、JSON をインポートしてください。
+            {dateFilter !== "all"
+              ? "選択した期間に該当する会話がありません。"
+              : "履歴がまだありません。チャット画面から会話を作成するか、JSON をインポートしてください。"}
           </p>
         ) : (
-          renderConversationList(data.conversations)
+          renderConversationList(filteredAndSortedConversations)
         )}
       </section>
     </main>
