@@ -35,16 +35,8 @@
     ],
     "windows": {
       "nsis": {
-        "template": null,
-        "headerImage": null,
-        "sidebarImage": null,
-        "installerIcon": null,
         "installMode": "perUser",
-        "languages": ["Japanese", "English"],
-        "displayLanguageSelector": false
-      },
-      "wix": {
-        "language": ["ja-JP", "en-US"]
+        "languages": ["Japanese", "English"]
       }
     }
   }
