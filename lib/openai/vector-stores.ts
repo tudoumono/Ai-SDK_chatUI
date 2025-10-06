@@ -31,7 +31,42 @@ type VectorStoreListResponse = {
     updated_at?: string | null;
     created_at?: string | null;
     description?: string | null;
+    metadata?: { description?: string | null } | null;
+    expires_after?: {
+      anchor?: "last_active_at" | "created_at" | null;
+      days?: number | null;
+    } | null;
+    expires_at?: string | null;
   }>;
+};
+
+type VectorStoreDetailResponse = {
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  metadata?: { description?: string | null } | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  expires_after?: {
+    anchor?: "last_active_at" | "created_at" | null;
+    days?: number | null;
+  } | null;
+  expires_at?: string | null;
+  file_counts?: { completed?: number } | null;
+};
+
+export type VectorStoreDetail = {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  fileCount?: number;
+  expiresAfter?: {
+    anchor: "last_active_at" | "created_at";
+    days: number | null;
+  } | null;
+  expiresAt?: string | null;
 };
 
 export async function fetchVectorStoresFromApi(
@@ -54,14 +89,77 @@ export async function fetchVectorStoresFromApi(
     throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
   }
   const json = (await response.json()) as VectorStoreListResponse;
-  return json.data.map((item) => ({
-    id: item.id,
-    name: item.name ?? "(名称未設定)",
-    fileCount: item.file_counts?.completed ?? 0,
-    updatedAt: item.updated_at ?? item.created_at ?? new Date().toISOString(),
-    createdAt: item.created_at ?? new Date().toISOString(),
-    description: item.description ?? undefined,
-  }));
+  return json.data.map((item) => {
+    const expiresAfter = item.expires_after
+      ? {
+          anchor: (item.expires_after.anchor ?? "last_active_at") as
+            | "last_active_at"
+            | "created_at",
+          days:
+            typeof item.expires_after.days === "number"
+              ? item.expires_after.days
+              : null,
+        }
+      : null;
+
+    return {
+      id: item.id,
+      name: item.name ?? "(名称未設定)",
+      fileCount: item.file_counts?.completed ?? 0,
+      updatedAt: item.updated_at ?? item.created_at ?? new Date().toISOString(),
+      createdAt: item.created_at ?? new Date().toISOString(),
+      description:
+        item.description ?? item.metadata?.description ?? undefined,
+      expiresAfter,
+      expiresAt: item.expires_at ?? null,
+    };
+  });
+}
+
+export async function fetchVectorStoreDetail(
+  id: string,
+  connectionOverride?: ConnectionSettings,
+): Promise<VectorStoreDetail> {
+  const connection = ensureConnection(
+    connectionOverride ?? (await loadConnection()),
+  );
+  const baseUrl = buildBaseUrl(connection);
+  const url = `${baseUrl}/vector_stores/${id}`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: buildRequestHeaders(
+      { Authorization: `Bearer ${connection.apiKey}` },
+      connection.additionalHeaders,
+    ),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+  }
+  const json = (await response.json()) as VectorStoreDetailResponse;
+  const expiresAfter = json.expires_after
+    ? {
+        anchor: (json.expires_after.anchor ?? "last_active_at") as
+          | "last_active_at"
+          | "created_at",
+        days:
+          typeof json.expires_after.days === "number"
+            ? json.expires_after.days
+            : null,
+      }
+    : null;
+
+  return {
+    id: json.id,
+    name: json.name ?? "(名称未設定)",
+    description:
+      json.description ?? json.metadata?.description ?? undefined,
+    createdAt: json.created_at ?? undefined,
+    updatedAt: json.updated_at ?? undefined,
+    fileCount: json.file_counts?.completed ?? undefined,
+    expiresAfter,
+    expiresAt: json.expires_at ?? null,
+  };
 }
 
 export async function deleteVectorStoreFromApi(
@@ -214,16 +312,39 @@ type CreateVectorStoreResponse = {
   };
 };
 
+type VectorStoreOptions = {
+  expiresAfterDays?: number | null;
+  connectionOverride?: ConnectionSettings;
+};
+
 export async function createVectorStore(
   name: string,
   description?: string,
-  connectionOverride?: ConnectionSettings,
+  options?: VectorStoreOptions,
 ): Promise<string> {
   const connection = ensureConnection(
-    connectionOverride ?? (await loadConnection()),
+    options?.connectionOverride ?? (await loadConnection()),
   );
   const baseUrl = buildBaseUrl(connection);
   const url = `${baseUrl}/vector_stores`;
+
+  const body: Record<string, unknown> = { name };
+
+  if (description) {
+    body.metadata = { description };
+  }
+
+  if (options) {
+    if (options.expiresAfterDays === null) {
+      body.expires_after = null;
+    } else if (typeof options.expiresAfterDays === "number") {
+      body.expires_after = {
+        anchor: "last_active_at",
+        days: options.expiresAfterDays,
+      };
+    }
+  }
+
   const response = await fetch(url, {
     method: "POST",
     headers: buildRequestHeaders(
@@ -233,10 +354,7 @@ export async function createVectorStore(
       },
       connection.additionalHeaders,
     ),
-    body: JSON.stringify({
-      name,
-      ...(description ? { metadata: { description } } : {}),
-    }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     const message = await response.text().catch(() => "");
@@ -336,13 +454,35 @@ export async function updateVectorStore(
   vectorStoreId: string,
   name: string,
   description?: string,
-  connectionOverride?: ConnectionSettings,
+  options?: VectorStoreOptions,
 ): Promise<void> {
   const connection = ensureConnection(
-    connectionOverride ?? (await loadConnection()),
+    options?.connectionOverride ?? (await loadConnection()),
   );
   const baseUrl = buildBaseUrl(connection);
   const url = `${baseUrl}/vector_stores/${vectorStoreId}`;
+
+  const body: Record<string, unknown> = { name };
+
+  if (typeof description !== "undefined") {
+    if (description) {
+      body.metadata = { description };
+    } else {
+      body.metadata = {};
+    }
+  }
+
+  if (options) {
+    if (options.expiresAfterDays === null) {
+      body.expires_after = null;
+    } else if (typeof options.expiresAfterDays === "number") {
+      body.expires_after = {
+        anchor: "last_active_at",
+        days: options.expiresAfterDays,
+      };
+    }
+  }
+
   const response = await fetch(url, {
     method: "POST",
     headers: buildRequestHeaders(
@@ -352,10 +492,7 @@ export async function updateVectorStore(
       },
       connection.additionalHeaders,
     ),
-    body: JSON.stringify({
-      name,
-      ...(description ? { metadata: { description } } : {}),
-    }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     const message = await response.text().catch(() => "");

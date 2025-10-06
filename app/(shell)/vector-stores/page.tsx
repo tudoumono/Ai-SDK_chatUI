@@ -36,6 +36,33 @@ function highlightText(text: string, query: string) {
   );
 }
 
+function formatExpiration(store: VectorStoreRecord): string {
+  if (!store.expiresAfter || store.expiresAfter.days === null) {
+    return "無期限";
+  }
+
+  if (store.expiresAt) {
+    const expiresDate = new Date(store.expiresAt);
+    const now = new Date();
+    const diffMs = expiresDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return "期限切れ";
+    } else if (diffDays === 0) {
+      return "今日期限";
+    } else if (diffDays === 1) {
+      return "明日期限";
+    } else if (diffDays <= 7) {
+      return `${diffDays}日後`;
+    } else {
+      return `${store.expiresAfter.days}日設定`;
+    }
+  }
+
+  return `${store.expiresAfter.days}日設定`;
+}
+
 export default function VectorStoresPage() {
   const [vectorStores, setVectorStores] = useState<VectorStoreRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -344,6 +371,10 @@ export default function VectorStoresPage() {
                       <div className="th-content">ファイル数</div>
                       <div className="resize-handle"></div>
                     </th>
+                    <th className="resizable">
+                      <div className="th-content">保管期限</div>
+                      <div className="resize-handle"></div>
+                    </th>
                     <th>
                       <div className="th-content">操作</div>
                     </th>
@@ -352,7 +383,7 @@ export default function VectorStoresPage() {
                 <tbody>
                   {sortedStores.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="vs-empty">
+                      <td colSpan={7} className="vs-empty">
                         Vector Store が見つかりません
                       </td>
                     </tr>
@@ -377,6 +408,11 @@ export default function VectorStoresPage() {
                         </td>
                         <td className="vs-size">
                           {store.fileCount ? `${store.fileCount} files` : "—"}
+                        </td>
+                        <td className="vs-expiration">
+                          <span className={`expiration-badge ${!store.expiresAfter || store.expiresAfter.days === null ? "unlimited" : ""}`}>
+                            {formatExpiration(store)}
+                          </span>
                         </td>
                         <td className="vs-actions-cell">
                           <Link

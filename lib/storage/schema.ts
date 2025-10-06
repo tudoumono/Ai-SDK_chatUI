@@ -81,6 +81,11 @@ export type VectorStoreRecord = {
   createdAt: string;
   description?: string;
   isFavorite?: boolean;
+  expiresAfter?: {
+    anchor: "last_active_at" | "created_at";
+    days: number | null;
+  } | null;
+  expiresAt?: string | null;
 };
 
 export type ExportBundle = {

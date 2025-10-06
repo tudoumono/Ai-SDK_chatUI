@@ -84,6 +84,42 @@
   max-width: 800px;
 }
 
+.retention-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.retention-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.95rem;
+  color: var(--foreground);
+}
+
+.retention-option span {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.retention-days-input {
+  width: 90px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  font-size: 0.95rem;
+}
+
+.retention-days-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .field-header {
   display: flex;
   align-items: center;

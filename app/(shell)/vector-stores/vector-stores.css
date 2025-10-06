@@ -456,3 +456,25 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.vs-expiration {
+  text-align: center;
+}
+
+.expiration-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 500;
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success);
+  white-space: nowrap;
+}
+
+.expiration-badge.unlimited {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning);
+}

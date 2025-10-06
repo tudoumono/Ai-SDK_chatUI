@@ -187,6 +187,32 @@ export default function GuidePage() {
             </li>
           </ul>
         </div>
+
+        <div>
+          <h3 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+            📦 Vector Storeの保管期間設定
+          </h3>
+          <p style={{ marginLeft: "1rem", lineHeight: "1.6" }}>
+            Vector Store（ファイル検索用のベクトルストア）には保管期間を設定できます:
+          </p>
+          <ul style={{ marginLeft: "1.5rem", lineHeight: "1.8" }}>
+            <li>
+              <strong>自動削除</strong>: 最後の利用から指定日数（1～365日）経過後に自動削除
+            </li>
+            <li>
+              <strong>無期限保管</strong>: 手動で削除するまで保持（定期的な見直しを推奨）
+            </li>
+            <li>
+              <strong>既定値</strong>: 7日間の自動削除が設定されています
+            </li>
+            <li>
+              <strong>注意</strong>: 無期限保管は課金が継続します。使用しないVector Storeは削除してください
+            </li>
+          </ul>
+          <p style={{ marginLeft: "1rem", lineHeight: "1.6", marginTop: "0.5rem" }}>
+            Vector Stores一覧ページで保管期限を確認できます。期限が近い場合は警告が表示されます。
+          </p>
+        </div>
       </section>
 
       <section className="section-card">

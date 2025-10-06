@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/export.cjs",
     "start": "npx serve out",
     "preview": "npx serve out",
     "lint": "next lint",
@@ -30,6 +30,7 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.8.4"
+    "@tauri-apps/cli": "^2.8.4",
+    "serve": "^14.2.1"
   }
 }

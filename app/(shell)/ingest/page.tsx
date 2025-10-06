@@ -13,6 +13,7 @@ import {
   createVectorStore,
   uploadFileToOpenAI,
   attachFileToVectorStore,
+  fetchVectorStoreDetail,
   updateVectorStore as updateVectorStoreApi,
   type VectorStoreFileInfo
 } from "@/lib/openai/vector-stores";
@@ -35,6 +36,8 @@ type RegisteredFile = {
   status: string;
   error?: string;
 };
+
+const DEFAULT_RETENTION_DAYS = 7;
 
 export default function IngestPage() {
   return (
@@ -71,6 +74,15 @@ function IngestContent() {
   const [hasInfoChanged, setHasInfoChanged] = useState(false);
   const [originalName, setOriginalName] = useState("");
   const [originalDescription, setOriginalDescription] = useState("");
+  const [retentionMode, setRetentionMode] = useState<"auto" | "none">("auto");
+  const [retentionDays, setRetentionDays] = useState<number>(DEFAULT_RETENTION_DAYS);
+  const [retentionError, setRetentionError] = useState<string | null>(null);
+  const [originalRetention, setOriginalRetention] = useState<{ mode: "auto" | "none"; days: number }>(
+    {
+      mode: "auto",
+      days: DEFAULT_RETENTION_DAYS,
+    },
+  );
 
   const loadRegisteredFiles = useCallback(async (vsId?: string) => {
     const targetId = vsId || currentVectorStoreId;
@@ -132,7 +144,40 @@ function IngestContent() {
           setDescription(store.description || "");
           setOriginalName(store.name);
           setOriginalDescription(store.description || "");
-          await loadRegisteredFiles();
+        }
+
+        if (!cancelled) {
+          try {
+            const detail = await fetchVectorStoreDetail(vectorStoreId);
+            const detailDescription = detail.description ?? "";
+
+            if (!store) {
+              setStoreName(detail.name);
+              setOriginalName(detail.name);
+            }
+            if (detailDescription && !store?.description) {
+              setDescription(detailDescription);
+              setOriginalDescription(detailDescription);
+            }
+
+            if (detail.expiresAfter && detail.expiresAfter.days !== null) {
+              const days = detail.expiresAfter.days || DEFAULT_RETENTION_DAYS;
+              setRetentionMode("auto");
+              setRetentionDays(days);
+              setOriginalRetention({ mode: "auto", days });
+            } else {
+              setRetentionMode("none");
+              setRetentionDays(DEFAULT_RETENTION_DAYS);
+              setOriginalRetention({ mode: "none", days: DEFAULT_RETENTION_DAYS });
+            }
+            setRetentionError(null);
+          } catch (detailError) {
+            console.error("Failed to load vector store detail:", detailError);
+          }
+        }
+
+        if (!cancelled) {
+          await loadRegisteredFiles(vectorStoreId);
         }
       } catch (error) {
         console.error("Failed to load vector store:", error);
@@ -148,14 +193,29 @@ function IngestContent() {
     };
   }, [vectorStoreId, loadRegisteredFiles]);
 
-  // 名前または説明が変更されたかチェック
+  // 名前・説明・保有期間が変更されたかチェック
   useEffect(() => {
     if (vectorStoreId) {
       const nameChanged = storeName !== originalName;
       const descChanged = description !== originalDescription;
-      setHasInfoChanged(nameChanged || descChanged);
+      const retentionChanged =
+        retentionMode !== originalRetention.mode ||
+        (retentionMode === "auto" &&
+          originalRetention.mode === "auto" &&
+          retentionDays !== originalRetention.days);
+
+      setHasInfoChanged(nameChanged || descChanged || retentionChanged);
     }
-  }, [storeName, description, originalName, originalDescription, vectorStoreId]);
+  }, [
+    storeName,
+    description,
+    originalName,
+    originalDescription,
+    vectorStoreId,
+    retentionMode,
+    retentionDays,
+    originalRetention,
+  ]);
 
   const handleFiles = useCallback((files: File[]) => {
     // Vector Storeでサポートされているファイル形式
@@ -216,6 +276,29 @@ function IngestContent() {
     handleFiles(files);
   }, [handleFiles]);
 
+  const handleRetentionModeChange = useCallback((mode: "auto" | "none") => {
+    setRetentionMode(mode);
+    if (mode === "none") {
+      setRetentionError(null);
+    }
+  }, []);
+
+  const handleRetentionDaysChange = useCallback((value: string) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      setRetentionDays(DEFAULT_RETENTION_DAYS);
+      setRetentionError("数値を入力してください");
+      return;
+    }
+    const normalized = Math.max(1, Math.min(365, Math.floor(parsed)));
+    setRetentionDays(normalized);
+    if (parsed > 365) {
+      setRetentionError("保有期間の上限は365日です");
+    } else {
+      setRetentionError(null);
+    }
+  }, []);
+
   const handleDeleteFile = useCallback((id: string) => {
     setUploadedFiles((prev) => prev.filter((file) => file.id !== id));
   }, []);
@@ -252,6 +335,12 @@ function IngestContent() {
       return;
     }
 
+    if (retentionMode === "auto" && (retentionDays < 1 || retentionDays > 365)) {
+      setRetentionError("保有期間は1～365日の範囲で指定してください");
+      alert("保有期間の日数は1～365日の範囲で指定してください。");
+      return;
+    }
+
     setIsUpdatingInfo(true);
     try {
       const connection = await loadConnection();
@@ -263,12 +352,20 @@ function IngestContent() {
         targetId,
         storeName.trim(),
         description.trim() || undefined,
-        connection
+        {
+          connectionOverride: connection,
+          expiresAfterDays: retentionMode === "auto" ? retentionDays : null,
+        },
       );
 
       setOriginalName(storeName.trim());
       setOriginalDescription(description.trim());
+      setOriginalRetention({
+        mode: retentionMode,
+        days: retentionMode === "auto" ? retentionDays : DEFAULT_RETENTION_DAYS,
+      });
       setHasInfoChanged(false);
+      setRetentionError(null);
       alert("Vector Storeの情報を更新しました");
     } catch (error) {
       console.error("Failed to update vector store info:", error);
@@ -276,7 +373,14 @@ function IngestContent() {
     } finally {
       setIsUpdatingInfo(false);
     }
-  }, [currentVectorStoreId, vectorStoreId, storeName, description]);
+  }, [
+    currentVectorStoreId,
+    vectorStoreId,
+    storeName,
+    description,
+    retentionMode,
+    retentionDays,
+  ]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes}B`;
@@ -295,6 +399,12 @@ function IngestContent() {
       return;
     }
 
+    if (retentionMode === "auto" && (retentionDays < 1 || retentionDays > 365)) {
+      setRetentionError("保有期間は1～365日の範囲で指定してください");
+      alert("保有期間の日数は1～365日の範囲で指定してください。");
+      return;
+    }
+
     setIsUploading(true);
     setUploadProgress(0);
 
@@ -306,64 +416,89 @@ function IngestContent() {
 
       let targetVectorStoreId = currentVectorStoreId || vectorStoreId;
 
-      // 新規作成の場合はVector Storeを作成
       if (!targetVectorStoreId) {
         targetVectorStoreId = await createVectorStore(
-          storeName,
-          description || undefined,
-          connection
+          storeName.trim(),
+          description.trim() || undefined,
+          {
+            connectionOverride: connection,
+            expiresAfterDays: retentionMode === "auto" ? retentionDays : null,
+          },
         );
         setCurrentVectorStoreId(targetVectorStoreId);
+        setOriginalName(storeName.trim());
+        setOriginalDescription(description.trim());
+        setOriginalRetention({
+          mode: retentionMode,
+          days: retentionMode === "auto" ? retentionDays : DEFAULT_RETENTION_DAYS,
+        });
+        setHasInfoChanged(false);
+        setRetentionError(null);
+      } else if (hasInfoChanged) {
+        await updateVectorStoreApi(
+          targetVectorStoreId,
+          storeName.trim(),
+          description.trim() || undefined,
+          {
+            connectionOverride: connection,
+            expiresAfterDays: retentionMode === "auto" ? retentionDays : null,
+          },
+        );
+        setOriginalName(storeName.trim());
+        setOriginalDescription(description.trim());
+        setOriginalRetention({
+          mode: retentionMode,
+          days: retentionMode === "auto" ? retentionDays : DEFAULT_RETENTION_DAYS,
+        });
+        setHasInfoChanged(false);
+        setRetentionError(null);
       }
 
-      // ファイルをアップロード
       const totalFiles = uploadedFiles.length;
       let completedFiles = 0;
 
       for (const uploadFile of uploadedFiles) {
         try {
-          // ステータスをuploadingに変更
           setUploadedFiles((prev) =>
             prev.map((f) =>
-              f.id === uploadFile.id ? { ...f, status: "uploading" as const } : f
-            )
+              f.id === uploadFile.id ? { ...f, status: "uploading" as const } : f,
+            ),
           );
 
-          // ファイルをOpenAI Filesにアップロード
           let fileId: string;
           try {
             fileId = await uploadFileToOpenAI(uploadFile.file, connection, (progress) => {
               setUploadedFiles((prev) =>
                 prev.map((f) =>
-                  f.id === uploadFile.id ? { ...f, progress } : f
-                )
+                  f.id === uploadFile.id ? { ...f, progress } : f,
+                ),
               );
             });
           } catch (uploadError) {
             throw new Error(`ファイルアップロードに失敗: ${uploadError instanceof Error ? uploadError.message : "不明なエラー"}`);
           }
 
-          // Vector Storeに関連付け
           try {
-            await attachFileToVectorStore(targetVectorStoreId, fileId, connection);
+            await attachFileToVectorStore(targetVectorStoreId!, fileId, connection);
           } catch (attachError) {
             const errorMsg = attachError instanceof Error ? attachError.message : "不明なエラー";
             if (errorMsg.includes("File type not supported")) {
-              throw new Error(`サポートされていないファイル形式です。Vector Storeでは特定のファイル形式のみサポートされています。`);
+              throw new Error(
+                "サポートされていないファイル形式です。Vector Storeでは特定のファイル形式のみサポートされています。",
+              );
             }
             throw new Error(`Vector Storeへの追加に失敗: ${errorMsg}`);
           }
 
-          // ステータスをcompletedに変更
           setUploadedFiles((prev) =>
             prev.map((f) =>
               f.id === uploadFile.id
                 ? { ...f, status: "completed" as const, progress: 100 }
-                : f
-            )
+                : f,
+            ),
           );
 
-          completedFiles++;
+          completedFiles += 1;
           setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
         } catch (error) {
           console.error(`Failed to upload file ${uploadFile.name}:`, error);
@@ -376,20 +511,18 @@ function IngestContent() {
                     status: "error" as const,
                     error: errorMessage,
                   }
-                : f
-            )
+                : f,
+            ),
           );
         }
       }
 
-      // 登録済みファイル一覧を再読み込み
       if (targetVectorStoreId) {
         await loadRegisteredFiles(targetVectorStoreId);
       }
 
       alert("アップロードが完了しました");
 
-      // アップロード済みファイルリストをクリア（成功したもののみ）
       setUploadedFiles((prev) => prev.filter((f) => f.status === "error"));
     } catch (error) {
       console.error("Failed to save:", error);
@@ -397,7 +530,17 @@ function IngestContent() {
     } finally {
       setIsUploading(false);
     }
-  }, [currentVectorStoreId, storeName, description, uploadedFiles, vectorStoreId, loadRegisteredFiles]);
+  }, [
+    storeName,
+    uploadedFiles,
+    vectorStoreId,
+    currentVectorStoreId,
+    description,
+    retentionMode,
+    retentionDays,
+    hasInfoChanged,
+    loadRegisteredFiles,
+  ]);
 
   const handleCancel = useCallback(() => {
     if (confirm("変更を破棄して戻りますか？")) {
@@ -455,6 +598,49 @@ function IngestContent() {
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
             />
+          </div>
+
+          <div className="ingest-form-field retention-field" style={{ maxWidth: '100%' }}>
+            <label className="ingest-form-label">保有期間</label>
+            <div className="retention-options">
+              <label className="retention-option">
+                <input
+                  type="radio"
+                  name="retention-mode"
+                  checked={retentionMode === 'auto'}
+                  onChange={() => handleRetentionModeChange('auto')}
+                />
+                <span>
+                  直近の利用から
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    className="retention-days-input"
+                    value={retentionDays}
+                    onChange={(e) => handleRetentionDaysChange(e.target.value)}
+                    disabled={retentionMode !== 'auto'}
+                  />
+                  日後に自動削除
+                </span>
+              </label>
+              <label className="retention-option">
+                <input
+                  type="radio"
+                  name="retention-mode"
+                  checked={retentionMode === 'none'}
+                  onChange={() => handleRetentionModeChange('none')}
+                />
+                <span>無期限で保管（手動で削除するまで保持）</span>
+              </label>
+            </div>
+            {retentionError ? (
+              <p className="field-error">{retentionError}</p>
+            ) : (
+              <p className="field-hint">
+                既定は7日です。自動削除に設定すると、最後に使用した日から指定日数経過後に失効します。上限は365日です。無期限保管は課金が継続するため、定期的な見直しを推奨します。
+              </p>
+            )}
           </div>
 
           <div className="upload-section">
