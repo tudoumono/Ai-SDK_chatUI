@@ -12,8 +12,8 @@ import {
   saveConnection,
   type StoragePolicy,
 } from "@/lib/settings/connection-storage";
-import { clearConversationHistory, listConversations, upsertConversations } from "@/lib/chat/session";
-import { getAllVectorStores, upsertVectorStores } from "@/lib/storage/indexed-db";
+import { clearConversationHistory, listConversations } from "@/lib/chat/session";
+import { getAllVectorStores, upsertVectorStores, upsertConversations } from "@/lib/storage/indexed-db";
 import { downloadBundle, parseBundle } from "@/lib/export/bundle";
 import {
   getAllLogs,

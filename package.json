@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/export.cjs",
+    "build": "next build",
     "start": "npx serve out",
     "preview": "npx serve out",
     "lint": "next lint",
