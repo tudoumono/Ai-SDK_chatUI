@@ -59,7 +59,7 @@ npm run start
 
 ### デスクトップアプリ版（Tauri）
 
-#### 前提条件
+#### 前提条件（開発者向け）
 - **Node.js** 20.x以上
 - **Rust** (https://www.rust-lang.org/tools/install)
 - **システム依存関係**
@@ -70,6 +70,10 @@ npm run start
 #### ビルド手順
 
 ```bash
+# リポジトリをクローン
+git clone https://github.com/tudoumono/PlayGround.git
+cd PlayGround/Ai-SDK_chatUI
+
 # feature/tauri-integrationブランチに切り替え
 git checkout feature/tauri-integration
 
@@ -87,21 +91,40 @@ npm run tauri:build
 
 **Windows:**
 ```
-src-tauri/target/release/ai-sdk-chatui.exe  ← ポータブル版（単体で動作）
-src-tauri/target/release/bundle/nsis/       ← インストーラー版
+src-tauri/target/release/app.exe                                    ← ポータブル版（単体で動作、推奨）
+src-tauri/target/release/bundle/msi/ai-sdk-chatui_0.1.0_x64_en-US.msi  ← MSIインストーラー版
+src-tauri/target/release/bundle/nsis/ai-sdk-chatui_0.1.0_x64-setup.exe ← NSISインストーラー版
 ```
 
 **macOS:**
 ```
-src-tauri/target/release/bundle/dmg/
-src-tauri/target/release/bundle/macos/
+src-tauri/target/release/bundle/dmg/ai-sdk-chatui_0.1.0_x64.dmg
+src-tauri/target/release/bundle/macos/ai-sdk-chatui.app
 ```
 
 **Linux:**
 ```
-src-tauri/target/release/bundle/deb/
-src-tauri/target/release/bundle/appimage/
+src-tauri/target/release/bundle/deb/ai-sdk-chatui_0.1.0_amd64.deb
+src-tauri/target/release/bundle/appimage/ai-sdk-chatui_0.1.0_amd64.AppImage
 ```
+
+#### 非エンジニアへの配布方法
+
+**推奨: ポータブル版**
+
+`src-tauri/target/release/app.exe` を配布してください。
+
+- ✅ インストール不要（ダブルクリックで起動）
+- ✅ 追加のプログラムインストール不要（Node.js/Rust不要）
+- ✅ USBメモリで持ち運び可能
+- ✅ 管理者権限不要
+
+**使い方**:
+1. `app.exe` をダブルクリック
+2. 初回起動時にOpenAI APIキーを入力
+3. そのままチャット開始
+
+**注意**: 初回起動時にWindows Defenderの警告が出る場合があります（デジタル署名がないため）。「詳細情報」→「実行」で起動できます。
 
 ---
 
