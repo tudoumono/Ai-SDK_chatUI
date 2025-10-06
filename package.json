@@ -5,8 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "start": "npx serve out",
+    "preview": "npx serve out",
+    "lint": "next lint",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@types/node": "^24.6.2",
@@ -23,5 +27,8 @@
     "react-dom": "^19.2.0",
     "typescript": "^5.9.3",
     "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.4"
   }
 }

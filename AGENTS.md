@@ -10,7 +10,8 @@
 - `npm install` — install dependencies whenever the lockfile changes.
 - `npm run dev` — start the Next.js dev server for local work.
 - `npm run lint` — run the shared ESLint/Next rules; resolve all findings before committing.
-- `npm run build` then `npm run start` — create and serve the production bundle for release smoke tests.
+- `npm run build` — generate the static bundle under `out/` for distribution.
+- `npm run start`（= `npm run preview`）— serve the generated static bundle locally via `npx serve out` for smoke tests.
 
 ## Coding Style & Naming Conventions
 - TypeScript strict mode is enabled; type component props, async responses, and configuration objects.
