@@ -631,6 +631,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
       setIsStreaming(false);
     }
   }, [
+    attachedFiles,
     connection,
     inputValue,
     isStreaming,

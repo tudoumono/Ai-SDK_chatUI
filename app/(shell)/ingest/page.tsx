@@ -397,7 +397,7 @@ function IngestContent() {
     } finally {
       setIsUploading(false);
     }
-  }, [storeName, description, uploadedFiles, vectorStoreId, loadRegisteredFiles]);
+  }, [currentVectorStoreId, storeName, description, uploadedFiles, vectorStoreId, loadRegisteredFiles]);
 
   const handleCancel = useCallback(() => {
     if (confirm("変更を破棄して戻りますか？")) {
