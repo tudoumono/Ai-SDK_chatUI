@@ -25,6 +25,7 @@ pnpm-debug.log*
 
 # Local data caches
 *.local
+*Zone.Identifier
 
 # Cipher/SDK caches
 data/cipher-sessions.db*
