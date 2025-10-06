@@ -12,11 +12,14 @@
   "app": {
     "windows": [
       {
-        "title": "ai-sdk-chatui",
-        "width": 800,
-        "height": 600,
+        "title": "AI ChatBot - OpenAI Responses API",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1000,
+        "minHeight": 700,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "center": true
       }
     ],
     "security": {

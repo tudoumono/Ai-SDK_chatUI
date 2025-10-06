@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLogs } from "@/lib/logs/store";
 import type { LogEntry } from "@/lib/logs/types";
 import { parseAdditionalHeaders } from "@/lib/settings/header-utils";
@@ -12,7 +12,9 @@ import {
   saveConnection,
   type StoragePolicy,
 } from "@/lib/settings/connection-storage";
-import { clearConversationHistory } from "@/lib/chat/session";
+import { clearConversationHistory, listConversations, upsertConversations } from "@/lib/chat/session";
+import { getAllVectorStores, upsertVectorStores } from "@/lib/storage/indexed-db";
+import { downloadBundle, parseBundle } from "@/lib/export/bundle";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -71,6 +73,11 @@ export default function SettingsPage() {
     state: "idle",
     message: "会話履歴の操作は未実行です。",
   });
+  const [dataStatus, setDataStatus] = useState<Status>({
+    state: "idle",
+    message: "データのインポート/エクスポートが可能です。",
+  });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [savedFlags, setSavedFlags] = useState({
     session: false,
     persistent: false,
@@ -298,6 +305,78 @@ export default function SettingsPage() {
     }
   }, [addLog]);
 
+  const handleExportData = useCallback(async () => {
+    setDataStatus({ state: "loading", message: "データをエクスポート中..." });
+    try {
+      const conversations = await listConversations();
+      const vectorStores = await getAllVectorStores().catch(() => []);
+
+      if (conversations.length === 0 && vectorStores.length === 0) {
+        setDataStatus({ state: "error", message: "エクスポートするデータがありません。" });
+        return;
+      }
+
+      await downloadBundle({
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        conversations,
+        vectorStores,
+      });
+
+      setDataStatus({
+        state: "success",
+        message: `データをエクスポートしました（会話: ${conversations.length}件、ベクターストア: ${vectorStores.length}件）`
+      });
+      addLog("info", "data-export", "データをエクスポートしました");
+    } catch (error) {
+      console.error(error);
+      setDataStatus({
+        state: "error",
+        message: error instanceof Error ? `エクスポートに失敗: ${error.message}` : "エクスポートに失敗しました",
+      });
+      addLog("error", "data-export", "エクスポートに失敗", error instanceof Error ? error.message : String(error));
+    }
+  }, [addLog]);
+
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleImportData = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setDataStatus({ state: "loading", message: "データをインポート中..." });
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      const bundle = parseBundle(json);
+
+      await Promise.all([
+        upsertConversations(bundle.conversations),
+        upsertVectorStores(bundle.vectorStores ?? []),
+      ]);
+
+      setDataStatus({
+        state: "success",
+        message: `${file.name} をインポートしました（会話: ${bundle.conversations.length}件、ベクターストア: ${bundle.vectorStores?.length ?? 0}件）`,
+      });
+      addLog("info", "data-import", `${file.name} をインポートしました`);
+
+      // ファイル入力をリセット
+      if (event.target) {
+        event.target.value = '';
+      }
+    } catch (error) {
+      console.error(error);
+      setDataStatus({
+        state: "error",
+        message: error instanceof Error ? `インポートに失敗: ${error.message}` : "インポートに失敗しました",
+      });
+      addLog("error", "data-import", "インポートに失敗", error instanceof Error ? error.message : String(error));
+    }
+  }, [addLog]);
+
   return (
     <main className="page-grid">
       <div className="page-header settings-header">
@@ -520,7 +599,46 @@ export default function SettingsPage() {
       </section>
 
       <section className="section-card">
-        <div className="section-card-title">会話履歴</div>
+        <div className="section-card-title">データのインポート/エクスポート</div>
+        <p className="section-card-description">
+          会話履歴とベクターストア設定をJSON形式でエクスポート/インポートできます。
+          ブラウザ版とTauri版（デスクトップアプリ）間でのデータ移行や、バックアップ・復元に利用できます。
+        </p>
+        <div className="form-navigation">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleImportData}
+            style={{ display: 'none' }}
+          />
+          <button
+            className="primary-button"
+            onClick={handleExportData}
+            disabled={dataStatus.state === "loading"}
+            type="button"
+          >
+            {dataStatus.state === "loading" ? "エクスポート中..." : "📦 データをエクスポート"}
+          </button>
+          <button
+            className="outline-button"
+            onClick={handleImportClick}
+            disabled={dataStatus.state === "loading"}
+            type="button"
+          >
+            {dataStatus.state === "loading" ? "インポート中..." : "📥 データをインポート"}
+          </button>
+        </div>
+        <div className={`status-banner status-${dataStatus.state}`} role="status">
+          <div className="status-title">{dataStatus.message}</div>
+          <p className="status-message">
+            エクスポートしたJSONファイルには会話履歴、メッセージ、ベクターストアIDが含まれます。APIキーは含まれません。
+          </p>
+        </div>
+      </section>
+
+      <section className="section-card">
+        <div className="section-card-title">会話履歴の削除</div>
         <p className="section-card-description">
           このブラウザの IndexedDB に保存されているチャット履歴を一括削除できます。Vector Store など他のデータは影響を受けません。
         </p>
