@@ -22,7 +22,8 @@ OpenAI Responses APIを活用した、**完全ローカル動作**のAIチャッ
 - **マルチターン会話** - 会話履歴の保存・管理
 - **ストリーミング応答** - リアルタイムでAIの回答を表示
 - **ファイル添付** - 画像・PDF・テキストファイルのアップロード対応
-- **お気に入り・タグ** - 会話の分類・検索
+- **タグ機能** - 会話にタグを付けて分類・検索が可能
+- **お気に入り保護** - お気に入り登録した会話は自動削除から保護
 
 ### 🔍 高度な機能
 - **RAG (Vector Store)** - OpenAIのFile Search機能によるベクター検索
@@ -144,15 +145,22 @@ src-tauri/target/release/bundle/appimage/ai-sdk-chatui_0.1.0_amd64.AppImage
 
 #### Vector Store（RAG）の設定
 
-1. **Vector Store画面 (G3)** で新規作成
-2. OpenAIのダッシュボードでファイルをアップロード
-3. チャット画面でVector Storeを有効化
+1. **Vector Stores一覧画面 (G3)** で新規作成または既存のVector Storeを選択
+2. Vector Store名をクリックして **ファイル管理画面** へ移動
+3. ファイルをドラッグ&ドロップまたは選択してアップロード
+4. チャット画面の右サイドバーでVector Storeを有効化してRAG機能を利用
 
 #### ファイル添付
 
+**方法1: チャットに直接添付**
 - チャット画面の📎ボタンからファイルを選択
 - **画像**: Vision機能で画像分析
-- **PDF/テキスト**: File Search機能でRAG
+- **PDF/テキスト**: その会話でのみ利用可能
+
+**方法2: Vector Storeへアップロード（RAG）**
+- Vector Stores一覧画面から対象のVector Storeを選択
+- ファイル管理画面でアップロード
+- 複数の会話で再利用可能、永続的なRAG知識ベースとして利用
 
 #### データ移行
 
@@ -176,8 +184,10 @@ Ai-SDK_chatUI/
 │   ├── (shell)/                  # メイン画面群
 │   │   ├── chat/                 # チャット画面 (G2)
 │   │   ├── dashboard/            # ダッシュボード (G1)
+│   │   ├── guide/                # 利用ガイド
+│   │   ├── ingest/               # ファイル管理画面（Vector Store）
 │   │   ├── settings/             # 設定画面 (G5)
-│   │   ├── vector-stores/        # Vector Store管理 (G3)
+│   │   ├── vector-stores/        # Vector Stores一覧 (G3)
 │   │   └── welcome/              # ウェルカム画面 (G0)
 │   ├── layout.tsx                # ルートレイアウト
 │   └── globals.css               # グローバルスタイル

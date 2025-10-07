@@ -117,10 +117,13 @@ export default function GuidePage() {
               <strong>送信</strong>: Enterキーまたは送信ボタンをクリック
             </li>
             <li>
-              <strong>ファイル添付</strong>: 📎ボタンから画像やPDFを添付可能
+              <strong>ファイル添付</strong>: 📎ボタンから画像やPDFを添付可能（チャットに直接添付）
             </li>
             <li>
               <strong>新しい会話</strong>: 左上の「+」ボタンから新規会話を作成
+            </li>
+            <li>
+              <strong>Vector Store選択</strong>: 右サイドバーでVector Storeを選択してRAG機能を利用
             </li>
           </ul>
         </div>
@@ -131,13 +134,13 @@ export default function GuidePage() {
           </h3>
           <ul style={{ marginLeft: "1.5rem", lineHeight: "1.8" }}>
             <li>
-              <strong>お気に入り</strong>: ⭐ボタンで会話をお気に入りに追加
-            </li>
-            <li>
-              <strong>タグ付け</strong>: 🏷️ボタンで会話にタグを追加（分類・検索用）
+              <strong>タグ付け</strong>: チャット画面の左サイドバーでタグを追加・削除（分類・検索用）
             </li>
             <li>
               <strong>削除</strong>: 🗑️ボタンで不要な会話を削除
+            </li>
+            <li>
+              <strong>お気に入り機能</strong>: お気に入りに登録した会話は自動削除から保護されます
             </li>
           </ul>
         </div>
@@ -238,10 +241,13 @@ export default function GuidePage() {
               <strong>期限表示</strong>: 「○日後」「明日期限」「期限切れ」など分かりやすく表示
             </li>
             <li>
-              <strong>お気に入り機能</strong>: ★マークで重要なVector Storeを管理
+              <strong>お気に入り機能</strong>: ★マークで重要なVector Storeを管理（お気に入り登録したVector Storeは削除が防止されます）
             </li>
             <li>
               <strong>同期機能</strong>: 「更新」ボタンでOpenAIと同期
+            </li>
+            <li>
+              <strong>ファイル管理</strong>: Vector Store名をクリックするとファイルアップロード画面へ移動
             </li>
           </ul>
         </div>
