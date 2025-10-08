@@ -2,6 +2,8 @@
 
 import "./chat.css";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   useCallback,
   useEffect,
@@ -120,6 +122,7 @@ export default function ChatPage() {
   const [attachedFiles, setAttachedFiles] = useState<Array<{ file: File; purpose: 'vision' | 'assistants'; isImage: boolean }>>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [chatFontSize, setChatFontSize] = useState(100); // パーセンテージ: 100 = 標準
 
   const showSearchResults = searchQuery.trim().length > 0;
   const totalMatches = searchResults
@@ -798,6 +801,15 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     fileInputRef.current?.click();
   }, []);
 
+  const handleCopyMessage = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      console.log("メッセージをクリップボードにコピーしました");
+    } catch (error) {
+      console.error("コピーに失敗しました:", error);
+    }
+  }, []);
+
   const visibleConversations = useMemo(
     () => conversations.filter((conversation) => conversation.hasContent),
     [conversations],
@@ -1044,7 +1056,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                 </div>
               ) : (
                 <div className="chat-messages-container">
-                  <div className="chat-messages" aria-live="polite">
+                  <div className="chat-messages" aria-live="polite" style={{ fontSize: `${chatFontSize}%` }}>
                   {messages.map((message) => {
                     const textPart = message.parts.find(
                       (part) => part.type === "text",
@@ -1085,8 +1097,32 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                           </div>
                         )}
                         <div className="chat-bubble">
-                          {textPart?.text ?? <span className="chat-placeholder">(本文なし)</span>}
+                          {textPart?.text ? (
+                            message.role === "assistant" ? (
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  p: ({ children }) => <p>{children}</p>,
+                                }}
+                              >
+                                {textPart.text}
+                              </ReactMarkdown>
+                            ) : (
+                              textPart.text
+                            )
+                          ) : (
+                            <span className="chat-placeholder">(本文なし)</span>
+                          )}
                         </div>
+                        {textPart?.text && (
+                          <button
+                            className="chat-copy-button"
+                            onClick={() => handleCopyMessage(textPart.text)}
+                            title="メッセージをコピー"
+                          >
+                            📋 コピー
+                          </button>
+                        )}
                         {message.status === "error" && message.errorDetails && (
                           <details className="chat-error-details">
                             <summary>エラー詳細</summary>
@@ -1137,6 +1173,35 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                 </div>
               )}
             </main>
+
+            {messages.length > 0 && (
+              <div className="chat-font-controls">
+                <button
+                  className="chat-font-button"
+                  onClick={() => setChatFontSize((prev) => Math.max(50, prev - 10))}
+                  disabled={chatFontSize <= 50}
+                  title="文字を小さく"
+                >
+                  A-
+                </button>
+                <span className="chat-font-size-label">{chatFontSize}%</span>
+                <button
+                  className="chat-font-button"
+                  onClick={() => setChatFontSize(100)}
+                  title="標準サイズに戻す"
+                >
+                  リセット
+                </button>
+                <button
+                  className="chat-font-button"
+                  onClick={() => setChatFontSize((prev) => Math.min(200, prev + 10))}
+                  disabled={chatFontSize >= 200}
+                  title="文字を大きく"
+                >
+                  A+
+                </button>
+              </div>
+            )}
 
             <footer className="chat-footer">
             <div className="chat-composer">
