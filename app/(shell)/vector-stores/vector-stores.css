@@ -585,6 +585,67 @@
   opacity: 0.6;
 }
 
+/* Vector Store ID Copy Button */
+.vs-table td.vs-id {
+  min-width: 280px;
+}
+
+.vs-id-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.vs-id-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vs-id-copy-btn {
+  flex-shrink: 0;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground-secondary);
+  transition: all var(--transition-fast);
+  opacity: 0;
+}
+
+.vs-id-content:hover .vs-id-copy-btn {
+  opacity: 1;
+}
+
+.vs-id-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: scale(1.08);
+}
+
+.vs-id-copy-btn:active {
+  transform: scale(0.95);
+}
+
+.vs-id-copy-btn.copied {
+  opacity: 1 !important;
+  background: #28a745 !important;
+  border-color: #28a745 !important;
+  color: white !important;
+}
+
+.vs-id-copy-btn svg {
+  display: block;
+}
+
 @media (max-width: 768px) {
   .vs-toolbar-right {
     width: 100%;

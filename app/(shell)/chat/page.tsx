@@ -139,6 +139,7 @@ export default function ChatPage() {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
   const [editingPresetName, setEditingPresetName] = useState("");
+  const [copiedVectorStoreId, setCopiedVectorStoreId] = useState<string | null>(null);
 
   const showSearchResults = searchQuery.trim().length > 0;
   const totalMatches = searchResults
@@ -896,6 +897,35 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     setEditingPresetName("");
   }, []);
 
+  const handleCopyVectorStoreId = useCallback(async (vectorStoreId: string) => {
+    try {
+      await navigator.clipboard.writeText(vectorStoreId);
+      setCopiedVectorStoreId(vectorStoreId);
+      setTimeout(() => {
+        setCopiedVectorStoreId(null);
+      }, 2000);
+      console.log("Vector Store IDをクリップボードにコピーしました:", vectorStoreId);
+    } catch (error) {
+      console.error("コピーに失敗しました:", error);
+    }
+  }, []);
+
+  const handleRemoveVectorStoreId = useCallback((idToRemove: string) => {
+    const updatedIds = selectedVectorStoreIds.filter((id) => id !== idToRemove);
+    setSelectedVectorStoreIds(updatedIds);
+    void persistConversation({ vectorStoreIds: updatedIds });
+  }, [selectedVectorStoreIds, persistConversation]);
+
+  const handleAddVectorStoreId = useCallback((newId: string) => {
+    const trimmed = newId.trim();
+    if (!trimmed || selectedVectorStoreIds.includes(trimmed) || selectedVectorStoreIds.length >= 3) {
+      return;
+    }
+    const updatedIds = [...selectedVectorStoreIds, trimmed];
+    setSelectedVectorStoreIds(updatedIds);
+    void persistConversation({ vectorStoreIds: updatedIds });
+  }, [selectedVectorStoreIds, persistConversation]);
+
   const visibleConversations = useMemo(
     () => conversations.filter((conversation) => conversation.hasContent),
     [conversations],
@@ -1446,24 +1476,54 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
 
               {vectorSearchEnabled && (
                 <div className="field-group">
-                  <label className="field-label">Vector Store IDs (カンマ区切りで最大3件)</label>
-                  <input
-                    type="text"
-                    className="field-input"
-                    value={selectedVectorStoreIds.join(", ")}
-                    onChange={(e) => {
-                      const ids = e.target.value
-                        .split(",")
-                        .map((id) => id.trim())
-                        .filter((id) => id.length > 0)
-                        .slice(0, 3);
-                      setSelectedVectorStoreIds(ids);
-                      void persistConversation({ vectorStoreIds: ids });
-                    }}
-                    placeholder="例: vs_xxxxx, vs_yyyyy"
-                  />
+                  <label className="field-label">Vector Store IDs (最大3件)</label>
+                  <div className="vector-store-ids-container">
+                    {selectedVectorStoreIds.map((vsId) => (
+                      <div key={vsId} className="vector-store-id-chip">
+                        <span className="vector-store-id-text">{vsId}</span>
+                        <button
+                          className={`vector-store-copy-btn ${copiedVectorStoreId === vsId ? 'copied' : ''}`}
+                          onClick={() => handleCopyVectorStoreId(vsId)}
+                          title={copiedVectorStoreId === vsId ? 'コピーしました!' : 'IDをコピー'}
+                        >
+                          {copiedVectorStoreId === vsId ? (
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M13.5 4L6 11.5L2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                              <path d="M3 11V3C3 2.44772 3.44772 2 4 2H10" stroke="currentColor" strokeWidth="1.5"/>
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          className="vector-store-remove-btn"
+                          onClick={() => handleRemoveVectorStoreId(vsId)}
+                          title="IDを削除"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    {selectedVectorStoreIds.length < 3 && (
+                      <input
+                        type="text"
+                        className="vector-store-id-input"
+                        placeholder="vs_xxxxx を入力してEnter"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleAddVectorStoreId(e.currentTarget.value);
+                            e.currentTarget.value = "";
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
                   <span className="field-hint">
-                    Vector Store IDを入力してください（例: vs_abc123）
+                    Vector Store IDを入力してEnterキーで追加（例: vs_abc123）
                   </span>
                 </div>
               )}

@@ -2760,3 +2760,104 @@ textarea {
 .chat-copy-icon svg {
   display: block;
 }
+
+/* ===========================
+   Vector Store IDs Container
+   =========================== */
+
+.vector-store-ids-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-height: 44px;
+  align-items: center;
+}
+
+.vector-store-id-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--background-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--foreground);
+  transition: all var(--transition-base);
+}
+
+.vector-store-id-chip:hover {
+  border-color: var(--border-hover);
+  background: var(--background);
+}
+
+.vector-store-id-text {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: var(--foreground);
+  user-select: text;
+  font-size: 12px;
+}
+
+.vector-store-copy-btn,
+.vector-store-remove-btn {
+  flex-shrink: 0;
+  padding: 3px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground-secondary);
+  transition: all var(--transition-fast);
+}
+
+.vector-store-copy-btn:hover {
+  background: var(--background-secondary);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.vector-store-remove-btn:hover {
+  background: var(--error-bg);
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.vector-store-copy-btn.copied {
+  background: #d4edda;
+  border-color: #28a745;
+  color: #28a745;
+}
+
+.vector-store-copy-btn svg,
+.vector-store-remove-btn svg {
+  display: block;
+}
+
+.vector-store-id-input {
+  flex: 1;
+  min-width: 180px;
+  padding: 6px 8px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  font-size: 13px;
+  outline: none;
+  transition: all var(--transition-base);
+}
+
+.vector-store-id-input:focus {
+  border-color: var(--accent);
+  background: var(--background-secondary);
+}
+
+.vector-store-id-input::placeholder {
+  color: var(--foreground-tertiary);
+}
