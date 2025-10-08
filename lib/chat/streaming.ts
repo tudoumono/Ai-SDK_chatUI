@@ -22,6 +22,7 @@ export type StreamRequest = {
   abortSignal?: AbortSignal;
   maxOutputTokens?: number;
   attachments?: FileAttachment[];
+  systemRole?: string;
 };
 
 export type StreamResult = {
@@ -37,7 +38,11 @@ export type StreamResult = {
   };
 };
 
-function toInputMessages(messages: MessageRecord[], attachments?: FileAttachment[]) {
+function toInputMessages(
+  messages: MessageRecord[],
+  attachments?: FileAttachment[],
+  systemRole?: string
+) {
   const result = messages
     .map((message) => {
       if (message.role === "tool") {
@@ -63,6 +68,15 @@ function toInputMessages(messages: MessageRecord[], attachments?: FileAttachment
       role: "user" | "assistant" | "system" | "developer";
       content: string;
     } => item !== null);
+
+  // systemRoleが設定されている場合、先頭に追加
+  if (systemRole && systemRole.trim()) {
+    result.unshift({
+      type: "message" as const,
+      role: "system" as const,
+      content: systemRole.trim(),
+    });
+  }
 
   // 最後のユーザーメッセージにファイルを添付
   if (attachments && attachments.length > 0 && result.length > 0) {
@@ -146,7 +160,7 @@ export async function streamAssistantResponse(
   callbacks: StreamCallbacks = {},
 ): Promise<StreamResult> {
   const client = createResponsesClient(request.connection);
-  const input = toInputMessages(request.messages, request.attachments);
+  const input = toInputMessages(request.messages, request.attachments, request.systemRole);
   if (input.length === 0) {
     throw new Error("送信するメッセージがありません。");
   }
