@@ -14,6 +14,8 @@ export type ConversationRecord = {
   encrypted?: boolean;
   isFavorite?: boolean;
   hasContent?: boolean;
+  systemRoleEnabled?: boolean;
+  systemRole?: string;
 };
 
 export type MessageRole = "system" | "user" | "assistant" | "tool";

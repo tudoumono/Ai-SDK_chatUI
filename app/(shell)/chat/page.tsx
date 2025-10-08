@@ -42,6 +42,13 @@ import { streamAssistantResponse } from "@/lib/chat/streaming";
 import { validateFile, formatFileSize } from "@/lib/chat/file-validation";
 import { uploadFileToOpenAI, type UploadedFileInfo } from "@/lib/chat/file-upload";
 import type { AttachedFileInfo } from "@/lib/storage/schema";
+import {
+  loadRolePresets,
+  addRolePreset,
+  deleteRolePreset,
+  updateRolePreset,
+  type RolePreset,
+} from "@/lib/settings/role-presets";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
 const CONVERSATION_RETENTION_DAYS = 14;
@@ -123,6 +130,15 @@ export default function ChatPage() {
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [chatFontSize, setChatFontSize] = useState(100); // パーセンテージ: 100 = 標準
+  const [systemRoleEnabled, setSystemRoleEnabled] = useState(false);
+  const [systemRole, setSystemRole] = useState("");
+  const [rolePresets, setRolePresets] = useState<RolePreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+  const [showPresetDialog, setShowPresetDialog] = useState(false);
+  const [newPresetName, setNewPresetName] = useState("");
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const [editingPresetName, setEditingPresetName] = useState("");
 
   const showSearchResults = searchQuery.trim().length > 0;
   const totalMatches = searchResults
@@ -220,6 +236,10 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
           const models = await fetchModelsFromApi(loadedConnection);
           setAvailableModels(models);
         }
+
+        // ロールプリセットを読み込み
+        const presets = await loadRolePresets();
+        setRolePresets(presets);
       } catch (error) {
         if (!cancelled) {
           setConnectionError(
@@ -341,6 +361,8 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
         ((activeConversation.vectorStoreIds?.length ?? 0) > 0),
     );
     setSelectedVectorStoreIds(activeConversation.vectorStoreIds ?? []);
+    setSystemRoleEnabled(activeConversation.systemRoleEnabled ?? false);
+    setSystemRole(activeConversation.systemRole ?? "");
   }, [activeConversation]);
 
   const persistConversation = useCallback(
@@ -502,6 +524,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
           webSearchEnabled,
           abortSignal: controller.signal,
           attachments: attachments.length > 0 ? attachments : undefined,
+          systemRole: systemRoleEnabled ? systemRole : undefined,
         },
         {
           onStatusChange: (status) => {
@@ -644,6 +667,8 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     selectedVectorStoreIds,
     vectorSearchEnabled,
     webSearchEnabled,
+    systemRole,
+    systemRoleEnabled,
   ]);
 
   const handleComposerKeyDown = useCallback(
@@ -801,13 +826,74 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     fileInputRef.current?.click();
   }, []);
 
-  const handleCopyMessage = useCallback(async (text: string) => {
+  const handleCopyMessage = useCallback(async (text: string, messageId: string) => {
     try {
       await navigator.clipboard.writeText(text);
+      setCopiedMessageId(messageId);
+      setTimeout(() => {
+        setCopiedMessageId(null);
+      }, 2000);
       console.log("メッセージをクリップボードにコピーしました");
     } catch (error) {
       console.error("コピーに失敗しました:", error);
     }
+  }, []);
+
+  const handlePresetSelect = useCallback((presetId: string) => {
+    setSelectedPresetId(presetId);
+    const preset = rolePresets.find((p) => p.id === presetId);
+    if (preset) {
+      setSystemRole(preset.content);
+      void persistConversation({ systemRole: preset.content });
+    }
+  }, [rolePresets, persistConversation]);
+
+  const handleSaveAsPreset = useCallback(async () => {
+    if (!newPresetName.trim() || !systemRole.trim()) {
+      return;
+    }
+    const newPreset = await addRolePreset({
+      name: newPresetName.trim(),
+      content: systemRole.trim(),
+    });
+    const updatedPresets = await loadRolePresets();
+    setRolePresets(updatedPresets);
+    setSelectedPresetId(newPreset.id);
+    setNewPresetName("");
+    setShowPresetDialog(false);
+  }, [newPresetName, systemRole]);
+
+  const handleDeletePreset = useCallback(async (presetId: string) => {
+    await deleteRolePreset(presetId);
+    const updatedPresets = await loadRolePresets();
+    setRolePresets(updatedPresets);
+    if (selectedPresetId === presetId) {
+      setSelectedPresetId("");
+    }
+  }, [selectedPresetId]);
+
+  const handleEditPreset = useCallback((presetId: string) => {
+    const preset = rolePresets.find((p) => p.id === presetId);
+    if (preset) {
+      setEditingPresetId(presetId);
+      setEditingPresetName(preset.name);
+    }
+  }, [rolePresets]);
+
+  const handleSavePresetEdit = useCallback(async () => {
+    if (!editingPresetId || !editingPresetName.trim()) {
+      return;
+    }
+    await updateRolePreset(editingPresetId, { name: editingPresetName.trim() });
+    const updatedPresets = await loadRolePresets();
+    setRolePresets(updatedPresets);
+    setEditingPresetId(null);
+    setEditingPresetName("");
+  }, [editingPresetId, editingPresetName]);
+
+  const handleCancelPresetEdit = useCallback(() => {
+    setEditingPresetId(null);
+    setEditingPresetName("");
   }, []);
 
   const visibleConversations = useMemo(
@@ -1096,33 +1182,44 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                             ))}
                           </div>
                         )}
-                        <div className="chat-bubble">
-                          {textPart?.text ? (
-                            message.role === "assistant" ? (
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                  p: ({ children }) => <p>{children}</p>,
-                                }}
-                              >
-                                {textPart.text}
-                              </ReactMarkdown>
+                        <div className="chat-content-row">
+                          <div className="chat-bubble">
+                            {textPart?.text ? (
+                              message.role === "assistant" ? (
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
+                                  components={{
+                                    p: ({ children }) => <p>{children}</p>,
+                                  }}
+                                >
+                                  {textPart.text}
+                                </ReactMarkdown>
+                              ) : (
+                                textPart.text
+                              )
                             ) : (
-                              textPart.text
-                            )
-                          ) : (
-                            <span className="chat-placeholder">(本文なし)</span>
+                              <span className="chat-placeholder">(本文なし)</span>
+                            )}
+                          </div>
+                          {textPart?.text && (
+                            <button
+                              className={`chat-copy-icon ${copiedMessageId === message.id ? 'copied' : ''}`}
+                              onClick={() => handleCopyMessage(textPart.text, message.id)}
+                              title={copiedMessageId === message.id ? 'コピーしました!' : 'メッセージをコピー'}
+                            >
+                              {copiedMessageId === message.id ? (
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M13.5 4L6 11.5L2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              ) : (
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                                  <path d="M3 11V3C3 2.44772 3.44772 2 4 2H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                </svg>
+                              )}
+                            </button>
                           )}
                         </div>
-                        {textPart?.text && (
-                          <button
-                            className="chat-copy-button"
-                            onClick={() => handleCopyMessage(textPart.text)}
-                            title="メッセージをコピー"
-                          >
-                            📋 コピー
-                          </button>
-                        )}
                         {message.status === "error" && message.errorDetails && (
                           <details className="chat-error-details">
                             <summary>エラー詳細</summary>
@@ -1369,6 +1466,153 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                     Vector Store IDを入力してください（例: vs_abc123）
                   </span>
                 </div>
+              )}
+
+              <div className="settings-toggle">
+                <label className="settings-toggle-label">System Role</label>
+                <button
+                  className={`toggle-switch ${systemRoleEnabled ? "active" : ""}`}
+                  onClick={() => {
+                    const newValue = !systemRoleEnabled;
+                    setSystemRoleEnabled(newValue);
+                    void persistConversation({ systemRoleEnabled: newValue });
+                  }}
+                >
+                  <span className="toggle-switch-slider"></span>
+                </button>
+              </div>
+
+              {systemRoleEnabled && (
+                <>
+                  <div className="field-group">
+                    <label className="field-label">ロールプリセット</label>
+                    <div className="role-preset-controls">
+                      <select
+                        className="field-input"
+                        value={selectedPresetId}
+                        onChange={(e) => handlePresetSelect(e.target.value)}
+                      >
+                        <option value="">カスタムロール</option>
+                        {rolePresets.map((preset) => (
+                          <option key={preset.id} value={preset.id}>
+                            {preset.name}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedPresetId && !rolePresets.find((p) => p.id === selectedPresetId)?.isDefault && (
+                        <>
+                          <button
+                            className="role-preset-action-btn"
+                            onClick={() => handleEditPreset(selectedPresetId)}
+                            title="プリセット名を編集"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M11.5 2.5L13.5 4.5L5.5 12.5H3.5V10.5L11.5 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M10 4L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </button>
+                          <button
+                            className="role-preset-action-btn delete"
+                            onClick={() => handleDeletePreset(selectedPresetId)}
+                            title="プリセットを削除"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M3 4H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                              <path d="M5 4V3C5 2.44772 5.44772 2 6 2H10C10.5523 2 11 2.44772 11 3V4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                              <path d="M5 7V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                              <path d="M8 7V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                              <path d="M11 7V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                              <path d="M4 4L4.5 13C4.5 13.5523 4.94772 14 5.5 14H10.5C11.0523 14 11.5 13.5523 11.5 13L12 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                            </svg>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {editingPresetId && (
+                    <div className="role-preset-edit-dialog-overlay" onClick={handleCancelPresetEdit}>
+                      <div className="role-preset-dialog" onClick={(e) => e.stopPropagation()}>
+                        <h3>プリセット名を編集</h3>
+                        <input
+                          type="text"
+                          className="field-input"
+                          placeholder="プリセット名を入力"
+                          value={editingPresetName}
+                          onChange={(e) => setEditingPresetName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              void handleSavePresetEdit();
+                            } else if (e.key === "Escape") {
+                              handleCancelPresetEdit();
+                            }
+                          }}
+                        />
+                        <div className="role-preset-dialog-buttons">
+                          <button onClick={handleCancelPresetEdit}>キャンセル</button>
+                          <button onClick={() => void handleSavePresetEdit()} disabled={!editingPresetName.trim()}>
+                            保存
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="field-group">
+                    <label className="field-label">System Role</label>
+                    <textarea
+                      className="field-input system-role-textarea"
+                      value={systemRole}
+                      onChange={(e) => {
+                        setSystemRole(e.target.value);
+                        setSelectedPresetId(""); // カスタム編集時はプリセット選択を解除
+                      }}
+                      onBlur={() => {
+                        void persistConversation({ systemRole });
+                      }}
+                      placeholder="例: あなたは親切で丁寧なアシスタントです。"
+                      rows={4}
+                    />
+                    <div className="role-preset-save-section">
+                      <button
+                        className="role-preset-save-btn"
+                        onClick={() => setShowPresetDialog(true)}
+                        disabled={!systemRole.trim()}
+                      >
+                        💾 プリセットとして保存
+                      </button>
+                    </div>
+                    <span className="field-hint">
+                      AIアシスタントの役割や性格を設定できます
+                    </span>
+                  </div>
+
+                  {showPresetDialog && (
+                    <div className="role-preset-dialog-overlay" onClick={() => setShowPresetDialog(false)}>
+                      <div className="role-preset-dialog" onClick={(e) => e.stopPropagation()}>
+                        <h3>プリセットとして保存</h3>
+                        <input
+                          type="text"
+                          className="field-input"
+                          placeholder="プリセット名を入力"
+                          value={newPresetName}
+                          onChange={(e) => setNewPresetName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              void handleSaveAsPreset();
+                            }
+                          }}
+                        />
+                        <div className="role-preset-dialog-buttons">
+                          <button onClick={() => setShowPresetDialog(false)}>キャンセル</button>
+                          <button onClick={() => void handleSaveAsPreset()} disabled={!newPresetName.trim()}>
+                            保存
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </aside>

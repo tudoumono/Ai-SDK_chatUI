@@ -2371,36 +2371,6 @@ textarea {
 }
 
 /* ===========================
-   Message Copy Button
-   =========================== */
-
-.chat-copy-button {
-  margin-top: var(--spacing-sm);
-  padding: 6px 12px;
-  background: var(--background-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--foreground-secondary);
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all var(--transition-base);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.chat-copy-button:hover {
-  background: var(--background-tertiary);
-  border-color: var(--accent);
-  color: var(--accent);
-  transform: translateY(-1px);
-}
-
-.chat-copy-button:active {
-  transform: translateY(0);
-}
-
-/* ===========================
    Markdown Styling
    =========================== */
 
@@ -2594,4 +2564,199 @@ textarea {
 
 .chat-bubble > *:first-child {
   margin-top: 0;
+}
+
+/* ===========================
+   System Role Textarea
+   =========================== */
+
+.system-role-textarea {
+  min-height: 100px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+/* ===========================
+   Role Preset Controls
+   =========================== */
+
+.role-preset-controls {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.role-preset-controls select {
+  flex: 1;
+}
+
+.role-preset-action-btn {
+  flex-shrink: 0;
+  padding: 6px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground-secondary);
+}
+
+.role-preset-action-btn:hover {
+  background: var(--background-tertiary);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.role-preset-action-btn.delete:hover {
+  background: #fee;
+  border-color: #f44;
+  color: #f44;
+}
+
+.role-preset-action-btn svg {
+  display: block;
+}
+
+.role-preset-save-section {
+  margin-top: var(--spacing-sm);
+}
+
+.role-preset-save-btn {
+  padding: 6px 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.role-preset-save-btn:hover:not(:disabled) {
+  background: var(--background-tertiary);
+  border-color: var(--accent);
+}
+
+.role-preset-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===========================
+   Role Preset Dialog
+   =========================== */
+
+.role-preset-dialog-overlay,
+.role-preset-edit-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.role-preset-dialog {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  min-width: 320px;
+  max-width: 500px;
+}
+
+.role-preset-dialog h3 {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--foreground);
+}
+
+.role-preset-dialog-buttons {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+  margin-top: var(--spacing-md);
+}
+
+.role-preset-dialog-buttons button {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  background: var(--background-secondary);
+  color: var(--foreground);
+}
+
+.role-preset-dialog-buttons button:hover:not(:disabled) {
+  background: var(--background-tertiary);
+  border-color: var(--accent);
+}
+
+.role-preset-dialog-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===========================
+   Chat Content Row & Copy Icon
+   =========================== */
+
+.chat-content-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+}
+
+.chat-content-row .chat-bubble {
+  flex: 1;
+}
+
+.chat-copy-icon {
+  flex-shrink: 0;
+  padding: 6px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground-secondary);
+  margin-top: 2px;
+}
+
+.chat-content-row:hover .chat-copy-icon {
+  opacity: 1;
+}
+
+.chat-copy-icon:hover {
+  background: var(--background-tertiary);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: scale(1.05);
+}
+
+.chat-copy-icon:active {
+  transform: scale(0.95);
+}
+
+.chat-copy-icon.copied {
+  opacity: 1;
+  background: #d4edda;
+  border-color: #28a745;
+  color: #28a745;
+}
+
+.chat-copy-icon svg {
+  display: block;
 }
