@@ -1,5 +1,9 @@
-:root {
-  color-scheme: light dark;
+/* ===========================
+   Dark Theme (Default)
+   =========================== */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
 
   /* カラーパレット */
   --background: #0b0c10;
@@ -35,6 +39,10 @@
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
 
+  /* スクロールバー */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-track: transparent;
+
   /* トランジション */
   --transition-fast: 150ms ease;
   --transition-base: 200ms ease;
@@ -53,6 +61,51 @@
   --radius-lg: 10px;
   --radius-xl: 12px;
   --radius-full: 9999px;
+}
+
+/* ===========================
+   Light Theme
+   =========================== */
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* カラーパレット */
+  --background: #ffffff;
+  --background-secondary: #f8f9fa;
+  --background-tertiary: #e9ecef;
+  --foreground: #1a1a1a;
+  --foreground-secondary: rgba(26, 26, 26, 0.8);
+  --foreground-tertiary: rgba(26, 26, 26, 0.6);
+
+  /* アクセントカラー */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-light: rgba(37, 99, 235, 0.1);
+  --accent-lighter: rgba(37, 99, 235, 0.05);
+
+  /* ボーダー */
+  --border: rgba(0, 0, 0, 0.1);
+  --border-hover: rgba(0, 0, 0, 0.2);
+  --border-focus: rgba(37, 99, 235, 0.5);
+
+  /* ステータスカラー */
+  --success: #059669;
+  --success-bg: rgba(5, 150, 105, 0.1);
+  --warning: #d97706;
+  --warning-bg: rgba(217, 119, 6, 0.1);
+  --error: #dc2626;
+  --error-bg: rgba(220, 38, 38, 0.1);
+  --info: #2563eb;
+  --info-bg: rgba(37, 99, 235, 0.1);
+
+  /* シャドウ */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.15);
+
+  /* スクロールバー */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.2);
+  --scrollbar-track: transparent;
 }
 
 * {
@@ -119,9 +172,18 @@ textarea {
   height: 10px;
 }
 
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
 ::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: var(--scrollbar-thumb);
   border-radius: 5px;
+  transition: background-color var(--transition-base);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--border-hover);
 }
 
 .sidebar-nav {

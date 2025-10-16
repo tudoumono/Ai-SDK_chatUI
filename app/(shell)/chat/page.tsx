@@ -50,6 +50,7 @@ import {
   updateRolePreset,
   type RolePreset,
 } from "@/lib/settings/role-presets";
+import { useTheme } from "@/components/theme-provider";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
 const CONVERSATION_RETENTION_DAYS = 14;
@@ -91,6 +92,7 @@ function formatTimestamp(value: string) {
 }
 
 export default function ChatPage() {
+  const { theme, toggleTheme } = useTheme();
   const [initializing, setInitializing] = useState(true);
   const [connection, setConnection] = useState<ConnectionSettings | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -1176,13 +1178,22 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
             </button>
             <h1 className="chat-header-title">ChatBot</h1>
           </div>
-          <button
-            className="icon-button"
-            onClick={() => setSettingsPanelOpen(!settingsPanelOpen)}
-            title="設定"
-          >
-            ⚙
-          </button>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              className="icon-button"
+              onClick={toggleTheme}
+              title={theme === "light" ? "ダークモードに切り替え" : "ライトモードに切り替え"}
+            >
+              {theme === "light" ? "🌙" : "☀️"}
+            </button>
+            <button
+              className="icon-button"
+              onClick={() => setSettingsPanelOpen(!settingsPanelOpen)}
+              title="設定"
+            >
+              ⚙
+            </button>
+          </div>
         </header>
 
         {initializing ? (

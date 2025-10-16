@@ -7,6 +7,13 @@ export type ModelInfo = {
   created?: number;
 };
 
+type OpenAIModel = {
+  id: string;
+  object: string;
+  created: number;
+  owned_by: string;
+};
+
 const DEFAULT_MODELS: ModelInfo[] = [
   { id: "gpt-4o", name: "GPT-4o" },
   { id: "gpt-4o-mini", name: "GPT-4o Mini" },
@@ -23,8 +30,8 @@ export async function fetchModelsFromApi(
     const response = await client.models.list();
 
     const models = response.data
-      .filter((model: any) => model.id.includes("gpt") || model.id.includes("o1"))
-      .map((model: any) => ({
+      .filter((model: OpenAIModel) => model.id.includes("gpt") || model.id.includes("o1"))
+      .map((model: OpenAIModel) => ({
         id: model.id,
         name: model.id,
         created: model.created,
