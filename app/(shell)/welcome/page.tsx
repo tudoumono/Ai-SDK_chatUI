@@ -145,11 +145,28 @@ export default function WelcomePage() {
       );
 
       setResult({ state: "loading", message: "接続テストを実行中です…" });
+
+      // APIキーをマスクしてログ出力
+      const maskedHeaders = Array.from(headers.entries()).map(([key, value]) => {
+        if (key.toLowerCase() === 'authorization') {
+          // Bearer sk-proj-xxx... → Bearer sk-proj-****...末尾4文字
+          const match = value.match(/^(Bearer\s+)(.+)$/i);
+          if (match) {
+            const token = match[2];
+            const masked = token.length > 8
+              ? `${token.substring(0, 8)}****${token.substring(token.length - 4)}`
+              : '****';
+            return [key, `${match[1]}${masked}`];
+          }
+        }
+        return [key, value];
+      });
+
       appendLog({
         level: "info",
         scope: "api",
         message: `接続テスト開始 ${requestTarget}`,
-        detail: JSON.stringify(Array.from(headers.entries())),
+        detail: JSON.stringify(maskedHeaders),
       });
 
       try {

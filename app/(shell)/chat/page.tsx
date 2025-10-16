@@ -4,6 +4,7 @@ import "./chat.css";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Clock } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -50,7 +51,6 @@ import {
   updateRolePreset,
   type RolePreset,
 } from "@/lib/settings/role-presets";
-import { useTheme } from "@/components/theme-provider";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
 const CONVERSATION_RETENTION_DAYS = 14;
@@ -92,7 +92,6 @@ function formatTimestamp(value: string) {
 }
 
 export default function ChatPage() {
-  const { theme, toggleTheme } = useTheme();
   const [initializing, setInitializing] = useState(true);
   const [connection, setConnection] = useState<ConnectionSettings | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -118,7 +117,7 @@ export default function ChatPage() {
   const [editingTagInput, setEditingTagInput] = useState("");
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>(getDefaultModels());
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(true);
-  const [historyPanelOpen, setHistoryPanelOpen] = useState(true);
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_WIDTH);
   const [rightSidebarWidth, setRightSidebarWidth] = useState(DEFAULT_RIGHT_WIDTH);
   const [activeResize, setActiveResize] = useState<"left" | "right" | null>(null);
@@ -1174,26 +1173,17 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
               onClick={() => setHistoryPanelOpen(!historyPanelOpen)}
               title="会話履歴"
             >
-              ☰
+              <Clock size={20} />
             </button>
             <h1 className="chat-header-title">ChatBot</h1>
           </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button
-              className="icon-button"
-              onClick={toggleTheme}
-              title={theme === "light" ? "ダークモードに切り替え" : "ライトモードに切り替え"}
-            >
-              {theme === "light" ? "🌙" : "☀️"}
-            </button>
-            <button
-              className="icon-button"
-              onClick={() => setSettingsPanelOpen(!settingsPanelOpen)}
-              title="設定"
-            >
-              ⚙
-            </button>
-          </div>
+          <button
+            className="icon-button"
+            onClick={() => setSettingsPanelOpen(!settingsPanelOpen)}
+            title="設定"
+          >
+            ⚙
+          </button>
         </header>
 
         {initializing ? (
