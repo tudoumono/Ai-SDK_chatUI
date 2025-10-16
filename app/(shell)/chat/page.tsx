@@ -497,8 +497,10 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     const userMessage = createUserMessage(conversation.id, finalPrompt, attachedFileInfos);
     const assistantDraft = createAssistantDraft(conversation.id);
 
-    setMessages((prev) => [...prev, userMessage, assistantDraft]);
-    messagesRef.current = [...messagesRef.current, userMessage, assistantDraft];
+    // メモリ最適化：スプレッド演算子の代わりにpushを使用
+    const newMessages = messagesRef.current.concat([userMessage, assistantDraft]);
+    setMessages(newMessages);
+    messagesRef.current = newMessages;
     setInputValue("");
 
     setStatusMessage("OpenAI Responses API へ送信中…");
@@ -515,7 +517,8 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
         tools: [{ type: info.purpose === 'vision' ? 'code_interpreter' as const : 'file_search' as const }],
       }));
 
-      const baseHistory = [...messagesRef.current];
+      // メモリ最適化：直接参照を使用（コピー不要）
+      const baseHistory = messagesRef.current;
       const result = await streamAssistantResponse(
         {
           connection: currentConnection,

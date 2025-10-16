@@ -43,7 +43,13 @@ function toInputMessages(
   attachments?: FileAttachment[],
   systemRole?: string
 ) {
-  const result = messages
+  // メッセージ履歴を制限（直近100件まで）
+  const MAX_HISTORY_MESSAGES = 100;
+  const recentMessages = messages.length > MAX_HISTORY_MESSAGES
+    ? messages.slice(-MAX_HISTORY_MESSAGES)
+    : messages;
+
+  const result = recentMessages
     .map((message) => {
       if (message.role === "tool") {
         return null;
@@ -188,7 +194,8 @@ export async function streamAssistantResponse(
     { signal: request.abortSignal },
   );
 
-  let snapshot = "";
+  // 文字列結合の最適化：配列を使用
+  const chunks: string[] = [];
   let hasSeenFileSearch = false;
   let hasSeenWebSearch = false;
 
@@ -215,11 +222,13 @@ export async function streamAssistantResponse(
 
     // テキスト生成開始
     if (event.type === "response.output_text.delta") {
-      if (snapshot === "") {
+      if (chunks.length === 0) {
         callbacks.onStatusChange?.("応答を生成中…");
       }
-      snapshot = snapshot + (event.delta ?? "");
-      callbacks.onTextSnapshot?.(snapshot);
+      const delta = event.delta ?? "";
+      chunks.push(delta);
+      // 配列を結合して現在のスナップショットを作成
+      callbacks.onTextSnapshot?.(chunks.join(""));
     }
 
     if (event.type === "error") {
@@ -232,7 +241,7 @@ export async function streamAssistantResponse(
 
   const finalResponse = await stream.finalResponse();
   const rawResponse = finalResponse as Response;
-  const text = rawResponse.output_text ?? snapshot;
+  const text = rawResponse.output_text ?? chunks.join("");
   const sources = extractSources(rawResponse);
 
   // 使用したツールを抽出

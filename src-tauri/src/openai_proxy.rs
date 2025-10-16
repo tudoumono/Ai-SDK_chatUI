@@ -190,7 +190,8 @@ pub async fn make_openai_request(request: OpenAIRequest) -> Result<OpenAIRespons
         }
     }
 
-    // レスポンスボディを取得
+    // レスポンスボディを取得（サイズ制限付き）
+    const MAX_RESPONSE_SIZE: usize = 50 * 1024 * 1024; // 50MB制限
     let body = response
         .text()
         .await
@@ -203,11 +204,26 @@ pub async fn make_openai_request(request: OpenAIRequest) -> Result<OpenAIRespons
     let response_size = body.len();
     let total_time = start_time.elapsed();
 
+    // レスポンスサイズチェック
+    if response_size > MAX_RESPONSE_SIZE {
+        let err_msg = format!(
+            "[Request {}] Response too large: {} bytes (limit: {} bytes)",
+            request_id, response_size, MAX_RESPONSE_SIZE
+        );
+        log::error!("{}", err_msg);
+        return Err(err_msg);
+    }
+
     // ログ出力
     log::info!(
         "[Request {}] Response received | Status: {} | Size: {} bytes | Network: {:?} | Total: {:?}",
         request_id, status, response_size, network_time, total_time
     );
+
+    // 大きなレスポンスの警告
+    if response_size > 10 * 1024 * 1024 {
+        log::warn!("[Request {}] Large response detected: {} MB", request_id, response_size / 1024 / 1024);
+    }
 
     // エラーレスポンスの場合はログに出力
     if status >= 400 {
