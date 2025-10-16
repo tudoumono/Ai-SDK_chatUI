@@ -90,15 +90,22 @@ export function SidebarNav() {
         <button
           className="sidebar-theme-toggle"
           onClick={toggleTheme}
-          title={theme === "light" ? "ダークモードに切り替え" : "ライトモードに切り替え"}
+          title="テーマを切り替え"
         >
-          {theme === "light" ? (
-            <Moon className="sidebar-theme-icon" size={20} strokeWidth={2} />
-          ) : (
-            <Sun className="sidebar-theme-icon" size={20} strokeWidth={2} />
-          )}
+          <div className="sidebar-theme-icons">
+            <Sun
+              className={clsx("sidebar-theme-icon", theme === "light" && "sidebar-theme-icon-active")}
+              size={18}
+              strokeWidth={2}
+            />
+            <Moon
+              className={clsx("sidebar-theme-icon", theme === "dark" && "sidebar-theme-icon-active")}
+              size={18}
+              strokeWidth={2}
+            />
+          </div>
           <span className="sidebar-theme-label">
-            {theme === "light" ? "ダークモード" : "ライトモード"}
+            {theme === "light" ? "ライト" : "ダーク"}
           </span>
         </button>
       </div>
