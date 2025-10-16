@@ -121,6 +121,64 @@ export async function getMessages(conversationId: string) {
   });
 }
 
+// ページネーション対応のメッセージ取得
+export async function getMessagesPaginated(
+  conversationId: string,
+  options: {
+    limit?: number;
+    beforeMessageId?: string;
+    afterMessageId?: string;
+  } = {}
+) {
+  const db = await getDatabase();
+  const index = db.transaction("messages").store.index("by-conversation");
+  const allItems = await index.getAll(IDBKeyRange.only(conversationId));
+
+  // 時刻でソート
+  const sorted = allItems.sort((a, b) => {
+    if (a.createdAt > b.createdAt) return 1;
+    if (a.createdAt < b.createdAt) return -1;
+    if (a.role === "user" && b.role === "assistant") return -1;
+    if (a.role === "assistant" && b.role === "user") return 1;
+    return 0;
+  });
+
+  // beforeMessageId が指定されている場合、そのメッセージより前を取得
+  if (options.beforeMessageId) {
+    const beforeIndex = sorted.findIndex(m => m.id === options.beforeMessageId);
+    if (beforeIndex > 0) {
+      const start = Math.max(0, beforeIndex - (options.limit || 30));
+      return {
+        messages: sorted.slice(start, beforeIndex),
+        hasMore: start > 0,
+        totalCount: sorted.length,
+      };
+    }
+  }
+
+  // afterMessageId が指定されている場合、そのメッセージより後を取得
+  if (options.afterMessageId) {
+    const afterIndex = sorted.findIndex(m => m.id === options.afterMessageId);
+    if (afterIndex >= 0 && afterIndex < sorted.length - 1) {
+      const end = Math.min(sorted.length, afterIndex + 1 + (options.limit || 30));
+      return {
+        messages: sorted.slice(afterIndex + 1, end),
+        hasMore: end < sorted.length,
+        totalCount: sorted.length,
+      };
+    }
+  }
+
+  // デフォルト: 最新のN件を取得
+  const limit = options.limit || 30;
+  const start = Math.max(0, sorted.length - limit);
+  return {
+    messages: sorted.slice(start),
+    hasMore: start > 0,
+    totalCount: sorted.length,
+  };
+}
+
 export async function upsertMessages(records: MessageRecord[]) {
   if (records.length === 0) {
     return;

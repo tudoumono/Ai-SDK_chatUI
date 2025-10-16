@@ -33,6 +33,7 @@ import {
   deleteConversation,
   listConversations,
   loadConversationMessages,
+  loadConversationMessagesPaginated,
   pruneConversationsOlderThan,
   saveConversation,
   saveMessages,
@@ -140,6 +141,10 @@ export default function ChatPage() {
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
   const [editingPresetName, setEditingPresetName] = useState("");
   const [copiedVectorStoreId, setCopiedVectorStoreId] = useState<string | null>(null);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [totalMessageCount, setTotalMessageCount] = useState(0);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
   const showSearchResults = searchQuery.trim().length > 0;
   const totalMatches = searchResults
@@ -267,15 +272,20 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
   useEffect(() => {
     if (!activeConversation?.id) {
       setMessages([]);
+      setHasMoreMessages(false);
+      setTotalMessageCount(0);
       return;
     }
     let cancelled = false;
     (async () => {
       console.log("Loading messages for conversation:", activeConversation.id);
-      const loaded = await loadConversationMessages(activeConversation.id);
-      console.log("Loaded messages:", loaded.length, loaded);
+      // 初回は最新30件のみ読み込み
+      const result = await loadConversationMessagesPaginated(activeConversation.id, { limit: 30 });
+      console.log("Loaded messages:", result.messages.length, "Total:", result.totalCount);
       if (!cancelled) {
-        setMessages(loaded);
+        setMessages(result.messages);
+        setHasMoreMessages(result.hasMore);
+        setTotalMessageCount(result.totalCount);
       }
     })();
     return () => {
@@ -929,6 +939,34 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     void persistConversation({ vectorStoreIds: updatedIds });
   }, [selectedVectorStoreIds, persistConversation]);
 
+  const handleLoadOlderMessages = useCallback(async () => {
+    const conversation = activeConversationRef.current;
+    if (!conversation?.id || loadingOlderMessages || !hasMoreMessages || messages.length === 0) {
+      return;
+    }
+
+    setLoadingOlderMessages(true);
+    try {
+      const oldestMessage = messages[0];
+      const result = await loadConversationMessagesPaginated(conversation.id, {
+        limit: 30,
+        beforeMessageId: oldestMessage.id,
+      });
+
+      if (result.messages.length > 0) {
+        // 古いメッセージを先頭に追加
+        const updatedMessages = result.messages.concat(messages);
+        setMessages(updatedMessages);
+        messagesRef.current = updatedMessages;
+        setHasMoreMessages(result.hasMore);
+      }
+    } catch (error) {
+      console.error("古いメッセージの読み込みに失敗:", error);
+    } finally {
+      setLoadingOlderMessages(false);
+    }
+  }, [loadingOlderMessages, hasMoreMessages, messages]);
+
   const visibleConversations = useMemo(
     () => conversations.filter((conversation) => conversation.hasContent),
     [conversations],
@@ -1176,6 +1214,25 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
               ) : (
                 <div className="chat-messages-container">
                   <div className="chat-messages" aria-live="polite" style={{ fontSize: `${chatFontSize}%` }}>
+                  {hasMoreMessages && (
+                    <div style={{ textAlign: "center", padding: "16px 0", borderBottom: "1px solid #e0e0e0", marginBottom: "16px" }}>
+                      <button
+                        onClick={() => void handleLoadOlderMessages()}
+                        disabled={loadingOlderMessages}
+                        style={{
+                          padding: "8px 16px",
+                          backgroundColor: loadingOlderMessages ? "#ccc" : "#007bff",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "4px",
+                          cursor: loadingOlderMessages ? "not-allowed" : "pointer",
+                          fontSize: "14px",
+                        }}
+                      >
+                        {loadingOlderMessages ? "読み込み中..." : `古いメッセージを読み込む (${totalMessageCount - messages.length}件)`}
+                      </button>
+                    </div>
+                  )}
                   {messages.map((message) => {
                     const textPart = message.parts.find(
                       (part) => part.type === "text",

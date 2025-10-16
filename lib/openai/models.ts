@@ -23,13 +23,13 @@ export async function fetchModelsFromApi(
     const response = await client.models.list();
 
     const models = response.data
-      .filter((model) => model.id.includes("gpt") || model.id.includes("o1"))
-      .map((model) => ({
+      .filter((model: any) => model.id.includes("gpt") || model.id.includes("o1"))
+      .map((model: any) => ({
         id: model.id,
         name: model.id,
         created: model.created,
       }))
-      .sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
+      .sort((a: ModelInfo, b: ModelInfo) => (b.created ?? 0) - (a.created ?? 0));
 
     return models.length > 0 ? models : DEFAULT_MODELS;
   } catch (error) {

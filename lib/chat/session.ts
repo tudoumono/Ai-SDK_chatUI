@@ -2,6 +2,7 @@ import {
   deleteConversation as deleteConversationFromDb,
   getAllConversations,
   getMessages,
+  getMessagesPaginated,
   upsertConversations,
   upsertMessages,
   pruneExpiredConversations,
@@ -54,6 +55,26 @@ export async function loadConversationMessages(conversationId: string) {
     return [];
   }
   return getMessages(conversationId);
+}
+
+export type LoadMessagesResult = {
+  messages: MessageRecord[];
+  hasMore: boolean;
+  totalCount: number;
+};
+
+export async function loadConversationMessagesPaginated(
+  conversationId: string,
+  options: {
+    limit?: number;
+    beforeMessageId?: string;
+    afterMessageId?: string;
+  } = {}
+): Promise<LoadMessagesResult> {
+  if (!conversationId) {
+    return { messages: [], hasMore: false, totalCount: 0 };
+  }
+  return getMessagesPaginated(conversationId, options);
 }
 
 export async function saveMessages(records: MessageRecord[]) {
