@@ -195,7 +195,6 @@ textarea {
   padding: var(--spacing-xl);
   background: var(--background-secondary);
   border-right: 1px solid var(--border);
-  gap: var(--spacing-lg);
   transition: transform var(--transition-base);
   overflow: hidden;
 }
@@ -227,6 +226,8 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex-shrink: 0;
+  margin-bottom: var(--spacing-xl);
 }
 
 .sidebar-title {
@@ -341,6 +342,7 @@ textarea {
   flex-shrink: 0;
   padding-top: var(--spacing-lg);
   border-top: 1px solid var(--border);
+  margin-top: var(--spacing-lg);
 }
 
 .sidebar-theme-toggle {

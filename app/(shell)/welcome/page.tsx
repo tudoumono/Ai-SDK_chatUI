@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Shield } from "lucide-react";
 import { appendLog } from "@/lib/logs/store";
 import {
   hasStoredConnection,
@@ -15,6 +16,8 @@ import {
   buildRequestHeaders,
   parseAdditionalHeaders,
 } from "@/lib/settings/header-utils";
+import { validateOrgWhitelist } from "@/lib/openai/org-validation";
+import { getWhitelistedOrgIds } from "@/lib/settings/org-whitelist";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -74,6 +77,7 @@ export default function WelcomePage() {
     message: "接続テストは未実行です。",
   });
   const [savedFlags, setSavedFlags] = useState({ session: false, persistent: false, encrypted: false });
+  const [whitelistEnabled, setWhitelistEnabled] = useState(false);
 
   const requestTarget = useMemo(() => {
     const trimmed = baseUrl.trim().replace(/\/$/, "");
@@ -84,18 +88,25 @@ export default function WelcomePage() {
     let cancelled = false;
     (async () => {
       const stored = await loadConnection();
-      if (cancelled || !stored) {
-        setSavedFlags(hasStoredConnection());
+      if (cancelled) {
         return;
       }
-      setApiKey(stored.apiKey ?? "");
-      setBaseUrl(stored.baseUrl || DEFAULT_BASE_URL);
-      setHttpProxy(stored.httpProxy ?? "");
-      setHttpsProxy(stored.httpsProxy ?? "");
-      setAdditionalHeaders(headersToTextarea(stored.additionalHeaders));
-      setStoragePolicy(stored.storagePolicy);
-      setEncryptionEnabled(stored.encryptionEnabled);
+
+      if (stored) {
+        setApiKey(stored.apiKey ?? "");
+        setBaseUrl(stored.baseUrl || DEFAULT_BASE_URL);
+        setHttpProxy(stored.httpProxy ?? "");
+        setHttpsProxy(stored.httpsProxy ?? "");
+        setAdditionalHeaders(headersToTextarea(stored.additionalHeaders));
+        setStoragePolicy(stored.storagePolicy);
+        setEncryptionEnabled(stored.encryptionEnabled);
+      }
+
       setSavedFlags(hasStoredConnection());
+
+      // Check if whitelist is configured
+      const whitelistOrgIds = await getWhitelistedOrgIds();
+      setWhitelistEnabled(whitelistOrgIds.length > 0);
     })();
     return () => {
       cancelled = true;
@@ -184,6 +195,38 @@ export default function WelcomePage() {
             STORAGE_POLICIES.find((policy) => policy.value === storagePolicy)?.title ??
             "不明";
 
+          // Validate organization whitelist if enabled
+          if (whitelistEnabled) {
+            setResult({
+              state: "loading",
+              message: "組織IDを検証中...",
+            });
+
+            const validation = await validateOrgWhitelist(apiKey.trim(), baseUrl.trim());
+
+            if (!validation.valid) {
+              appendLog({
+                level: "error",
+                scope: "setup",
+                message: "組織ID検証失敗",
+                detail: validation.error || "Unknown error",
+              });
+
+              setResult({
+                state: "error",
+                message: `組織ID検証エラー: ${validation.error || "このAPIキーは許可されていません"}`,
+              });
+              return;
+            }
+
+            appendLog({
+              level: "info",
+              scope: "setup",
+              message: "組織ID検証成功",
+              detail: `Matched org: ${validation.matchedOrgId || "N/A"}`,
+            });
+          }
+
           await saveConnection({
             baseUrl: baseUrl.trim(),
             apiKey: apiKey.trim(),
@@ -203,10 +246,11 @@ export default function WelcomePage() {
             detail: `HTTP ${response.status}${suffix}`,
           });
 
+          const whitelistMessage = whitelistEnabled ? " / 組織ID検証: OK" : "";
           setResult({
             state: "success",
             statusCode: response.status,
-            message: `接続成功: HTTP ${response.status}${suffix} / 保存ポリシー: ${policyLabel}`,
+            message: `接続成功: HTTP ${response.status}${suffix}${whitelistMessage} / 保存ポリシー: ${policyLabel}`,
           });
           return;
         }
@@ -276,7 +320,44 @@ export default function WelcomePage() {
   return (
     <main className="page-grid">
       <div className="page-header">
-        <h1 className="page-header-title">ようこそ！まずは接続を確認しましょう</h1>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+          <div>
+            <h1 className="page-header-title">ようこそ！まずは接続を確認しましょう</h1>
+            {whitelistEnabled && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem", color: "var(--accent)" }}>
+                <Shield size={16} />
+                <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>組織IDホワイトリスト検証が有効です</span>
+              </div>
+            )}
+          </div>
+          <Link
+            href="/admin"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.5rem 1rem",
+              background: "var(--background-secondary)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)",
+              textDecoration: "none",
+              color: "var(--foreground)",
+              fontSize: "0.875rem",
+              transition: "all var(--transition-fast)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--accent)";
+              e.currentTarget.style.color = "var(--accent)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--border)";
+              e.currentTarget.style.color = "var(--foreground)";
+            }}
+          >
+            <Shield size={16} />
+            管理者画面
+          </Link>
+        </div>
         <p className="page-header-description">
           API キーと（必要に応じて）プロキシ設定を入力して `/v1/models` への接続をテストします。
         </p>
