@@ -333,6 +333,46 @@ textarea {
   line-height: 1.4;
 }
 
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-theme-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  color: var(--foreground);
+}
+
+.sidebar-theme-toggle:hover {
+  border-color: var(--border-hover);
+  background: var(--accent-lighter);
+  transform: translateX(2px);
+}
+
+.sidebar-theme-icon {
+  flex-shrink: 0;
+  transition: transform var(--transition-base);
+}
+
+.sidebar-theme-toggle:hover .sidebar-theme-icon {
+  transform: scale(1.1);
+}
+
+.sidebar-theme-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
 .app-shell {
   display: flex;
   min-height: 100vh;

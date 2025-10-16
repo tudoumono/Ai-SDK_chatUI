@@ -10,7 +10,10 @@ import {
   Database,
   MessageSquare,
   Settings,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 
 const NAV_ITEMS = [
   {
@@ -53,6 +56,7 @@ const NAV_ITEMS = [
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <nav className="sidebar-nav">
@@ -82,6 +86,22 @@ export function SidebarNav() {
           );
         })}
       </ul>
+      <div className="sidebar-footer">
+        <button
+          className="sidebar-theme-toggle"
+          onClick={toggleTheme}
+          title={theme === "light" ? "ダークモードに切り替え" : "ライトモードに切り替え"}
+        >
+          {theme === "light" ? (
+            <Moon className="sidebar-theme-icon" size={20} strokeWidth={2} />
+          ) : (
+            <Sun className="sidebar-theme-icon" size={20} strokeWidth={2} />
+          )}
+          <span className="sidebar-theme-label">
+            {theme === "light" ? "ダークモード" : "ライトモード"}
+          </span>
+        </button>
+      </div>
     </nav>
   );
 }
