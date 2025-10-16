@@ -22,9 +22,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // クライアント側でのみテーマを初期化
+    setMounted(true);
     const initialTheme = initializeTheme();
     setThemeState(initialTheme);
-    setMounted(true);
   }, []);
 
   const setTheme = (newTheme: Theme) => {
@@ -38,7 +39,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setTheme(newTheme);
   };
 
-  // マウント前でもコンテキストを提供（ハイドレーションエラー回避）
+  // 常にコンテキストを提供してuseThemeエラーを回避
+  // マウント前は初期値（dark）を使用し、マウント後に実際のテーマを適用
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       {children}
