@@ -38,11 +38,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setTheme(newTheme);
   };
 
-  // クライアント側でマウントされるまで何も表示しない（ハイドレーションエラー回避）
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
+  // マウント前でもコンテキストを提供（ハイドレーションエラー回避）
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       {children}
