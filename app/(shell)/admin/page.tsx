@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Shield, Plus, Trash2, Edit2, Save, X, AlertCircle } from "lucide-react";
+import { Shield, Plus, Trash2, Edit2, Save, X, AlertCircle, Key, Lock, Search, Settings } from "lucide-react";
 import {
   loadOrgWhitelist,
   addOrgToWhitelist,
@@ -10,6 +10,14 @@ import {
   updateOrgInWhitelist,
   type OrgWhitelistEntry,
 } from "@/lib/settings/org-whitelist";
+import { changePassword, getDefaultPassword } from "@/lib/settings/admin-password";
+import { fetchOrgInfo } from "@/lib/openai/org-validation";
+import {
+  loadFeatureRestrictions,
+  saveFeatureRestrictions,
+  type FeatureRestrictions,
+} from "@/lib/settings/feature-restrictions";
+import { PasswordGate } from "@/components/admin/password-gate";
 import { PageLoading } from "@/components/ui/page-loading";
 import "./admin.css";
 
@@ -25,14 +33,37 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+
+  // Organization ID lookup state
+  const [lookupApiKey, setLookupApiKey] = useState("");
+  const [lookupBaseUrl, setLookupBaseUrl] = useState("https://api.openai.com/v1");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupResult, setLookupResult] = useState<{ orgIds: string[]; error?: string } | null>(null);
+
+  // Feature restrictions state
+  const [featureRestrictions, setFeatureRestrictions] = useState<FeatureRestrictions>({
+    allowWebSearch: true,
+    allowVectorStore: true,
+    updatedAt: new Date().toISOString(),
+  });
+  const [restrictionsSuccess, setRestrictionsSuccess] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
         const loaded = await loadOrgWhitelist();
+        const restrictions = loadFeatureRestrictions();
         if (!cancelled) {
           setEntries(loaded);
+          setFeatureRestrictions(restrictions);
         }
       } catch (error) {
         if (!cancelled) {
@@ -135,12 +166,77 @@ export default function AdminPage() {
     }
   }, [editingId, editOrgName, editNotes]);
 
+  const handlePasswordChange = useCallback(async () => {
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("すべてのフィールドを入力してください");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("新しいパスワードと確認用パスワードが一致しません");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError("パスワードは6文字以上である必要があります");
+      return;
+    }
+
+    const result = await changePassword(currentPassword, newPassword);
+
+    if (result.success) {
+      setPasswordSuccess("パスワードを変更しました");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => setPasswordSuccess(null), 3000);
+    } else {
+      setPasswordError(result.error || "パスワードの変更に失敗しました");
+    }
+  }, [currentPassword, newPassword, confirmPassword]);
+
+  const handleLookupOrgId = useCallback(async () => {
+    if (!lookupApiKey.trim()) {
+      setLookupResult({ orgIds: [], error: "APIキーを入力してください" });
+      return;
+    }
+
+    setLookupLoading(true);
+    setLookupResult(null);
+
+    const result = await fetchOrgInfo(lookupApiKey.trim(), lookupBaseUrl.trim());
+
+    setLookupLoading(false);
+    setLookupResult(result);
+  }, [lookupApiKey, lookupBaseUrl]);
+
+  const handleFeatureRestrictionChange = useCallback((field: keyof FeatureRestrictions, value: boolean) => {
+    setFeatureRestrictions((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  const handleSaveFeatureRestrictions = useCallback(() => {
+    try {
+      saveFeatureRestrictions(featureRestrictions);
+      setRestrictionsSuccess("機能制限設定を保存しました");
+      setTimeout(() => setRestrictionsSuccess(null), 3000);
+    } catch (error) {
+      setError("機能制限設定の保存に失敗しました");
+    }
+  }, [featureRestrictions]);
+
   if (loading) {
     return <PageLoading message="Loading admin panel..." />;
   }
 
   return (
-    <div className="admin-container">
+    <PasswordGate>
+      <div className="admin-container">
       <header className="admin-header">
         <div className="admin-header-content">
           <Shield className="admin-icon" size={32} />
@@ -172,6 +268,112 @@ export default function AdminPage() {
             <span>{success}</span>
           </div>
         )}
+
+        <section className="admin-section">
+          <h2 className="admin-section-title">
+            <Search size={20} style={{ display: "inline", marginRight: "8px" }} />
+            組織IDの取得
+          </h2>
+          <p className="admin-section-description">
+            会社配布のAPIキーから組織IDを取得します。取得した組織IDをホワイトリストに追加してください。
+          </p>
+
+          <div className="admin-form">
+            <div className="admin-form-row">
+              <div className="admin-form-group">
+                <label htmlFor="lookup-api-key" className="admin-label">
+                  API Key *
+                </label>
+                <input
+                  id="lookup-api-key"
+                  type="password"
+                  className="admin-input"
+                  placeholder="sk-proj-xxxxx or sk-xxxxx"
+                  value={lookupApiKey}
+                  onChange={(e) => setLookupApiKey(e.target.value)}
+                />
+                <span className="admin-hint">
+                  会社配布のOpenAI APIキーを入力
+                </span>
+              </div>
+
+              <div className="admin-form-group">
+                <label htmlFor="lookup-base-url" className="admin-label">
+                  Base URL (Optional)
+                </label>
+                <input
+                  id="lookup-base-url"
+                  type="text"
+                  className="admin-input"
+                  placeholder="https://api.openai.com/v1"
+                  value={lookupBaseUrl}
+                  onChange={(e) => setLookupBaseUrl(e.target.value)}
+                />
+                <span className="admin-hint">
+                  通常は変更不要
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="admin-button admin-button-primary"
+              onClick={handleLookupOrgId}
+              disabled={lookupLoading}
+            >
+              <Search size={20} />
+              {lookupLoading ? "検索中..." : "組織IDを取得"}
+            </button>
+
+            {lookupResult && (
+              <div style={{ marginTop: "var(--spacing-lg)" }}>
+                {lookupResult.error ? (
+                  <div className="admin-alert admin-alert-error">
+                    <AlertCircle size={20} />
+                    <span>{lookupResult.error}</span>
+                  </div>
+                ) : lookupResult.orgIds.length > 0 ? (
+                  <div className="admin-alert admin-alert-success">
+                    <div>
+                      <strong>組織IDが見つかりました:</strong>
+                      <ul style={{ marginTop: "8px", marginBottom: 0, paddingLeft: "20px" }}>
+                        {lookupResult.orgIds.map((orgId) => (
+                          <li key={orgId}>
+                            <code className="admin-code">{orgId}</code>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(orgId);
+                                setSuccess("組織IDをクリップボードにコピーしました");
+                                setTimeout(() => setSuccess(null), 3000);
+                              }}
+                              style={{
+                                marginLeft: "8px",
+                                padding: "2px 8px",
+                                fontSize: "12px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              コピー
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      <p style={{ marginTop: "12px", marginBottom: 0, fontSize: "14px" }}>
+                        💡 上記の組織IDを下の「Add New Organization」セクションで登録してください。
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="admin-alert admin-alert-error">
+                    <AlertCircle size={20} />
+                    <span>組織IDが見つかりませんでした</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
 
         <section className="admin-section">
           <h2 className="admin-section-title">Add New Organization</h2>
@@ -356,6 +558,154 @@ export default function AdminPage() {
           )}
         </section>
 
+        <section className="admin-section">
+          <h2 className="admin-section-title">
+            <Key size={20} style={{ display: "inline", marginRight: "8px" }} />
+            パスワード変更
+          </h2>
+          <p className="admin-section-description">
+            管理者画面のパスワードを変更します。初期パスワード「{getDefaultPassword()}」から必ず変更してください。
+          </p>
+
+          {passwordError && (
+            <div className="admin-alert admin-alert-error">
+              <AlertCircle size={20} />
+              <span>{passwordError}</span>
+              <button onClick={() => setPasswordError(null)} className="admin-alert-close">
+                ×
+              </button>
+            </div>
+          )}
+
+          {passwordSuccess && (
+            <div className="admin-alert admin-alert-success">
+              <span>{passwordSuccess}</span>
+            </div>
+          )}
+
+          <div className="admin-form">
+            <div className="admin-form-group">
+              <label htmlFor="current-password" className="admin-label">
+                <Lock size={16} style={{ display: "inline", marginRight: "4px" }} />
+                現在のパスワード *
+              </label>
+              <input
+                id="current-password"
+                type="password"
+                className="admin-input"
+                placeholder="現在のパスワードを入力"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+            </div>
+
+            <div className="admin-form-row">
+              <div className="admin-form-group">
+                <label htmlFor="new-password" className="admin-label">
+                  新しいパスワード *
+                </label>
+                <input
+                  id="new-password"
+                  type="password"
+                  className="admin-input"
+                  placeholder="新しいパスワード（6文字以上）"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </div>
+
+              <div className="admin-form-group">
+                <label htmlFor="confirm-password" className="admin-label">
+                  パスワード確認 *
+                </label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  className="admin-input"
+                  placeholder="新しいパスワードを再入力"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="admin-button admin-button-primary"
+              onClick={handlePasswordChange}
+            >
+              <Key size={20} />
+              パスワードを変更
+            </button>
+          </div>
+        </section>
+
+        <section className="admin-section">
+          <h2 className="admin-section-title">
+            <Settings size={20} style={{ display: "inline", marginRight: "8px" }} />
+            機能制限設定
+          </h2>
+          <p className="admin-section-description">
+            ユーザーが使用できる機能を制限します。配布前にこの設定を行うことで、組織のポリシーに合わせた機能制御が可能です。
+          </p>
+
+          {restrictionsSuccess && (
+            <div className="admin-alert admin-alert-success">
+              <span>{restrictionsSuccess}</span>
+            </div>
+          )}
+
+          <div className="admin-form">
+            <div className="admin-form-group">
+              <label className="admin-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={featureRestrictions.allowWebSearch}
+                  onChange={(e) => handleFeatureRestrictionChange("allowWebSearch", e.target.checked)}
+                  style={{ marginRight: "8px" }}
+                />
+                <strong>Web検索機能を許可</strong>
+              </label>
+              <p className="admin-hint" style={{ marginTop: "4px", marginLeft: "24px" }}>
+                チェックを外すと、ユーザーはWeb検索機能を使用できなくなります。
+                Settings画面でWeb検索オプションが非表示になります。
+              </p>
+            </div>
+
+            <div className="admin-form-group" style={{ marginTop: "var(--spacing-lg)" }}>
+              <label className="admin-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={featureRestrictions.allowVectorStore}
+                  onChange={(e) => handleFeatureRestrictionChange("allowVectorStore", e.target.checked)}
+                  style={{ marginRight: "8px" }}
+                />
+                <strong>Vector Store機能を許可</strong>
+              </label>
+              <p className="admin-hint" style={{ marginTop: "4px", marginLeft: "24px" }}>
+                チェックを外すと、ユーザーはVector Store（RAG）機能を使用できなくなります。
+                Settings画面とダッシュボードでVector Store関連のUIが非表示になります。
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="admin-button admin-button-primary"
+              onClick={handleSaveFeatureRestrictions}
+              style={{ marginTop: "var(--spacing-lg)" }}
+            >
+              <Save size={20} />
+              設定を保存
+            </button>
+
+            {featureRestrictions.updatedAt && (
+              <p className="admin-hint" style={{ marginTop: "var(--spacing-md)" }}>
+                最終更新: {new Date(featureRestrictions.updatedAt).toLocaleString()}
+              </p>
+            )}
+          </div>
+        </section>
+
         <section className="admin-info-section">
           <h3 className="admin-info-title">How It Works</h3>
           <div className="admin-info-content">
@@ -385,5 +735,6 @@ export default function AdminPage() {
         </section>
       </main>
     </div>
+    </PasswordGate>
   );
 }

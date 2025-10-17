@@ -17,6 +17,7 @@ import type { ConnectionSettings } from "@/lib/settings/connection-storage";
 import { loadConnection } from "@/lib/settings/connection-storage";
 import { getAllVectorStores } from "@/lib/storage/indexed-db";
 import { fetchModelsFromApi, getDefaultModels, type ModelInfo } from "@/lib/openai/models";
+import { isWebSearchAllowed, isVectorStoreAllowed } from "@/lib/settings/feature-restrictions";
 import { PageLoading } from "@/components/ui/page-loading";
 import type {
   ConversationRecord,
@@ -1505,37 +1506,41 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                 </select>
               </div>
 
-              <div className="settings-toggle">
-                <label className="settings-toggle-label">Web Search</label>
-                <button
-                  className={`toggle-switch ${webSearchEnabled ? "active" : ""}`}
-                  onClick={() => {
-                    const event = {
-                      target: { checked: !webSearchEnabled },
-                    } as React.ChangeEvent<HTMLInputElement>;
-                    handleWebSearchToggle(event);
-                  }}
-                >
-                  <span className="toggle-switch-slider"></span>
-                </button>
-              </div>
+              {isWebSearchAllowed() && (
+                <div className="settings-toggle">
+                  <label className="settings-toggle-label">Web Search</label>
+                  <button
+                    className={`toggle-switch ${webSearchEnabled ? "active" : ""}`}
+                    onClick={() => {
+                      const event = {
+                        target: { checked: !webSearchEnabled },
+                      } as React.ChangeEvent<HTMLInputElement>;
+                      handleWebSearchToggle(event);
+                    }}
+                  >
+                    <span className="toggle-switch-slider"></span>
+                  </button>
+                </div>
+              )}
 
-              <div className="settings-toggle">
-                <label className="settings-toggle-label">Vector Store</label>
-                <button
-                  className={`toggle-switch ${vectorSearchEnabled ? "active" : ""}`}
-                  onClick={() => {
-                    const event = {
-                      target: { checked: !vectorSearchEnabled },
-                    } as React.ChangeEvent<HTMLInputElement>;
-                    handleVectorSearchToggle(event);
-                  }}
-                >
-                  <span className="toggle-switch-slider"></span>
-                </button>
-              </div>
+              {isVectorStoreAllowed() && (
+                <div className="settings-toggle">
+                  <label className="settings-toggle-label">Vector Store</label>
+                  <button
+                    className={`toggle-switch ${vectorSearchEnabled ? "active" : ""}`}
+                    onClick={() => {
+                      const event = {
+                        target: { checked: !vectorSearchEnabled },
+                      } as React.ChangeEvent<HTMLInputElement>;
+                      handleVectorSearchToggle(event);
+                    }}
+                  >
+                    <span className="toggle-switch-slider"></span>
+                  </button>
+                </div>
+              )}
 
-              {vectorSearchEnabled && (
+              {vectorSearchEnabled && isVectorStoreAllowed() && (
                 <div className="field-group">
                   <label className="field-label">Vector Store IDs (最大3件)</label>
                   <div className="vector-store-ids-container">
