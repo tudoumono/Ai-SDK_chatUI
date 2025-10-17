@@ -263,6 +263,34 @@ export default function AdminPage() {
           </div>
         )}
 
+        <section className="admin-info-section">
+          <h3 className="admin-info-title">How It Works</h3>
+          <div className="admin-info-content">
+            <p>
+              このホワイトリストは、会社配布のAPIキーのみを使用できるようにするための機能です。
+            </p>
+            <ol className="admin-info-list">
+              <li>
+                <strong>組織IDの取得:</strong> OpenAI API の{" "}
+                <code>/v1/me</code>{" "}
+                エンドポイントを使用して、入力されたAPIキーに紐づく組織IDを取得します。
+              </li>
+              <li>
+                <strong>ホワイトリスト照合:</strong>{" "}
+                取得した組織IDが、ここで登録されたホワイトリストに含まれているかを確認します。
+              </li>
+              <li>
+                <strong>検証結果:</strong>{" "}
+                ホワイトリストに含まれていない場合は、個人のAPIキーと判断してエラーを返します。
+              </li>
+            </ol>
+            <p className="admin-info-note">
+              <strong>注意:</strong> APIキーのプレフィックス（sk-proj など）だけでは個人のキーと区別できないため、
+              組織IDでの検証が推奨されます。
+            </p>
+          </div>
+        </section>
+
         <section className="section-card">
           <h2 className="admin-section-title">
             <Search size={20} style={{ display: "inline", marginRight: "8px" }} />
@@ -699,36 +727,7 @@ export default function AdminPage() {
             )}
           </div>
         </section>
-
-        <section className="admin-info-section">
-          <h3 className="admin-info-title">How It Works</h3>
-          <div className="admin-info-content">
-            <p>
-              このホワイトリストは、会社配布のAPIキーのみを使用できるようにするための機能です。
-            </p>
-            <ol className="admin-info-list">
-              <li>
-                <strong>組織IDの取得:</strong> OpenAI API の{" "}
-                <code>/v1/me</code>{" "}
-                エンドポイントを使用して、入力されたAPIキーに紐づく組織IDを取得します。
-              </li>
-              <li>
-                <strong>ホワイトリスト照合:</strong>{" "}
-                取得した組織IDが、ここで登録されたホワイトリストに含まれているかを確認します。
-              </li>
-              <li>
-                <strong>検証結果:</strong>{" "}
-                ホワイトリストに含まれていない場合は、個人のAPIキーと判断してエラーを返します。
-              </li>
-            </ol>
-            <p className="admin-info-note">
-              <strong>注意:</strong> APIキーのプレフィックス（sk-proj など）だけでは個人のキーと区別できないため、
-              組織IDでの検証が推奨されます。
-            </p>
-          </div>
-        </section>
       </main>
-    </div>
     </PasswordGate>
   );
 }
