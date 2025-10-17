@@ -236,40 +236,34 @@ export default function AdminPage() {
 
   return (
     <PasswordGate>
-      <div className="admin-container">
-      <header className="admin-header">
-        <div className="admin-header-content">
-          <Shield className="admin-icon" size={32} />
-          <div>
-            <h1 className="admin-title">Organization Whitelist Management</h1>
-            <p className="admin-subtitle">
-              管理者画面 - 組織IDホワイトリストの管理
-            </p>
-          </div>
+      <main className="page-grid">
+        <div className="page-header">
+          <h1 className="page-header-title">
+            <Shield size={28} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} />
+            Organization Whitelist Management
+          </h1>
+          <p className="page-header-description">
+            管理者画面 - 組織IDホワイトリストの管理
+          </p>
+          <Link href="/welcome" className="button-link">
+            ← Back to Welcome
+          </Link>
         </div>
-        <Link href="/welcome" className="admin-back-link">
-          ← Back to Welcome
-        </Link>
-      </header>
-
-      <main className="admin-main">
         {error && (
-          <div className="admin-alert admin-alert-error">
-            <AlertCircle size={20} />
-            <span>{error}</span>
-            <button onClick={() => setError(null)} className="admin-alert-close">
-              ×
-            </button>
+          <div className="status-banner status-error">
+            <div className="status-title">エラー</div>
+            <p className="status-message">{error}</p>
           </div>
         )}
 
         {success && (
-          <div className="admin-alert admin-alert-success">
-            <span>{success}</span>
+          <div className="status-banner status-success">
+            <div className="status-title">成功</div>
+            <p className="status-message">{success}</p>
           </div>
         )}
 
-        <section className="admin-section">
+        <section className="section-card">
           <h2 className="admin-section-title">
             <Search size={20} style={{ display: "inline", marginRight: "8px" }} />
             組織IDの取得

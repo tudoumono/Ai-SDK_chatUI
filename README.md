@@ -401,6 +401,7 @@ MIT License
 - [📖 配布ガイド](./docs/DEPLOYMENT_GUIDE.md) - 組織内への配布方法と事前設定
 - [🛡️ 管理者ガイド](./docs/ADMIN_GUIDE.md) - 管理画面の使い方とセキュリティ設定
 - [👤 ユーザーガイド](./docs/USER_GUIDE.md) - エンドユーザー向け使い方ガイド
+- [⚡ パフォーマンス最適化](./docs/PERFORMANCE_OPTIMIZATION.md) - メモリリーク対策とexe効率化
 
 ---
 
