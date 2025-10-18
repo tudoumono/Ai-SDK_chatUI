@@ -21,16 +21,25 @@ export async function saveTauriFile(content: string, defaultFilename: string): P
   }
 
   try {
-    console.log('[saveTauriFile] Starting Tauri file save...');
+    console.log('[saveTauriFile] ===== Starting Tauri file save =====');
+    console.log('[saveTauriFile] Default filename:', defaultFilename);
+    console.log('[saveTauriFile] Content length:', content.length, 'characters');
 
     // Tauri APIを動的にインポート
-    console.log('[saveTauriFile] Importing Tauri plugins...');
+    console.log('[saveTauriFile] Step 1: Importing Tauri plugins...');
     const { save } = await import('@tauri-apps/plugin-dialog');
+    console.log('[saveTauriFile] ✅ Dialog plugin imported successfully');
+    
     const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-    console.log('[saveTauriFile] Plugins imported successfully');
+    console.log('[saveTauriFile] ✅ FS plugin imported successfully');
 
     // ファイル保存ダイアログを表示
-    console.log('[saveTauriFile] Opening save dialog...');
+    console.log('[saveTauriFile] Step 2: Opening save dialog...');
+    console.log('[saveTauriFile] Dialog options:', {
+      defaultPath: defaultFilename,
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+
     const filePath = await save({
       defaultPath: defaultFilename,
       filters: [{
@@ -39,23 +48,44 @@ export async function saveTauriFile(content: string, defaultFilename: string): P
       }]
     });
 
+    console.log('[saveTauriFile] Dialog result:', filePath);
+
     // キャンセルされた場合
     if (!filePath) {
-      console.log('[saveTauriFile] File save cancelled by user');
+      console.log('[saveTauriFile] ⚠️ User cancelled file save dialog');
       return;
     }
 
     // ファイルを書き込み
-    console.log(`[saveTauriFile] Writing file to: ${filePath}`);
+    console.log('[saveTauriFile] Step 3: Writing file...');
+    console.log('[saveTauriFile] Target path:', filePath);
+    console.log('[saveTauriFile] Content preview:', content.substring(0, 100) + '...');
+
     await writeTextFile(filePath, content);
-    console.log(`[saveTauriFile] ✅ File saved successfully: ${filePath}`);
+    
+    console.log('[saveTauriFile] ===== ✅ File saved successfully =====');
+    console.log('[saveTauriFile] Final path:', filePath);
+    console.log('[saveTauriFile] File size:', content.length, 'characters');
+
+    // 成功時にアラートを表示（デバッグ用）
+    if (typeof window !== 'undefined' && '__TAURI__' in window) {
+      const { message } = await import('@tauri-apps/plugin-dialog');
+      await message(`ファイルを保存しました！\n\nパス: ${filePath}`, {
+        title: '保存成功',
+        kind: 'info'
+      });
+    }
+
   } catch (error) {
-    console.error('[saveTauriFile] ❌ Failed to save file in Tauri:', error);
-    console.error('[saveTauriFile] Error details:', {
-      name: error instanceof Error ? error.name : 'Unknown',
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    });
+    console.error('[saveTauriFile] ===== ❌ Failed to save file =====');
+    console.error('[saveTauriFile] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('[saveTauriFile] Error message:', error instanceof Error ? error.message : String(error));
+    console.error('[saveTauriFile] Full error:', error);
+    
+    if (error instanceof Error && error.stack) {
+      console.error('[saveTauriFile] Stack trace:', error.stack);
+    }
+
     throw error;
   }
 }

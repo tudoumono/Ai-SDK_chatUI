@@ -279,7 +279,15 @@ export default function SettingsPage() {
   const [fallbackFilename, setFallbackFilename] = useState("");
 
   const handleTestDownload = useCallback(async () => {
-    setDownloadTestStatus({ state: "loading", message: "テストファイルをダウンロード中..." });
+    const isTauri = isTauriEnvironment();
+    console.log('[TEST] Environment check:', isTauri ? 'Tauri' : 'Browser');
+
+    setDownloadTestStatus({
+      state: "loading",
+      message: isTauri
+        ? "ファイル保存ダイアログを開いています..."
+        : "テストファイルをダウンロード中..."
+    });
     setShowFallbackContent(false);
 
     try {
@@ -287,13 +295,20 @@ export default function SettingsPage() {
         test: true,
         timestamp: new Date().toISOString(),
         message: "これはテストファイルです",
-        environment: isTauriEnvironment() ? "Tauri" : "Browser",
-        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'
+        environment: isTauri ? "Tauri (exe/app)" : "Browser",
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+        tauriCheck: {
+          windowHasTauri: typeof window !== 'undefined' && '__TAURI__' in window,
+          isTauriResult: isTauri
+        }
       };
 
       const json = JSON.stringify(testData, null, 2);
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
       const filename = `download-test-${timestamp}.json`;
+
+      console.log('[TEST] Saving file:', filename);
+      console.log('[TEST] Content length:', json.length);
 
       // 代替表示用に保存
       setFallbackContent(json);
@@ -302,21 +317,28 @@ export default function SettingsPage() {
       // saveFile関数を直接呼び出し
       await saveFile(json, filename);
 
-      // ダウンロード後、少し待ってからユーザーに確認
-      setTimeout(() => {
+      // 成功メッセージ
+      if (isTauri) {
         setDownloadTestStatus({
           state: "success",
-          message: `✅ ダウンロードを試行しました。ファイル名: ${filename}\n\n⚠️ ダウンロードフォルダにファイルが見つからない場合は、下の「内容を表示」ボタンをクリックしてください。`
+          message: `✅ ファイル保存ダイアログを完了しました。\n\nファイルを保存した場合は、指定した場所に「${filename}」が保存されています。\n\n⚠️ ダイアログをキャンセルした場合は、下の「内容を表示」ボタンから確認できます。`
         });
-      }, 500);
+      } else {
+        setTimeout(() => {
+          setDownloadTestStatus({
+            state: "success",
+            message: `✅ ダウンロードを試行しました。ファイル名: ${filename}\n\n⚠️ ダウンロードフォルダにファイルが見つからない場合は、下の「内容を表示」ボタンをクリックしてください。`
+          });
+        }, 500);
+      }
 
     } catch (error) {
-      console.error("Test download failed:", error);
+      console.error("[TEST] Failed:", error);
       setDownloadTestStatus({
         state: "error",
         message: error instanceof Error
-          ? `❌ テストダウンロード失敗: ${error.message}\n\n下の「内容を表示」ボタンから手動でコピーできます。`
-          : "❌ テストダウンロードに失敗しました\n\n下の「内容を表示」ボタンから手動でコピーできます。"
+          ? `❌ ファイル保存失敗: ${error.message}\n\n下の「内容を表示」ボタンから手動でコピーできます。`
+          : "❌ ファイル保存に失敗しました\n\n下の「内容を表示」ボタンから手動でコピーできます。"
       });
     }
   }, []);
