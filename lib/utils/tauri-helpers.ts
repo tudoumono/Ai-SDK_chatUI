@@ -68,25 +68,71 @@ export function downloadBrowserFile(content: string, filename: string, mimeType 
     console.log('[downloadBrowserFile] Starting browser download...');
     console.log('[downloadBrowserFile] Filename:', filename);
     console.log('[downloadBrowserFile] Content size:', content.length, 'bytes');
+    console.log('[downloadBrowserFile] MIME type:', mimeType);
 
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
+    // 方法1: Blob + <a>タグでダウンロード（主要な方法）
+    try {
+      const blob = new Blob([content], { type: mimeType });
+      console.log('[downloadBrowserFile] Blob created:', blob.size, 'bytes');
 
-    console.log('[downloadBrowserFile] ✅ Download triggered successfully');
+      const url = URL.createObjectURL(blob);
+      console.log('[downloadBrowserFile] Object URL created:', url);
 
-    // クリーンアップを少し遅延
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      console.log('[downloadBrowserFile] Cleanup completed');
-    }, 100);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
+
+      console.log('[downloadBrowserFile] Appending link to document body...');
+      document.body.appendChild(link);
+
+      console.log('[downloadBrowserFile] Triggering click...');
+      link.click();
+
+      console.log('[downloadBrowserFile] ✅ Download triggered successfully');
+
+      // クリーンアップを少し遅延
+      setTimeout(() => {
+        try {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          console.log('[downloadBrowserFile] Cleanup completed');
+        } catch (cleanupError) {
+          console.warn('[downloadBrowserFile] Cleanup warning:', cleanupError);
+        }
+      }, 100);
+      return;
+    } catch (downloadError) {
+      console.error('[downloadBrowserFile] ⚠️ Primary download method failed, trying alternative...', downloadError);
+
+      // 方法2: data URIを使った代替方法
+      try {
+        const dataUri = `data:${mimeType};charset=utf-8,${encodeURIComponent(content)}`;
+        const link = document.createElement('a');
+        link.href = dataUri;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+
+        setTimeout(() => {
+          document.body.removeChild(link);
+        }, 100);
+
+        console.log('[downloadBrowserFile] ✅ Alternative download method succeeded');
+        return;
+      } catch (altError) {
+        console.error('[downloadBrowserFile] ❌ Alternative download method also failed:', altError);
+        throw altError;
+      }
+    }
   } catch (error) {
-    console.error('[downloadBrowserFile] ❌ Download failed:', error);
+    console.error('[downloadBrowserFile] ❌ All download methods failed:', error);
+    console.error('[downloadBrowserFile] Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
   }
 }
@@ -98,11 +144,16 @@ export async function saveFile(content: string, filename: string): Promise<void>
   const isTauri = isTauriEnvironment();
   console.log(`[saveFile] Environment: ${isTauri ? 'Tauri' : 'Browser'}, File: ${filename}`);
 
-  if (isTauri) {
-    console.log('[saveFile] Using Tauri file dialog...');
-    await saveTauriFile(content, filename);
-  } else {
-    console.log('[saveFile] Using browser download...');
-    downloadBrowserFile(content, filename);
+  try {
+    if (isTauri) {
+      console.log('[saveFile] Using Tauri file dialog...');
+      await saveTauriFile(content, filename);
+    } else {
+      console.log('[saveFile] Using browser download...');
+      downloadBrowserFile(content, filename);
+    }
+  } catch (error) {
+    console.error('[saveFile] ❌ File save failed:', error);
+    throw error;
   }
 }

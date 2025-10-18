@@ -272,6 +272,41 @@ export default function SettingsPage() {
     });
   }, [loadErrorLogs]);
 
+  // テスト用: ダウンロード機能をテスト
+  const [downloadTestStatus, setDownloadTestStatus] = useState<Status>({ state: "idle" });
+  const handleTestDownload = useCallback(async () => {
+    setDownloadTestStatus({ state: "loading", message: "テストファイルをダウンロード中..." });
+    try {
+      const testData = {
+        test: true,
+        timestamp: new Date().toISOString(),
+        message: "これはテストファイルです",
+        environment: isTauriEnvironment() ? "Tauri" : "Browser",
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'
+      };
+
+      const json = JSON.stringify(testData, null, 2);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const filename = `download-test-${timestamp}.json`;
+
+      // saveFile関数を直接呼び出し
+      await saveFile(json, filename);
+
+      setDownloadTestStatus({
+        state: "success",
+        message: `✅ テストファイルのダウンロードに成功しました！ファイル名: ${filename}`
+      });
+    } catch (error) {
+      console.error("Test download failed:", error);
+      setDownloadTestStatus({
+        state: "error",
+        message: error instanceof Error
+          ? `❌ テストダウンロード失敗: ${error.message}`
+          : "❌ テストダウンロードに失敗しました"
+      });
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -1171,6 +1206,24 @@ export default function SettingsPage() {
             <li>環境が「Tauri」だがダウンロードできない → Tauri権限設定を確認してください</li>
             <li>エラーメッセージが表示される → そのメッセージを開発者に報告してください</li>
           </ul>
+        </div>
+
+        {/* テストダウンロードボタン */}
+        <div style={{ marginTop: "1rem" }}>
+          <button
+            onClick={handleTestDownload}
+            disabled={downloadTestStatus.state === "loading"}
+            className="button-primary"
+            style={{ width: "100%" }}
+          >
+            {downloadTestStatus.state === "loading" ? "テスト中..." : "🧪 ダウンロード機能をテスト"}
+          </button>
+          {downloadTestStatus.state !== "idle" && (
+            <StatusMessage status={downloadTestStatus} style={{ marginTop: "0.5rem" }} />
+          )}
+          <p style={{ marginTop: "0.5rem", fontSize: "12px", color: "var(--foreground-secondary)" }}>
+            このボタンをクリックすると、小さなテストファイルをダウンロードして、ダウンロード機能が正常に動作するかを確認できます。
+          </p>
         </div>
       </section>
     </main>
