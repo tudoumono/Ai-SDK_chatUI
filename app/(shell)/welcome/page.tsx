@@ -314,6 +314,7 @@ export default function WelcomePage() {
       passphrase,
       requestTarget,
       storagePolicy,
+      whitelistEnabled,
     ],
   );
 
