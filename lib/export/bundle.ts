@@ -1,23 +1,19 @@
 import type { ExportBundle } from "@/lib/storage/schema";
+import { saveFile } from "@/lib/utils/tauri-helpers";
 
 /**
  * バンドルデータをJSON形式でダウンロード
  */
 export async function downloadBundle(bundle: ExportBundle): Promise<void> {
-  const json = JSON.stringify(bundle, null, 2);
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const filename = `ai-sdk-chatui-export-${timestamp}.json`;
-
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  try {
+    const json = JSON.stringify(bundle, null, 2);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const filename = `ai-sdk-chatui-export-${timestamp}.json`;
+    await saveFile(json, filename);
+  } catch (error) {
+    console.error("Export bundle failed:", error);
+    throw error;
+  }
 }
 
 /**

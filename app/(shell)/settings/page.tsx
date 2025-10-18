@@ -173,7 +173,7 @@ export default function SettingsPage() {
       }
 
       const bundle = createLogExportBundle(errorLogs);
-      downloadLogBundle(bundle);
+      await downloadLogBundle(bundle);
 
       setErrorLogStatus({
         state: "success",
@@ -1020,6 +1020,15 @@ export default function SettingsPage() {
         <div className="form-navigation">
           <button
             className="primary-button"
+            onClick={loadErrorLogs}
+            disabled={errorLogStatus.state === "loading"}
+            type="button"
+          >
+            <Database size={16} />
+            更新
+          </button>
+          <button
+            className="outline-button"
             onClick={handleExportErrorLogs}
             disabled={errorLogStatus.state === "loading" || errorLogs.length === 0}
             type="button"

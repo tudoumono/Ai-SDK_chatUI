@@ -10,7 +10,7 @@ import {
   updateOrgInWhitelist,
   type OrgWhitelistEntry,
 } from "@/lib/settings/org-whitelist";
-import { changePassword, getDefaultPassword, resetPasswordToDefault } from "@/lib/settings/admin-password";
+import { changePassword, getDefaultPassword } from "@/lib/settings/admin-password";
 import { fetchOrgInfo } from "@/lib/openai/org-validation";
 import {
   loadFeatureRestrictions,
@@ -39,9 +39,6 @@ export default function AdminPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
-
-  // Emergency reset state
-  const [resetConfirmation, setResetConfirmation] = useState("");
 
   // Organization ID lookup state
   const [lookupApiKey, setLookupApiKey] = useState("");
@@ -200,36 +197,6 @@ export default function AdminPage() {
       setPasswordError(result.error || "パスワードの変更に失敗しました");
     }
   }, [currentPassword, newPassword, confirmPassword]);
-
-  const handleEmergencyReset = useCallback(async () => {
-    if (resetConfirmation !== "RESET") {
-      setPasswordError("確認のため「RESET」と入力してください");
-      return;
-    }
-
-    if (!confirm(
-      "⚠️ 警告: 管理者パスワードをデフォルト（admin123）にリセットします。\n\n" +
-      "同時に以下のデータもすべて削除されます:\n" +
-      "- 組織IDホワイトリスト\n" +
-      "- API検証キャッシュ\n" +
-      "- APIキーロック\n\n" +
-      "この操作は取り消せません。続行しますか？"
-    )) {
-      return;
-    }
-
-    try {
-      await resetPasswordToDefault();
-      setPasswordSuccess("パスワードと組織設定をリセットしました。ページをリロードします...");
-      setResetConfirmation("");
-      setTimeout(() => {
-        sessionStorage.removeItem("admin-authenticated");
-        window.location.reload();
-      }, 2000);
-    } catch (error) {
-      setPasswordError("リセットに失敗しました");
-    }
-  }, [resetConfirmation]);
 
   const handleLookupOrgId = useCallback(async () => {
     if (!lookupApiKey.trim()) {
@@ -691,65 +658,6 @@ export default function AdminPage() {
             >
               <Key size={20} />
               パスワードを変更
-            </button>
-          </div>
-        </section>
-
-        <section className="admin-section" style={{ borderColor: "var(--error, #ef4444)", borderWidth: "2px" }}>
-          <h2 className="admin-section-title" style={{ color: "var(--error, #ef4444)" }}>
-            <AlertCircle size={20} style={{ display: "inline", marginRight: "8px" }} />
-            ⚠️ 緊急パスワードリセット
-          </h2>
-          <p className="admin-section-description" style={{ color: "var(--error, #ef4444)" }}>
-            パスワードを忘れた場合の最終手段です。デフォルトパスワード「admin123」にリセットされ、
-            組織ホワイトリストと検証データもすべて削除されます。
-          </p>
-
-          <div className="admin-alert admin-alert-error" style={{ marginTop: "var(--spacing-md)" }}>
-            <AlertCircle size={20} />
-            <div>
-              <strong>警告:</strong> この操作により以下のデータがすべて削除されます：
-              <ul style={{ marginTop: "8px", marginBottom: 0, paddingLeft: "20px" }}>
-                <li>組織IDホワイトリスト</li>
-                <li>API検証キャッシュ</li>
-                <li>APIキーロック</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="admin-form">
-            <div className="admin-form-group">
-              <label htmlFor="reset-confirmation" className="admin-label">
-                確認のため「RESET」と入力してください *
-              </label>
-              <input
-                id="reset-confirmation"
-                type="text"
-                className="admin-input"
-                placeholder="RESET"
-                value={resetConfirmation}
-                onChange={(e) => setResetConfirmation(e.target.value)}
-                style={{ fontFamily: "monospace", fontSize: "16px" }}
-              />
-              <span className="admin-hint" style={{ color: "var(--error, #ef4444)" }}>
-                すべて大文字で「RESET」と入力してください
-              </span>
-            </div>
-
-            <button
-              type="button"
-              className="admin-button"
-              onClick={handleEmergencyReset}
-              disabled={resetConfirmation !== "RESET"}
-              style={{
-                borderColor: resetConfirmation === "RESET" ? "var(--error, #ef4444)" : "var(--border-color)",
-                color: resetConfirmation === "RESET" ? "var(--error, #ef4444)" : "var(--text-muted)",
-                opacity: resetConfirmation === "RESET" ? 1 : 0.5,
-                cursor: resetConfirmation === "RESET" ? "pointer" : "not-allowed",
-              }}
-            >
-              <AlertCircle size={20} />
-              パスワードと組織設定をリセット
             </button>
           </div>
         </section>
