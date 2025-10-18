@@ -274,8 +274,14 @@ export default function SettingsPage() {
 
   // テスト用: ダウンロード機能をテスト
   const [downloadTestStatus, setDownloadTestStatus] = useState<Status>({ state: "idle", message: "" });
+  const [showFallbackContent, setShowFallbackContent] = useState(false);
+  const [fallbackContent, setFallbackContent] = useState("");
+  const [fallbackFilename, setFallbackFilename] = useState("");
+
   const handleTestDownload = useCallback(async () => {
     setDownloadTestStatus({ state: "loading", message: "テストファイルをダウンロード中..." });
+    setShowFallbackContent(false);
+
     try {
       const testData = {
         test: true,
@@ -289,23 +295,45 @@ export default function SettingsPage() {
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
       const filename = `download-test-${timestamp}.json`;
 
+      // 代替表示用に保存
+      setFallbackContent(json);
+      setFallbackFilename(filename);
+
       // saveFile関数を直接呼び出し
       await saveFile(json, filename);
 
-      setDownloadTestStatus({
-        state: "success",
-        message: `✅ テストファイルのダウンロードに成功しました！ファイル名: ${filename}`
-      });
+      // ダウンロード後、少し待ってからユーザーに確認
+      setTimeout(() => {
+        setDownloadTestStatus({
+          state: "success",
+          message: `✅ ダウンロードを試行しました。ファイル名: ${filename}\n\n⚠️ ダウンロードフォルダにファイルが見つからない場合は、下の「内容を表示」ボタンをクリックしてください。`
+        });
+      }, 500);
+
     } catch (error) {
       console.error("Test download failed:", error);
       setDownloadTestStatus({
         state: "error",
         message: error instanceof Error
-          ? `❌ テストダウンロード失敗: ${error.message}`
-          : "❌ テストダウンロードに失敗しました"
+          ? `❌ テストダウンロード失敗: ${error.message}\n\n下の「内容を表示」ボタンから手動でコピーできます。`
+          : "❌ テストダウンロードに失敗しました\n\n下の「内容を表示」ボタンから手動でコピーできます。"
       });
     }
   }, []);
+
+  const handleShowFallback = useCallback(() => {
+    setShowFallbackContent(!showFallbackContent);
+  }, [showFallbackContent]);
+
+  const handleCopyContent = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(fallbackContent);
+      alert("内容をクリップボードにコピーしました！\n\nテキストエディタに貼り付けて、ファイルとして保存してください。");
+    } catch (error) {
+      console.error("Failed to copy:", error);
+      alert("クリップボードへのコピーに失敗しました。\n\n内容を手動で選択してコピーしてください。");
+    }
+  }, [fallbackContent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1218,17 +1246,73 @@ export default function SettingsPage() {
           >
             {downloadTestStatus.state === "loading" ? "テスト中..." : "🧪 ダウンロード機能をテスト"}
           </button>
+
           {downloadTestStatus.state !== "idle" && downloadTestStatus.message && (
             <div
               className={`status-banner status-${downloadTestStatus.state}`}
               role="status"
-              style={{ marginTop: "0.5rem" }}
+              style={{ marginTop: "0.5rem", whiteSpace: "pre-line" }}
             >
               <div className="status-title">{downloadTestStatus.message}</div>
             </div>
           )}
+
+          {/* 代替手段: 内容を表示/コピー */}
+          {(downloadTestStatus.state === "success" || downloadTestStatus.state === "error") && fallbackContent && (
+            <div style={{ marginTop: "0.5rem" }}>
+              <button
+                onClick={handleShowFallback}
+                className="outline-button"
+                style={{ width: "100%", marginBottom: "0.5rem" }}
+              >
+                {showFallbackContent ? "📁 内容を非表示" : "📄 内容を表示（手動コピー用）"}
+              </button>
+
+              {showFallbackContent && (
+                <div style={{
+                  marginTop: "0.5rem",
+                  padding: "1rem",
+                  background: "var(--background-secondary)",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--border-color)"
+                }}>
+                  <div style={{ marginBottom: "0.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <strong style={{ fontSize: "14px" }}>ファイル名: {fallbackFilename}</strong>
+                    <button
+                      onClick={handleCopyContent}
+                      className="outline-button"
+                      style={{ padding: "0.25rem 0.5rem", fontSize: "12px" }}
+                    >
+                      📋 クリップボードにコピー
+                    </button>
+                  </div>
+                  <textarea
+                    readOnly
+                    value={fallbackContent}
+                    style={{
+                      width: "100%",
+                      minHeight: "200px",
+                      fontFamily: "monospace",
+                      fontSize: "12px",
+                      padding: "0.5rem",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "var(--radius-sm)",
+                      background: "var(--background)",
+                      color: "var(--foreground)"
+                    }}
+                  />
+                  <p style={{ marginTop: "0.5rem", fontSize: "12px", color: "var(--foreground-secondary)" }}>
+                    💡 上の「クリップボードにコピー」ボタンをクリックするか、テキストを手動で選択してコピーし、
+                    テキストエディタに貼り付けて「{fallbackFilename}」として保存してください。
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <p style={{ marginTop: "0.5rem", fontSize: "12px", color: "var(--foreground-secondary)" }}>
             このボタンをクリックすると、小さなテストファイルをダウンロードして、ダウンロード機能が正常に動作するかを確認できます。
+            ダウンロードが機能しない場合は、手動でコピーする方法も提供されます。
           </p>
         </div>
       </section>

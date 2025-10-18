@@ -81,26 +81,35 @@ export function downloadBrowserFile(content: string, filename: string, mimeType 
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
+      
+      // リンクを一時的にDOMに追加（一部のブラウザで必要）
       link.style.display = 'none';
-
-      console.log('[downloadBrowserFile] Appending link to document body...');
       document.body.appendChild(link);
+      console.log('[downloadBrowserFile] Link appended to document');
 
-      console.log('[downloadBrowserFile] Triggering click...');
+      // クリックイベントをディスパッチ
+      console.log('[downloadBrowserFile] Triggering click event...');
       link.click();
+      console.log('[downloadBrowserFile] Click event triggered');
 
-      console.log('[downloadBrowserFile] ✅ Download triggered successfully');
-
-      // クリーンアップを少し遅延
+      // 少し待ってからクリーンアップ
       setTimeout(() => {
         try {
-          document.body.removeChild(link);
+          if (link.parentNode) {
+            document.body.removeChild(link);
+          }
           URL.revokeObjectURL(url);
           console.log('[downloadBrowserFile] Cleanup completed');
         } catch (cleanupError) {
           console.warn('[downloadBrowserFile] Cleanup warning:', cleanupError);
         }
-      }, 100);
+      }, 500); // 100msから500msに延長
+
+      console.log('[downloadBrowserFile] ✅ Download triggered successfully');
+      console.log('[downloadBrowserFile] ⚠️ ファイルがダウンロードされない場合:');
+      console.log('[downloadBrowserFile]   1. ブラウザの通知バーを確認してください');
+      console.log('[downloadBrowserFile]   2. ダウンロード設定でブロックされていないか確認してください');
+      console.log('[downloadBrowserFile]   3. ダウンロードフォルダを確認してください');
       return;
     } catch (downloadError) {
       console.error('[downloadBrowserFile] ⚠️ Primary download method failed, trying alternative...', downloadError);
@@ -116,8 +125,10 @@ export function downloadBrowserFile(content: string, filename: string, mimeType 
         link.click();
 
         setTimeout(() => {
-          document.body.removeChild(link);
-        }, 100);
+          if (link.parentNode) {
+            document.body.removeChild(link);
+          }
+        }, 500);
 
         console.log('[downloadBrowserFile] ✅ Alternative download method succeeded');
         return;
