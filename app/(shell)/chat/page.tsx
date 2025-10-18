@@ -15,6 +15,7 @@ import {
 } from "react";
 import type { ConnectionSettings } from "@/lib/settings/connection-storage";
 import { loadConnection } from "@/lib/settings/connection-storage";
+import { checkApiKeyAccess } from "@/lib/settings/org-validation-guard";
 import { getAllVectorStores } from "@/lib/storage/indexed-db";
 import { fetchModelsFromApi, getDefaultModels, type ModelInfo } from "@/lib/openai/models";
 import { isWebSearchAllowed, isVectorStoreAllowed } from "@/lib/settings/feature-restrictions";
@@ -453,6 +454,14 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
       setSendError("G0 のウェルカム画面で API キーを復号してください。");
       return;
     }
+
+    // 組織ID検証チェック（軽量）
+    const accessError = await checkApiKeyAccess(currentConnection.apiKey);
+    if (accessError) {
+      setSendError(accessError);
+      return;
+    }
+
     if (!prompt) {
       return;
     }

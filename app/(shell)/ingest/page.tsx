@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getAllVectorStores } from "@/lib/storage/indexed-db";
 import type { VectorStoreRecord } from "@/lib/storage/schema";
 import { loadConnection } from "@/lib/settings/connection-storage";
+import { checkApiKeyAccess } from "@/lib/settings/org-validation-guard";
 import {
   fetchVectorStoreFiles,
   fetchFileInfo,
@@ -348,6 +349,13 @@ function IngestContent() {
         throw new Error("API接続が設定されていません");
       }
 
+      // 組織ID検証チェック（軽量）
+      const accessError = await checkApiKeyAccess(connection.apiKey);
+      if (accessError) {
+        alert(accessError);
+        return;
+      }
+
       await updateVectorStoreApi(
         targetId,
         storeName.trim(),
@@ -412,6 +420,13 @@ function IngestContent() {
       const connection = await loadConnection();
       if (!connection?.apiKey) {
         throw new Error("API接続が設定されていません");
+      }
+
+      // 組織ID検証チェック（軽量）
+      const accessError = await checkApiKeyAccess(connection.apiKey);
+      if (accessError) {
+        alert(accessError);
+        return;
       }
 
       let targetVectorStoreId = currentVectorStoreId || vectorStoreId;

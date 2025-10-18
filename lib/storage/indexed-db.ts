@@ -34,39 +34,53 @@ type ChatUiSchema = DBSchema & {
 };
 
 const DB_NAME = "ai-sdk-chat-ui";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbPromise: Promise<IDBPDatabase<ChatUiSchema>> | null = null;
 
 function createDbPromise() {
   if (!dbPromise) {
     dbPromise = openDB<ChatUiSchema>(DB_NAME, DB_VERSION, {
-      upgrade(database) {
+      upgrade(database, oldVersion) {
+        // Conversations store
         if (!database.objectStoreNames.contains("conversations")) {
           const store = database.createObjectStore("conversations", {
             keyPath: "id",
           });
           store.createIndex("by-updated", "updatedAt");
         }
+
+        // Vector stores
         if (!database.objectStoreNames.contains("vectorStores")) {
           const store = database.createObjectStore("vectorStores", {
             keyPath: "id",
           });
           store.createIndex("by-updated", "updatedAt");
         }
+
+        // Messages store with optimized indexes
+        let messagesStore;
         if (!database.objectStoreNames.contains("messages")) {
-          const store = database.createObjectStore("messages", {
+          messagesStore = database.createObjectStore("messages", {
             keyPath: "id",
           });
-          store.createIndex("by-conversation", "conversationId");
-          store.createIndex("by-created", "createdAt");
+          messagesStore.createIndex("by-conversation", "conversationId");
+          messagesStore.createIndex("by-created", "createdAt");
+        } else if (oldVersion < 4) {
+          // Get existing store for upgrade
+          const tx = (database as any).transaction;
+          messagesStore = tx.objectStore("messages");
         }
+
+        // Attachments store
         if (!database.objectStoreNames.contains("attachments")) {
           const store = database.createObjectStore("attachments", {
             keyPath: "id",
           });
           store.createIndex("by-conversation", "conversationId");
         }
+
+        // Settings store
         if (!database.objectStoreNames.contains("settings")) {
           database.createObjectStore("settings", {
             keyPath: "key",
@@ -88,17 +102,15 @@ export async function getDatabase() {
 export async function getAllConversations() {
   const db = await getDatabase();
   const items = await db.getAllFromIndex("conversations", "by-updated");
-  return items.sort((a, b) =>
-    a.updatedAt > b.updatedAt ? -1 : a.updatedAt < b.updatedAt ? 1 : 0,
-  );
+  // インデックスから取得したデータは既にソート済みなので、逆順にするだけ
+  return items.reverse();
 }
 
 export async function getAllVectorStores() {
   const db = await getDatabase();
   const items = await db.getAllFromIndex("vectorStores", "by-updated");
-  return items.sort((a, b) =>
-    a.updatedAt > b.updatedAt ? -1 : a.updatedAt < b.updatedAt ? 1 : 0,
-  );
+  // インデックスから取得したデータは既にソート済みなので、逆順にするだけ
+  return items.reverse();
 }
 
 export async function getConversation(id: string) {
@@ -119,6 +131,37 @@ export async function getMessages(conversationId: string) {
     if (a.role === "assistant" && b.role === "user") return 1;
     return 0;
   });
+}
+
+// 検索用の軽量メッセージ取得（テキストのみ）
+export async function searchMessagesText(
+  conversationId: string,
+  searchTerm: string,
+  limit = 1
+): Promise<Array<{ id: string; text: string; createdAt: string }>> {
+  const db = await getDatabase();
+  const index = db.transaction("messages").store.index("by-conversation");
+  const items = await index.getAll(IDBKeyRange.only(conversationId));
+
+  const normalizedSearch = searchTerm.toLowerCase();
+  const matches: Array<{ id: string; text: string; createdAt: string }> = [];
+
+  for (const item of items) {
+    if (matches.length >= limit) break;
+
+    for (const part of item.parts) {
+      if (part.type === "text" && part.text.toLowerCase().includes(normalizedSearch)) {
+        matches.push({
+          id: item.id,
+          text: part.text,
+          createdAt: item.createdAt,
+        });
+        break;
+      }
+    }
+  }
+
+  return matches;
 }
 
 // ページネーション対応のメッセージ取得

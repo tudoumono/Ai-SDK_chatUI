@@ -7,6 +7,7 @@ import {
   getAllConversations,
   getAllVectorStores,
   getMessages,
+  searchMessagesText,
   upsertConversations,
   upsertMessages,
   upsertVectorStores,
@@ -261,21 +262,16 @@ export default function DashboardPage() {
           if (seenIds.has(conversation.id)) {
             continue;
           }
-          const messages = await getMessages(conversation.id).catch(() => []);
 
-          // メッセージ内でマッチを探し、プレビューを生成
-          for (const message of messages) {
-            const textPart = message.parts.find(
-              (part) => part.type === "text" && part.text.toLowerCase().includes(normalized)
-            );
-            if (textPart && textPart.type === "text") {
-              const preview = extractMatchPreview(textPart.text, keyword, 60);
-              messageMatches.push({
-                ...conversation,
-                messagePreview: preview,
-              });
-              break; // 最初のマッチのみ
-            }
+          // 最適化: 軽量な検索関数を使用（最初の1件のみ取得）
+          const matches = await searchMessagesText(conversation.id, keyword, 1).catch(() => []);
+
+          if (matches.length > 0) {
+            const preview = extractMatchPreview(matches[0].text, keyword, 60);
+            messageMatches.push({
+              ...conversation,
+              messagePreview: preview,
+            });
           }
 
           if (cancelled) {

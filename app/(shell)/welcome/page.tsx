@@ -18,6 +18,13 @@ import {
 } from "@/lib/settings/header-utils";
 import { validateOrgWhitelist } from "@/lib/openai/org-validation";
 import { getWhitelistedOrgIds } from "@/lib/settings/org-whitelist";
+import {
+  saveValidationResult,
+  clearValidationResult,
+  lockApiKeyInput,
+  unlockApiKeyInput,
+  isApiKeyLocked
+} from "@/lib/settings/org-validation-guard";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -78,6 +85,7 @@ export default function WelcomePage() {
   });
   const [savedFlags, setSavedFlags] = useState({ session: false, persistent: false, encrypted: false });
   const [whitelistEnabled, setWhitelistEnabled] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   const requestTarget = useMemo(() => {
     const trimmed = baseUrl.trim().replace(/\/$/, "");
@@ -107,6 +115,9 @@ export default function WelcomePage() {
       // Check if whitelist is configured
       const whitelistOrgIds = await getWhitelistedOrgIds();
       setWhitelistEnabled(whitelistOrgIds.length > 0);
+
+      // Check if API key is locked
+      setIsLocked(isApiKeyLocked());
     })();
     return () => {
       cancelled = true;
@@ -225,6 +236,15 @@ export default function WelcomePage() {
               message: "組織ID検証成功",
               detail: `Matched org: ${validation.matchedOrgId || "N/A"}`,
             });
+
+            // 検証結果をキャッシュに保存（軽量な検証用）
+            await saveValidationResult(apiKey.trim(), validation.matchedOrgId || "");
+            // APIキー入力をロック
+            lockApiKeyInput();
+            setIsLocked(true);
+          } else {
+            // ホワイトリストが無効な場合はキャッシュをクリア
+            clearValidationResult();
           }
 
           await saveConnection({
@@ -297,8 +317,24 @@ export default function WelcomePage() {
     ],
   );
 
+  const handleUnlock = useCallback(() => {
+    if (!confirm("⚠️ APIキーのロックを解除すると、検証キャッシュも削除されます。\n\n再度APIキーを入力し、組織ID検証を行う必要があります。\n\n続行しますか？")) {
+      return;
+    }
+    unlockApiKeyInput(); // 検証キャッシュも削除される
+    setIsLocked(false);
+    setResult({ state: "idle", message: "ロックを解除しました。APIキーを再入力してください。" });
+    appendLog({
+      level: "info",
+      scope: "setup",
+      message: "APIキーのロックを解除しました",
+    });
+  }, []);
+
   const handleClear = useCallback(async () => {
     await clearConnection();
+    unlockApiKeyInput(); // ロック解除＋検証キャッシュクリア
+    setIsLocked(false);
     setSavedFlags({ session: false, persistent: false, encrypted: false });
     setApiKey("");
     setBaseUrl(DEFAULT_BASE_URL);
@@ -389,9 +425,16 @@ export default function WelcomePage() {
         </p>
         <form className="form-grid" onSubmit={handleSubmit}>
           <div className="field-group">
-            <label className="field-label" htmlFor="api-key">
-              API キー <span className="field-required">*</span>
-            </label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label className="field-label" htmlFor="api-key">
+                API キー <span className="field-required">*</span>
+              </label>
+              {isLocked && (
+                <span style={{ fontSize: "0.875rem", color: "var(--accent)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                  🔒 認証済み（ロック中）
+                </span>
+              )}
+            </div>
             <input
               autoComplete="off"
               className="field-input"
@@ -400,7 +443,24 @@ export default function WelcomePage() {
               type="password"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
+              disabled={isLocked}
+              style={isLocked ? { backgroundColor: "var(--background-secondary)", cursor: "not-allowed" } : {}}
             />
+            {isLocked && (
+              <div style={{ marginTop: "0.5rem" }}>
+                <button
+                  type="button"
+                  className="outline-button"
+                  onClick={handleUnlock}
+                  style={{ fontSize: "0.875rem", padding: "0.375rem 0.75rem" }}
+                >
+                  🔓 ロック解除（検証キャッシュを削除）
+                </button>
+                <p className="field-hint" style={{ marginTop: "0.5rem" }}>
+                  ⚠️ ロックを解除すると検証キャッシュが削除され、再度組織ID検証が必要になります。
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="field-group">
@@ -578,10 +638,10 @@ export default function WelcomePage() {
           <div className="form-actions">
             <button
               className="primary-button"
-              disabled={result.state === "loading"}
+              disabled={result.state === "loading" || isLocked}
               type="submit"
             >
-              {result.state === "loading" ? "テスト中…" : "/v1/models に接続"}
+              {result.state === "loading" ? "テスト中…" : isLocked ? "認証済み（ロック中）" : "/v1/models に接続"}
             </button>
           </div>
         </form>
