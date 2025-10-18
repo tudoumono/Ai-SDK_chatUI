@@ -41,7 +41,7 @@ let dbPromise: Promise<IDBPDatabase<ChatUiSchema>> | null = null;
 function createDbPromise() {
   if (!dbPromise) {
     dbPromise = openDB<ChatUiSchema>(DB_NAME, DB_VERSION, {
-      upgrade(database, oldVersion) {
+      upgrade(database, oldVersion, newVersion, transaction) {
         // Conversations store
         if (!database.objectStoreNames.contains("conversations")) {
           const store = database.createObjectStore("conversations", {
@@ -59,17 +59,12 @@ function createDbPromise() {
         }
 
         // Messages store with optimized indexes
-        let messagesStore;
         if (!database.objectStoreNames.contains("messages")) {
-          messagesStore = database.createObjectStore("messages", {
+          const messagesStore = database.createObjectStore("messages", {
             keyPath: "id",
           });
           messagesStore.createIndex("by-conversation", "conversationId");
           messagesStore.createIndex("by-created", "createdAt");
-        } else if (oldVersion < 4) {
-          // Get existing store for upgrade
-          const tx = (database as any).transaction;
-          messagesStore = tx.objectStore("messages");
         }
 
         // Attachments store
