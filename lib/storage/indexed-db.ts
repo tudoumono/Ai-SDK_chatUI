@@ -395,6 +395,7 @@ export async function deleteSetting(key: string) {
 
 /**
  * IndexedDBを完全に削除して再作成
+ * 注意: 組織ホワイトリスト（localStorage）は保持されます
  */
 export async function recreateDatabase(): Promise<void> {
   if (typeof window === "undefined") {
@@ -402,6 +403,12 @@ export async function recreateDatabase(): Promise<void> {
   }
 
   try {
+    // 組織ホワイトリストをバックアップ（localStorageから）
+    const orgWhitelist = localStorage.getItem('org-whitelist');
+    const adminPassword = localStorage.getItem('admin-password');
+
+    console.log('📦 Backing up organization settings...');
+
     // 既存のDB接続をクローズ
     if (dbPromise) {
       const db = await dbPromise;
@@ -419,6 +426,16 @@ export async function recreateDatabase(): Promise<void> {
         reject(new Error("データベース削除がブロックされました。他のタブを閉じてください。"));
       };
     });
+
+    // 組織設定を復元
+    if (orgWhitelist) {
+      localStorage.setItem('org-whitelist', orgWhitelist);
+      console.log('✅ Organization whitelist restored');
+    }
+    if (adminPassword) {
+      localStorage.setItem('admin-password', adminPassword);
+      console.log('✅ Admin password restored');
+    }
 
     // 新しいDBを作成（次回のgetDatabase()呼び出しで自動的に作成される）
     console.log("✅ Database recreated successfully");

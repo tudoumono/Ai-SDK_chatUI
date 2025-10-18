@@ -27,6 +27,7 @@ import {
   saveLog as saveErrorLog,
   recreateErrorLogDatabase,
 } from "@/lib/logging/error-logger";
+import { clearAllValidationData } from "@/lib/settings/org-validation-guard";
 import { createLogExportBundle, downloadLogBundle } from "@/lib/logging/log-sanitizer";
 import type { LogEntry as ErrorLogEntry } from "@/lib/logging/error-logger";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -551,7 +552,9 @@ export default function SettingsPage() {
       "- ベクトルストア設定\n" +
       "- 添付ファイル\n" +
       "- 設定情報\n" +
-      "- エラーログ\n\n" +
+      "- エラーログ\n" +
+      "- APIキー検証キャッシュとロック\n\n" +
+      "※ 組織IDホワイトリストと管理者パスワードは保持されます\n\n" +
       "この操作は取り消せません。本当に実行しますか？"
     )) {
       return;
@@ -564,15 +567,18 @@ export default function SettingsPage() {
 
     setDbRecreateStatus({ state: "loading", message: "データベースを再作成中..." });
     try {
-      // メインDBとエラーログDBを両方削除
+      // メインDBとエラーログDBを両方削除（組織設定は自動保持される）
       await recreateDatabase();
       await recreateErrorLogDatabase();
 
+      // APIキー検証キャッシュとロックをクリア
+      clearAllValidationData();
+
       setDbRecreateStatus({
         state: "success",
-        message: "データベースを完全に再作成しました。ページをリロードしてください。",
+        message: "データベースを完全に再作成しました。APIキーロックも解除されました。ページをリロードしてください。",
       });
-      addLog("info", "setup", "データベースを完全に再作成しました");
+      addLog("info", "setup", "データベースを完全に再作成し、APIキーロックを解除しました");
 
       // 3秒後に自動リロード
       setTimeout(() => {
@@ -888,6 +894,10 @@ export default function SettingsPage() {
         </p>
         <p className="section-card-description" style={{ color: "var(--error)", fontWeight: "bold" }}>
           ⚠️ この操作はすべてのデータを削除します。必要に応じて先にエクスポートしてください。
+        </p>
+        <p className="section-card-description" style={{ color: "var(--accent)" }}>
+          ✅ 保持されるもの: 組織IDホワイトリスト、管理者パスワード<br />
+          🗑️ 削除されるもの: 会話、ベクトルストア、設定、エラーログ、APIキーロック・検証キャッシュ
         </p>
         <div className="form-navigation">
           <button

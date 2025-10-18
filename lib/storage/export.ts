@@ -3,6 +3,7 @@ import {
   type ExportBundle,
   type VectorStoreRecord,
 } from "./schema";
+import { saveFile } from "@/lib/utils/tauri-helpers";
 
 export function buildExportBundle(
   conversations: ConversationRecord[],
@@ -19,23 +20,10 @@ export function buildExportBundle(
 export async function downloadBundle(bundle: ExportBundle) {
   try {
     const json = JSON.stringify(bundle, null, 2);
-    const blob = new Blob([json], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `ai-sdk-chatui-export-${Date.now()}.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-
-    // クリーンアップを少し遅延
-    setTimeout(() => {
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
-    }, 100);
+    const filename = `ai-sdk-chatui-export-${Date.now()}.json`;
+    await saveFile(json, filename);
   } catch (error) {
-    console.error("Download failed:", error);
+    console.error("Export failed:", error);
     throw error;
   }
 }

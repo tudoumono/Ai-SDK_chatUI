@@ -126,3 +126,12 @@ export async function checkApiKeyAccess(apiKey: string | undefined): Promise<str
 
   return null;
 }
+
+/**
+ * APIキーロックと検証キャッシュをすべてクリア（DB再作成時に使用）
+ */
+export function clearAllValidationData(): void {
+  localStorage.removeItem(VALIDATION_CACHE_KEY);
+  localStorage.removeItem(API_KEY_LOCK_KEY);
+  console.log('✅ Validation cache and API key lock cleared');
+}
