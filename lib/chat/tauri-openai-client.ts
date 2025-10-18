@@ -132,8 +132,26 @@ export function createTauriResponsesClient(connection: ConnectionSettings) {
         console.log('[Tauri] Response:', JSON.stringify(response, null, 2));
 
         // レスポンスからテキストを抽出
-        const outputText = response.output_text || "";
-        console.log('[Tauri] Output text length:', outputText.length);
+        // 新しいAPI構造: response.output[0].content[0].text
+        let outputText = "";
+
+        if (response.output && Array.isArray(response.output) && response.output.length > 0) {
+          const firstOutput = response.output[0];
+          if (firstOutput.type === "message" && firstOutput.content && Array.isArray(firstOutput.content)) {
+            for (const content of firstOutput.content) {
+              if (content.type === "output_text" && content.text) {
+                outputText += content.text;
+              }
+            }
+          }
+        }
+
+        // 古い構造もサポート（後方互換性）
+        if (!outputText && response.output_text) {
+          outputText = response.output_text;
+        }
+
+        console.log('[Tauri] Extracted output text length:', outputText.length);
         console.log('[Tauri] Output text preview:', outputText.substring(0, 100));
 
         // AsyncIterableIteratorをエミュレート

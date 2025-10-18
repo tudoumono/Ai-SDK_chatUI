@@ -261,7 +261,27 @@ export async function streamAssistantResponse(
   console.log('[streaming] Final response received:', finalResponse);
 
   const rawResponse = finalResponse as Response;
-  const text = rawResponse.output_text ?? chunks.join("");
+
+  // テキストを抽出（chunksから、または finalResponse から）
+  let text = chunks.join("");
+
+  // chunksが空の場合、finalResponseから抽出を試みる
+  if (!text && rawResponse.output_text) {
+    text = rawResponse.output_text;
+  }
+
+  // 新しいAPI構造からも抽出を試みる
+  if (!text && (rawResponse as any).output && Array.isArray((rawResponse as any).output)) {
+    const output = (rawResponse as any).output;
+    if (output.length > 0 && output[0].type === "message" && output[0].content) {
+      for (const content of output[0].content) {
+        if (content.type === "output_text" && content.text) {
+          text += content.text;
+        }
+      }
+    }
+  }
+
   console.log(`[streaming] Final text length: ${text.length}`);
   console.log(`[streaming] Final text preview:`, text.substring(0, 100));
 
