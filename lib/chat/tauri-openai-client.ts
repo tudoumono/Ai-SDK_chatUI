@@ -114,6 +114,61 @@ export function createTauriResponsesClient(connection: ConnectionSettings) {
           params
         );
       },
+      // ストリーミングをエミュレート（非ストリーミングAPIを使用）
+      async stream(params: any, options?: any) {
+        console.log('[Tauri] responses.stream called - using non-streaming fallback');
+
+        // 非ストリーミングAPIを呼び出し
+        const response = await makeTauriOpenAIRequest(
+          connection,
+          "POST",
+          "/responses",
+          params
+        );
+
+        console.log('[Tauri] Response received, creating stream emulator');
+
+        // AsyncIterableIteratorをエミュレート
+        const events: any[] = [];
+
+        // response.output_textをチャンクに分割してイベントを生成
+        const outputText = response.output_text || "";
+        const chunkSize = 5; // 5文字ずつ送信
+
+        for (let i = 0; i < outputText.length; i += chunkSize) {
+          const delta = outputText.slice(i, i + chunkSize);
+          events.push({
+            type: "response.output_text.delta",
+            delta: delta
+          });
+        }
+
+        // 最終イベント
+        events.push({
+          type: "response.done",
+          response: response
+        });
+
+        // AsyncIterableIteratorを実装
+        const iterator = {
+          [Symbol.asyncIterator]() {
+            let index = 0;
+            return {
+              async next() {
+                if (index < events.length) {
+                  return { value: events[index++], done: false };
+                }
+                return { value: undefined, done: true };
+              }
+            };
+          },
+          async finalResponse() {
+            return response;
+          }
+        };
+
+        return iterator;
+      },
     },
     vectorStores: {
       async list() {
