@@ -280,3 +280,32 @@ if (typeof window !== "undefined") {
     originalConsoleError.apply(console, args);
   };
 }
+
+/**
+ * エラーログDBを完全に削除して再作成
+ */
+export async function recreateErrorLogDatabase(): Promise<void> {
+  try {
+    // 既存のDB接続をクローズ
+    if (dbInstance) {
+      dbInstance.close();
+      dbInstance = null;
+    }
+
+    // データベースを削除
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(DB_NAME);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+      request.onblocked = () => {
+        console.warn("Error log database deletion blocked. Please close all other tabs.");
+        reject(new Error("エラーログDBの削除がブロックされました。他のタブを閉じてください。"));
+      };
+    });
+
+    console.log("✅ Error log database recreated successfully");
+  } catch (error) {
+    console.error("Failed to recreate error log database:", error);
+    throw error;
+  }
+}

@@ -392,3 +392,38 @@ export async function deleteSetting(key: string) {
   const db = await getDatabase();
   await db.delete("settings", key);
 }
+
+/**
+ * IndexedDBを完全に削除して再作成
+ */
+export async function recreateDatabase(): Promise<void> {
+  if (typeof window === "undefined") {
+    throw new Error("IndexedDB is only available in the browser");
+  }
+
+  try {
+    // 既存のDB接続をクローズ
+    if (dbPromise) {
+      const db = await dbPromise;
+      db.close();
+      dbPromise = null;
+    }
+
+    // データベースを削除
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(DB_NAME);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+      request.onblocked = () => {
+        console.warn("Database deletion blocked. Please close all other tabs.");
+        reject(new Error("データベース削除がブロックされました。他のタブを閉じてください。"));
+      };
+    });
+
+    // 新しいDBを作成（次回のgetDatabase()呼び出しで自動的に作成される）
+    console.log("✅ Database recreated successfully");
+  } catch (error) {
+    console.error("Failed to recreate database:", error);
+    throw error;
+  }
+}

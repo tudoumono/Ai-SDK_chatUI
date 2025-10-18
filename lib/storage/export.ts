@@ -17,17 +17,27 @@ export function buildExportBundle(
 }
 
 export async function downloadBundle(bundle: ExportBundle) {
-  const blob = new Blob([JSON.stringify(bundle, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `ai-sdk-chatui-export-${Date.now()}.json`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  URL.revokeObjectURL(url);
+  try {
+    const json = JSON.stringify(bundle, null, 2);
+    const blob = new Blob([json], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `ai-sdk-chatui-export-${Date.now()}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+
+    // クリーンアップを少し遅延
+    setTimeout(() => {
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    }, 100);
+  } catch (error) {
+    console.error("Download failed:", error);
+    throw error;
+  }
 }
 
 export function parseBundle(json: unknown): ExportBundle {

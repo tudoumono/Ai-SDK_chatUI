@@ -13,13 +13,19 @@ import {
   type StoragePolicy,
 } from "@/lib/settings/connection-storage";
 import { clearConversationHistory, listConversations } from "@/lib/chat/session";
-import { getAllVectorStores, upsertVectorStores, upsertConversations } from "@/lib/storage/indexed-db";
+import {
+  getAllVectorStores,
+  upsertVectorStores,
+  upsertConversations,
+  recreateDatabase
+} from "@/lib/storage/indexed-db";
 import { downloadBundle, parseBundle } from "@/lib/export/bundle";
 import {
   getAllLogs,
   clearAllLogs,
   getLogStats,
   saveLog as saveErrorLog,
+  recreateErrorLogDatabase,
 } from "@/lib/logging/error-logger";
 import { createLogExportBundle, downloadLogBundle } from "@/lib/logging/log-sanitizer";
 import type { LogEntry as ErrorLogEntry } from "@/lib/logging/error-logger";
@@ -108,6 +114,10 @@ export default function SettingsPage() {
   const [errorLogStatus, setErrorLogStatus] = useState<Status>({
     state: "idle",
     message: "エラーログを管理できます。",
+  });
+  const [dbRecreateStatus, setDbRecreateStatus] = useState<Status>({
+    state: "idle",
+    message: "DBに問題がある場合のみ使用してください。",
   });
 
   const handleCopyLog = useCallback(async (log: LogEntry) => {
@@ -533,6 +543,59 @@ export default function SettingsPage() {
     }
   }, [addLog]);
 
+  const handleRecreateDatabase = useCallback(async () => {
+    if (!confirm(
+      "⚠️ 警告: すべてのデータベースを完全に削除して再作成します。\n\n" +
+      "以下のデータがすべて失われます:\n" +
+      "- 会話履歴とメッセージ\n" +
+      "- ベクトルストア設定\n" +
+      "- 添付ファイル\n" +
+      "- 設定情報\n" +
+      "- エラーログ\n\n" +
+      "この操作は取り消せません。本当に実行しますか？"
+    )) {
+      return;
+    }
+
+    // 二重確認
+    if (!confirm("もう一度確認します。\n\nすべてのデータベースを削除して再作成しますか？")) {
+      return;
+    }
+
+    setDbRecreateStatus({ state: "loading", message: "データベースを再作成中..." });
+    try {
+      // メインDBとエラーログDBを両方削除
+      await recreateDatabase();
+      await recreateErrorLogDatabase();
+
+      setDbRecreateStatus({
+        state: "success",
+        message: "データベースを完全に再作成しました。ページをリロードしてください。",
+      });
+      addLog("info", "setup", "データベースを完全に再作成しました");
+
+      // 3秒後に自動リロード
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
+    } catch (error) {
+      console.error(error);
+      setDbRecreateStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? `DB再作成に失敗: ${error.message}`
+            : "DB再作成に失敗しました",
+      });
+      addLog(
+        "error",
+        "setup",
+        "データベースの再作成に失敗しました",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }, [addLog]);
+
   return (
     <main className="page-grid">
       <div className="page-header settings-header">
@@ -811,6 +874,36 @@ export default function SettingsPage() {
           <div className="status-title">{conversationStatus.message}</div>
           <p className="status-message">
             削除後はブラウザをリロードすると初期状態（サンプル会話のみ）で表示されます。
+          </p>
+        </div>
+      </section>
+
+      <section className="section-card" style={{ borderColor: "var(--error)", borderWidth: "2px" }}>
+        <div className="section-card-title" style={{ color: "var(--error)" }}>
+          ⚠️ データベースの完全再作成（緊急用）
+        </div>
+        <p className="section-card-description">
+          IndexedDBに深刻な問題が発生した場合のみ使用してください。
+          すべてのデータベース（会話、ベクトルストア、設定、エラーログ）を完全に削除して再作成します。
+        </p>
+        <p className="section-card-description" style={{ color: "var(--error)", fontWeight: "bold" }}>
+          ⚠️ この操作はすべてのデータを削除します。必要に応じて先にエクスポートしてください。
+        </p>
+        <div className="form-navigation">
+          <button
+            className="outline-button"
+            onClick={handleRecreateDatabase}
+            disabled={dbRecreateStatus.state === "loading"}
+            type="button"
+            style={{ borderColor: "var(--error)", color: "var(--error)" }}
+          >
+            {dbRecreateStatus.state === "loading" ? "再作成中..." : "🗑️ データベースを完全に再作成"}
+          </button>
+        </div>
+        <div className={`status-banner status-${dbRecreateStatus.state}`} role="status">
+          <div className="status-title">{dbRecreateStatus.message}</div>
+          <p className="status-message">
+            実行前に2回の確認ダイアログが表示されます。成功後は自動的にページがリロードされます。
           </p>
         </div>
       </section>
