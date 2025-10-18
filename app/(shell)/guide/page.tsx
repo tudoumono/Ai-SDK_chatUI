@@ -288,13 +288,72 @@ export default function GuidePage() {
           </ul>
         </div>
 
-        <div>
+        <div style={{ marginBottom: "1.5rem" }}>
           <h3 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem" }}>
             デバッグモード
           </h3>
           <p style={{ marginLeft: "1rem", lineHeight: "1.6" }}>
             設定画面の「🧪 テストエラーを生成」ボタンで、エラーログ機能をテストできます。
             正常に動作しているか確認したい場合にご利用ください。
+          </p>
+        </div>
+
+        <div style={{ marginBottom: "1.5rem" }}>
+          <h3 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+            🖥️ exe版のターミナルデバッグ
+          </h3>
+          <p style={{ marginLeft: "1rem", lineHeight: "1.6" }}>
+            デスクトップアプリ版（exe/app）で問題が発生した場合、ターミナルから起動することで詳細なログを確認できます。
+          </p>
+
+          <h4 style={{ fontSize: "0.95rem", fontWeight: "600", marginLeft: "1rem", marginTop: "0.8rem", marginBottom: "0.5rem" }}>
+            起動方法（Windows PowerShell）
+          </h4>
+          <div style={{ marginLeft: "1.5rem", background: "#f5f5f5", padding: "0.8rem", borderRadius: "4px", fontSize: "0.9rem", fontFamily: "monospace" }}>
+            cd &quot;パス\to\release\directory&quot;<br />
+            .\app.exe 2&gt;&amp;1 | Tee-Object -FilePath debug.log
+          </div>
+          <p style={{ marginLeft: "1rem", marginTop: "0.5rem", lineHeight: "1.6", fontSize: "0.9rem", color: "#666" }}>
+            このコマンドで、ターミナルにログを表示しながら同時にdebug.logファイルに保存します。
+          </p>
+
+          <h4 style={{ fontSize: "0.95rem", fontWeight: "600", marginLeft: "1rem", marginTop: "0.8rem", marginBottom: "0.5rem" }}>
+            確認すべきログ
+          </h4>
+          <ul style={{ marginLeft: "1.5rem", lineHeight: "1.8" }}>
+            <li><code className="inline-code">[Request xxx] Starting new request</code> - APIリクエスト開始</li>
+            <li><code className="inline-code">[Request xxx] Response received | Status: 200</code> - API応答成功</li>
+            <li><code className="inline-code">[saveTauriFile] File saved successfully</code> - ファイル保存成功</li>
+            <li><code className="inline-code">[ERROR]</code> - エラーが発生した箇所</li>
+          </ul>
+
+          <h4 style={{ fontSize: "0.95rem", fontWeight: "600", marginLeft: "1rem", marginTop: "0.8rem", marginBottom: "0.5rem" }}>
+            開発者ツールの利用
+          </h4>
+          <p style={{ marginLeft: "1rem", lineHeight: "1.6" }}>
+            exe版でも <strong>F12キー</strong> で開発者ツールを開けます。JavaScriptのコンソールログやネットワークエラーを確認できます。
+          </p>
+
+          <p style={{ marginLeft: "1rem", marginTop: "0.8rem", lineHeight: "1.6" }}>
+            詳細な手順は、プロジェクト内の <code className="inline-code">docs/DEBUG_GUIDE.md</code> と <code className="inline-code">docs/EXE_VERSION_TESTING_GUIDE.md</code> を参照してください。
+          </p>
+        </div>
+
+        <div>
+          <h3 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+            診断情報の確認
+          </h3>
+          <p style={{ marginLeft: "1rem", lineHeight: "1.6" }}>
+            設定画面の最下部にある「診断情報（exe版トラブルシューティング用）」セクションで、以下の情報を確認できます:
+          </p>
+          <ul style={{ marginLeft: "1.5rem", lineHeight: "1.8" }}>
+            <li><strong>実行環境</strong>: Tauri（exe/app）かブラウザか</li>
+            <li><strong>__TAURI__ グローバル変数</strong>: Tauriランタイムが正常に読み込まれているか</li>
+            <li><strong>ユーザーエージェント</strong>: ブラウザ情報</li>
+            <li><strong>ファイル保存方式</strong>: 使用されているファイル保存メカニズム</li>
+          </ul>
+          <p style={{ marginLeft: "1rem", marginTop: "0.5rem", lineHeight: "1.6", fontSize: "0.9rem", color: "#d32f2f" }}>
+            ⚠️ 「実行環境: ⚠️ ブラウザ」と表示される場合、exe版が正しくビルドされていません。再ビルドが必要です。
           </p>
         </div>
       </section>

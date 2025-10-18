@@ -124,19 +124,24 @@ __TAURI__ グローバル変数: ❌ 存在しない
 **原因**: Tauri版として正しくビルドされていない
 
 **解決方法**:
-1. `npm run tauri:build` を再実行
-2. ビルドログにエラーがないか確認
-3. `src-tauri/Cargo.toml` に以下のプラグインが含まれているか確認:
+1. ビルドアーティファクトをクリーンアップ:
+   ```bash
+   rm -rf out .next
+   ```
+2. `npm run tauri:build` を再実行
+3. ビルドログにエラーがないか確認
+4. `src-tauri/Cargo.toml` に以下のプラグインが含まれているか確認:
    ```toml
    [dependencies]
    tauri-plugin-dialog = "2.0"
    tauri-plugin-fs = "2.0"
    ```
-4. `src-tauri/src/lib.rs` でプラグインが初期化されているか確認:
+5. `src-tauri/src/lib.rs` でプラグインが初期化されているか確認:
    ```rust
    .plugin(tauri_plugin_dialog::init())
    .plugin(tauri_plugin_fs::init())
    ```
+6. `src-tauri/tauri.conf.json` で `withGlobalTauri: true` が設定されているか確認
 
 ### 問題2: ダウンロードボタンを押しても何も起こらない
 
@@ -145,26 +150,44 @@ __TAURI__ グローバル変数: ❌ 存在しない
 2. Windows版の場合、管理者権限で実行してみる
 3. ファイアウォールやウイルス対策ソフトがブロックしていないか確認
 
-**デバッグ方法**:
-1. Tauri版は開発者ツールが表示されないため、以下の手順でログを確認:
-   ```bash
-   # Windows
-   .\AI-SDK_chatUI_new.exe 2>&1 | Out-File -FilePath debug.log
+**デバッグ方法（詳細は [DEBUG_GUIDE.md](./DEBUG_GUIDE.md) を参照）**:
 
-   # macOS/Linux
-   ./ai-sdk-chatui-new 2>&1 | tee debug.log
+#### Windows PowerShell:
+```powershell
+cd "パス\to\release\directory"
+.\app.exe 2>&1 | Tee-Object -FilePath debug.log
+```
+
+#### コマンドプロンプト:
+```cmd
+cd "パス\to\release\directory"
+app.exe > debug.log 2>&1
+```
+
+#### 確認すべきログ:
+```
+[saveTauriFile] Starting Tauri file save...
+[saveTauriFile] Importing Tauri plugins...
+[saveTauriFile] Plugins imported successfully
+[saveTauriFile] Opening save dialog...
+[saveTauriFile] Writing file to: ...
+[saveTauriFile] ✅ File saved successfully: ...
+```
+
+### 問題3: チャット機能が動作しない
+
+**症状**: メッセージを送信しても応答が表示されない
+
+**デバッグ手順**:
+1. ターミナルから起動してログを確認:
+   ```powershell
+   .\app.exe 2>&1 | Tee-Object -FilePath debug.log
    ```
-2. `debug.log` ファイルに以下のようなログが出力されているか確認:
-   ```
-   [saveFile] Environment: Tauri, File: ai-sdk-chatui-export-...
-   [saveFile] Using Tauri file dialog...
-   [saveTauriFile] Starting Tauri file save...
-   [saveTauriFile] Importing Tauri plugins...
-   [saveTauriFile] Plugins imported successfully
-   [saveTauriFile] Opening save dialog...
-   [saveTauriFile] Writing file to: ...
-   [saveTauriFile] ✅ File saved successfully: ...
-   ```
+2. 以下のログを確認:
+   - `[Request xxx] Response received | Status: 200` - APIリクエスト成功
+   - `[Request xxx] Response body: {...}` - レスポンス内容
+3. `F12` キーで開発者ツールを開き、JavaScriptコンソールを確認
+4. エラーメッセージがないか確認
 
 ### 問題3: ファイル保存ダイアログが開くがファイルが保存されない
 
