@@ -395,7 +395,7 @@ export async function deleteSetting(key: string) {
 
 /**
  * IndexedDBを完全に削除して再作成
- * 注意: 組織ホワイトリスト（localStorage）は保持されます
+ * 注意: 組織ホワイトリストと管理者パスワード（localStorage）は保持されます
  */
 export async function recreateDatabase(): Promise<void> {
   if (typeof window === "undefined") {
@@ -403,11 +403,11 @@ export async function recreateDatabase(): Promise<void> {
   }
 
   try {
-    // 組織ホワイトリストをバックアップ（localStorageから）
+    // 組織ホワイトリストと管理者パスワードをバックアップ（localStorageから）
     const orgWhitelist = localStorage.getItem('org-whitelist');
-    const adminPassword = localStorage.getItem('admin-password');
+    const adminPasswordHash = localStorage.getItem('admin-password-hash');
 
-    console.log('📦 Backing up organization settings...');
+    console.log('📦 Backing up organization settings and admin password...');
 
     // 既存のDB接続をクローズ
     if (dbPromise) {
@@ -427,13 +427,13 @@ export async function recreateDatabase(): Promise<void> {
       };
     });
 
-    // 組織設定を復元
+    // 組織設定と管理者パスワードを復元
     if (orgWhitelist) {
       localStorage.setItem('org-whitelist', orgWhitelist);
       console.log('✅ Organization whitelist restored');
     }
-    if (adminPassword) {
-      localStorage.setItem('admin-password', adminPassword);
+    if (adminPasswordHash) {
+      localStorage.setItem('admin-password-hash', adminPasswordHash);
       console.log('✅ Admin password restored');
     }
 

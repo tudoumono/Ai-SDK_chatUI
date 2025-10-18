@@ -547,14 +547,16 @@ export default function SettingsPage() {
   const handleRecreateDatabase = useCallback(async () => {
     if (!confirm(
       "⚠️ 警告: すべてのデータベースを完全に削除して再作成します。\n\n" +
-      "以下のデータがすべて失われます:\n" +
+      "削除されるデータ:\n" +
       "- 会話履歴とメッセージ\n" +
       "- ベクトルストア設定\n" +
       "- 添付ファイル\n" +
       "- 設定情報\n" +
       "- エラーログ\n" +
       "- APIキー検証キャッシュとロック\n\n" +
-      "※ 組織IDホワイトリストと管理者パスワードは保持されます\n\n" +
+      "保持されるデータ:\n" +
+      "- 組織IDホワイトリスト\n" +
+      "- 管理者パスワード\n\n" +
       "この操作は取り消せません。本当に実行しますか？"
     )) {
       return;
@@ -895,10 +897,26 @@ export default function SettingsPage() {
         <p className="section-card-description" style={{ color: "var(--error)", fontWeight: "bold" }}>
           ⚠️ この操作はすべてのデータを削除します。必要に応じて先にエクスポートしてください。
         </p>
-        <p className="section-card-description" style={{ color: "var(--accent)" }}>
-          ✅ 保持されるもの: 組織IDホワイトリスト、管理者パスワード<br />
-          🗑️ 削除されるもの: 会話、ベクトルストア、設定、エラーログ、APIキーロック・検証キャッシュ
-        </p>
+        <div style={{ marginTop: "1rem", padding: "1rem", background: "var(--background-secondary)", borderRadius: "var(--radius-md)" }}>
+          <p style={{ color: "var(--accent)", fontWeight: "600", marginBottom: "0.5rem" }}>
+            ✅ 保持されるデータ:
+          </p>
+          <ul style={{ marginLeft: "1.5rem", marginBottom: "1rem", color: "var(--accent)" }}>
+            <li>組織IDホワイトリスト</li>
+            <li>管理者パスワード</li>
+          </ul>
+          <p style={{ color: "var(--error)", fontWeight: "600", marginBottom: "0.5rem" }}>
+            🗑️ 削除されるデータ:
+          </p>
+          <ul style={{ marginLeft: "1.5rem", color: "var(--foreground-secondary)" }}>
+            <li>会話履歴とメッセージ</li>
+            <li>ベクトルストア設定</li>
+            <li>添付ファイル</li>
+            <li>設定情報</li>
+            <li>エラーログ</li>
+            <li>APIキーロック・検証キャッシュ</li>
+          </ul>
+        </div>
         <div className="form-navigation">
           <button
             className="outline-button"

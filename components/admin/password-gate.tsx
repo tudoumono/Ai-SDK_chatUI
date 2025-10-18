@@ -115,13 +115,6 @@ export function PasswordGate({ children }: PasswordGateProps) {
             ログイン
           </button>
         </form>
-
-        <div className="password-gate-footer">
-          <p className="password-gate-hint">
-            パスワードを忘れた場合は、ブラウザのlocalStorageから
-            <code>admin-password-hash</code>を削除してデフォルトにリセットできます。
-          </p>
-        </div>
       </div>
     </div>
   );

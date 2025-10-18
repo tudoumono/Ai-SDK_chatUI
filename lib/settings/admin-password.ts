@@ -99,11 +99,21 @@ export async function changePassword(
 /**
  * Reset password to default (for recovery)
  * パスワードをデフォルトにリセット（リカバリ用）
+ * 緊急時のリセット機能として、組織ホワイトリストと検証データもクリアします
  */
 export async function resetPasswordToDefault(): Promise<void> {
   try {
     const defaultHash = await hashPassword(DEFAULT_PASSWORD);
     localStorage.setItem(STORAGE_KEY, defaultHash);
+
+    // 組織ホワイトリストをクリア
+    localStorage.removeItem('org-whitelist');
+
+    // 検証キャッシュとAPIキーロックをクリア
+    localStorage.removeItem('org-validation-cache');
+    localStorage.removeItem('api-key-lock');
+
+    console.log('✅ Password reset to default and all organization data cleared');
   } catch (error) {
     console.error("Failed to reset password:", error);
     throw error;
