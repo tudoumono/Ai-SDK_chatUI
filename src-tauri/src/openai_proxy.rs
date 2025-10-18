@@ -220,6 +220,16 @@ pub async fn make_openai_request(request: OpenAIRequest) -> Result<OpenAIRespons
         request_id, status, response_size, network_time, total_time
     );
 
+    // レスポンスボディをログに出力（デバッグ用）
+    if request.path.contains("/responses") {
+        let body_preview = if body.len() > 1000 {
+            format!("{}...(truncated)", &body[..1000])
+        } else {
+            body.clone()
+        };
+        log::info!("[Request {}] Response body: {}", request_id, body_preview);
+    }
+
     // 大きなレスポンスの警告
     if response_size > 10 * 1024 * 1024 {
         log::warn!("[Request {}] Large response detected: {} MB", request_id, response_size / 1024 / 1024);
