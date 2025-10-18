@@ -184,6 +184,13 @@ export async function streamAssistantResponse(
     callbacks.onStatusChange?.("応答を生成中…");
   }
 
+  console.log('[streaming] Creating stream with params:', {
+    model: request.model,
+    inputLength: input.length,
+    tools: buildTools(request.vectorStoreIds, request.webSearchEnabled),
+    maxOutputTokens: request.maxOutputTokens
+  });
+
   const stream = await client.responses.stream(
     {
       model: request.model,
@@ -194,12 +201,17 @@ export async function streamAssistantResponse(
     { signal: request.abortSignal },
   );
 
+  console.log('[streaming] Stream created, starting iteration');
+
   // 文字列結合の最適化：配列を使用
   const chunks: string[] = [];
   let hasSeenFileSearch = false;
   let hasSeenWebSearch = false;
+  let eventCount = 0;
 
   for await (const event of stream) {
+    eventCount++;
+    console.log(`[streaming] Event #${eventCount}:`, event.type);
     // ツール実行の検出
     if (event.type === "response.output_item.added" && event.item) {
       if (event.item.type === "file_search_call") {
@@ -226,9 +238,12 @@ export async function streamAssistantResponse(
         callbacks.onStatusChange?.("応答を生成中…");
       }
       const delta = event.delta ?? "";
+      console.log(`[streaming] Received delta (${delta.length} chars):`, delta);
       chunks.push(delta);
       // 配列を結合して現在のスナップショットを作成
-      callbacks.onTextSnapshot?.(chunks.join(""));
+      const currentText = chunks.join("");
+      console.log(`[streaming] Total text so far: ${currentText.length} chars`);
+      callbacks.onTextSnapshot?.(currentText);
     }
 
     if (event.type === "error") {
@@ -239,10 +254,19 @@ export async function streamAssistantResponse(
     }
   }
 
+  console.log(`[streaming] Loop completed. Total events: ${eventCount}, chunks collected: ${chunks.length}`);
+  console.log('[streaming] Getting final response...');
+
   const finalResponse = await stream.finalResponse();
+  console.log('[streaming] Final response received:', finalResponse);
+
   const rawResponse = finalResponse as Response;
   const text = rawResponse.output_text ?? chunks.join("");
+  console.log(`[streaming] Final text length: ${text.length}`);
+  console.log(`[streaming] Final text preview:`, text.substring(0, 100));
+
   const sources = extractSources(rawResponse);
+  console.log(`[streaming] Extracted ${sources.length} sources`);
 
   // 使用したツールを抽出
   const usedTools: string[] = [];

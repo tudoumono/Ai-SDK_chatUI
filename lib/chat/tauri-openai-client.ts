@@ -116,7 +116,8 @@ export function createTauriResponsesClient(connection: ConnectionSettings) {
       },
       // ストリーミングをエミュレート（非ストリーミングAPIを使用）
       async stream(params: any, options?: any) {
-        console.log('[Tauri] responses.stream called - using non-streaming fallback');
+        console.log('[Tauri] ===== responses.stream called =====');
+        console.log('[Tauri] Request params:', JSON.stringify(params, null, 2));
 
         // 非ストリーミングAPIを呼び出し
         const response = await makeTauriOpenAIRequest(
@@ -126,47 +127,57 @@ export function createTauriResponsesClient(connection: ConnectionSettings) {
           params
         );
 
-        console.log('[Tauri] Response received, creating stream emulator');
+        console.log('[Tauri] ===== Response received =====');
+        console.log('[Tauri] Response keys:', Object.keys(response));
+        console.log('[Tauri] Response:', JSON.stringify(response, null, 2));
+
+        // レスポンスからテキストを抽出
+        const outputText = response.output_text || "";
+        console.log('[Tauri] Output text length:', outputText.length);
+        console.log('[Tauri] Output text preview:', outputText.substring(0, 100));
 
         // AsyncIterableIteratorをエミュレート
         const events: any[] = [];
 
-        // response.output_textをチャンクに分割してイベントを生成
-        const outputText = response.output_text || "";
+        // テキストをチャンクに分割してイベントを生成
         const chunkSize = 5; // 5文字ずつ送信
 
-        for (let i = 0; i < outputText.length; i += chunkSize) {
-          const delta = outputText.slice(i, i + chunkSize);
-          events.push({
-            type: "response.output_text.delta",
-            delta: delta
-          });
+        if (outputText.length > 0) {
+          for (let i = 0; i < outputText.length; i += chunkSize) {
+            const delta = outputText.slice(i, i + chunkSize);
+            events.push({
+              type: "response.output_text.delta",
+              delta: delta
+            });
+          }
         }
 
-        // 最終イベント
-        events.push({
-          type: "response.done",
-          response: response
-        });
+        console.log('[Tauri] Generated', events.length, 'delta events');
 
         // AsyncIterableIteratorを実装
         const iterator = {
           [Symbol.asyncIterator]() {
             let index = 0;
+            console.log('[Tauri] AsyncIterator created');
             return {
               async next() {
                 if (index < events.length) {
-                  return { value: events[index++], done: false };
+                  const event = events[index++];
+                  console.log(`[Tauri] Yielding event ${index}/${events.length}:`, event.type);
+                  return { value: event, done: false };
                 }
+                console.log('[Tauri] Iterator completed');
                 return { value: undefined, done: true };
               }
             };
           },
           async finalResponse() {
+            console.log('[Tauri] finalResponse() called');
             return response;
           }
         };
 
+        console.log('[Tauri] Returning stream iterator');
         return iterator;
       },
     },
