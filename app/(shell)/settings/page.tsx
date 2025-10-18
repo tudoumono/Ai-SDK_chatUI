@@ -33,7 +33,7 @@ import type { LogEntry as ErrorLogEntry } from "@/lib/logging/error-logger";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AlertCircle, Download, Trash2, Database, Info } from "lucide-react";
-import { isTauriEnvironment } from "@/lib/utils/tauri-helpers";
+import { isTauriEnvironment, saveFile } from "@/lib/utils/tauri-helpers";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -273,7 +273,7 @@ export default function SettingsPage() {
   }, [loadErrorLogs]);
 
   // テスト用: ダウンロード機能をテスト
-  const [downloadTestStatus, setDownloadTestStatus] = useState<Status>({ state: "idle" });
+  const [downloadTestStatus, setDownloadTestStatus] = useState<Status>({ state: "idle", message: "" });
   const handleTestDownload = useCallback(async () => {
     setDownloadTestStatus({ state: "loading", message: "テストファイルをダウンロード中..." });
     try {
@@ -1218,8 +1218,14 @@ export default function SettingsPage() {
           >
             {downloadTestStatus.state === "loading" ? "テスト中..." : "🧪 ダウンロード機能をテスト"}
           </button>
-          {downloadTestStatus.state !== "idle" && (
-            <StatusMessage status={downloadTestStatus} style={{ marginTop: "0.5rem" }} />
+          {downloadTestStatus.state !== "idle" && downloadTestStatus.message && (
+            <div
+              className={`status-banner status-${downloadTestStatus.state}`}
+              role="status"
+              style={{ marginTop: "0.5rem" }}
+            >
+              <div className="status-title">{downloadTestStatus.message}</div>
+            </div>
           )}
           <p style={{ marginTop: "0.5rem", fontSize: "12px", color: "var(--foreground-secondary)" }}>
             このボタンをクリックすると、小さなテストファイルをダウンロードして、ダウンロード機能が正常に動作するかを確認できます。
