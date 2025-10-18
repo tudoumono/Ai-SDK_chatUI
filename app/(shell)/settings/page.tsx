@@ -32,7 +32,8 @@ import { createLogExportBundle, downloadLogBundle } from "@/lib/logging/log-sani
 import type { LogEntry as ErrorLogEntry } from "@/lib/logging/error-logger";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { AlertCircle, Download, Trash2, Database } from "lucide-react";
+import { AlertCircle, Download, Trash2, Database, Info } from "lucide-react";
+import { isTauriEnvironment } from "@/lib/utils/tauri-helpers";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -1114,6 +1115,63 @@ export default function SettingsPage() {
             )}
           </div>
         )}
+      </section>
+
+      <section className="section-card" style={{ borderColor: "var(--accent)", borderWidth: "1px" }}>
+        <div className="section-card-title">
+          <Info size={20} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} />
+          診断情報（exe版トラブルシューティング用）
+        </div>
+        <p className="section-card-description">
+          ファイル保存機能が動作しない場合、以下の情報を確認してください。
+        </p>
+
+        <div style={{
+          marginTop: "1rem",
+          padding: "1rem",
+          background: "var(--background-secondary)",
+          borderRadius: "var(--radius-md)",
+          fontFamily: "monospace",
+          fontSize: "14px"
+        }}>
+          <div style={{ marginBottom: "0.5rem" }}>
+            <strong>実行環境:</strong>{" "}
+            <span style={{ color: isTauriEnvironment() ? "var(--success, #10b981)" : "var(--warning, #f59e0b)" }}>
+              {isTauriEnvironment() ? "✅ Tauri (exe/app)" : "⚠️ ブラウザ"}
+            </span>
+          </div>
+          <div style={{ marginBottom: "0.5rem" }}>
+            <strong>__TAURI__ グローバル変数:</strong>{" "}
+            {typeof window !== 'undefined' && '__TAURI__' in window ? "✅ 存在する" : "❌ 存在しない"}
+          </div>
+          <div style={{ marginBottom: "0.5rem" }}>
+            <strong>ユーザーエージェント:</strong>{" "}
+            <div style={{ wordBreak: "break-all", fontSize: "12px", marginTop: "4px" }}>
+              {typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'}
+            </div>
+          </div>
+          <div>
+            <strong>ファイル保存方式:</strong>{" "}
+            {isTauriEnvironment() ? "Tauri Dialog + FS Plugin" : "Browser Download (Blob + <a>)"}
+          </div>
+        </div>
+
+        <div style={{
+          marginTop: "1rem",
+          padding: "1rem",
+          background: "var(--background-tertiary, #f9fafb)",
+          borderRadius: "var(--radius-md)",
+          border: "1px solid var(--border-color)"
+        }}>
+          <p style={{ margin: 0, fontSize: "14px", color: "var(--foreground-secondary)" }}>
+            <strong>トラブルシューティング:</strong>
+          </p>
+          <ul style={{ marginTop: "8px", marginBottom: 0, paddingLeft: "20px", fontSize: "14px", color: "var(--foreground-secondary)" }}>
+            <li>環境が「ブラウザ」と表示される場合 → Tauri版として正しくビルドされていません</li>
+            <li>環境が「Tauri」だがダウンロードできない → Tauri権限設定を確認してください</li>
+            <li>エラーメッセージが表示される → そのメッセージを開発者に報告してください</li>
+          </ul>
+        </div>
       </section>
     </main>
   );
