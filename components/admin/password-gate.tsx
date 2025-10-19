@@ -73,18 +73,6 @@ export function PasswordGate({ children }: PasswordGateProps) {
     }
   };
 
-  const handlePasswordReset = () => {
-    if (confirm(
-      "⚠️ パスワードをデフォルト（admin123）にリセットしますか？\n\n" +
-      "組織ホワイトリストや会話履歴は保持されます。\n" +
-      "パスワードのみがリセットされます。"
-    )) {
-      localStorage.removeItem('admin-password-hash');
-      alert("✅ パスワードをリセットしました。\nデフォルトパスワード「admin123」でログインしてください。");
-      window.location.reload();
-    }
-  };
-
   if (loading) {
     return (
       <div className="password-gate-loading">
@@ -151,13 +139,10 @@ export function PasswordGate({ children }: PasswordGateProps) {
         </form>
 
         <div className="password-gate-footer">
-          <button
-            type="button"
-            onClick={handlePasswordReset}
-            className="password-gate-reset-link"
-          >
-            パスワードを忘れた場合
-          </button>
+          <p className="password-gate-hint">
+            パスワードを忘れた場合は、アプリケーションを再インストールしてください。<br />
+            会話履歴は設定画面からエクスポート可能です。
+          </p>
         </div>
       </div>
     </div>
