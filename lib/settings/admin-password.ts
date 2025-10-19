@@ -124,27 +124,6 @@ export async function resetPasswordToDefault(): Promise<void> {
   }
 }
 
-/**
- * リセットファイル経由でパスワードを変更
- * （ファイルベースのパスワードリセット機能）
- */
-export async function resetPasswordFromFile(newPassword: string): Promise<void> {
-  try {
-    // 新しいパスワードのバリデーション
-    if (!newPassword || newPassword.length < 6) {
-      throw new Error("新しいパスワードは6文字以上である必要があります");
-    }
-
-    // パスワードをハッシュ化して保存
-    const newHash = await hashPassword(newPassword);
-    localStorage.setItem(STORAGE_KEY, newHash);
-
-    console.log("✅ Password reset from file successfully");
-  } catch (error) {
-    console.error("Failed to reset password from file:", error);
-    throw error;
-  }
-}
 
 /**
  * Get the default password (for display in UI)

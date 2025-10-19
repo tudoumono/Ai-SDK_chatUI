@@ -1,17 +1,12 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
-import { Shield, Lock, AlertCircle, Info, Key } from "lucide-react";
+import { Shield, Lock, AlertCircle, Info } from "lucide-react";
 import {
   verifyPassword,
   getDefaultPassword,
   isPasswordChanged,
-  resetPasswordFromFile
 } from "@/lib/settings/admin-password";
-import {
-  checkPasswordResetFile,
-  deletePasswordResetFile
-} from "@/lib/settings/password-reset-file";
 import "./password-gate.css";
 
 interface PasswordGateProps {
@@ -24,8 +19,6 @@ export function PasswordGate({ children }: PasswordGateProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDefaultPassword, setShowDefaultPassword] = useState(false);
-  const [resetFileDetected, setResetFileDetected] = useState(false);
-  const [resetInProgress, setResetInProgress] = useState(false);
 
   useEffect(() => {
     // Check if already authenticated in session
@@ -36,7 +29,7 @@ export function PasswordGate({ children }: PasswordGateProps) {
       return;
     }
 
-    // Check if password has been changed and if reset file exists
+    // Check if password has been changed
     let cancelled = false;
 
     (async () => {
@@ -46,23 +39,6 @@ export function PasswordGate({ children }: PasswordGateProps) {
 
         setShowDefaultPassword(!changed);
         setLoading(false);
-
-        // リセットファイルの確認を遅延実行（初期表示を高速化）
-        setTimeout(async () => {
-          if (cancelled) return;
-
-          try {
-            const resetFileCheck = await checkPasswordResetFile();
-            if (cancelled) return;
-
-            if (resetFileCheck.exists) {
-              setResetFileDetected(true);
-            }
-          } catch (error) {
-            console.error("Failed to check password reset file:", error);
-            // リセットファイルチェックのエラーは無視（UI表示は継続）
-          }
-        }, 100);
       } catch (error) {
         console.error("Failed to initialize password gate:", error);
         if (!cancelled) {
@@ -97,60 +73,15 @@ export function PasswordGate({ children }: PasswordGateProps) {
     }
   };
 
-  const handlePasswordReset = async () => {
-    if (!confirm(
-      "⚠️ パスワードリセットを実行します。\n\n" +
-      "リセットファイルに記載されたパスワードに変更されます。\n" +
-      "リセット後、ファイルは自動的に削除されます。\n\n" +
-      "続行しますか？"
+  const handlePasswordReset = () => {
+    if (confirm(
+      "⚠️ パスワードをデフォルト（admin123）にリセットしますか？\n\n" +
+      "組織ホワイトリストや会話履歴は保持されます。\n" +
+      "パスワードのみがリセットされます。"
     )) {
-      return;
-    }
-
-    setResetInProgress(true);
-    setError(null);
-
-    try {
-      // リセットファイルの内容を確認
-      const resetFileCheck = await checkPasswordResetFile();
-
-      if (!resetFileCheck.exists) {
-        setError("リセットファイルが見つかりません");
-        setResetInProgress(false);
-        setResetFileDetected(false);
-        return;
-      }
-
-      if (resetFileCheck.error) {
-        setError(resetFileCheck.error);
-        setResetInProgress(false);
-        return;
-      }
-
-      if (!resetFileCheck.newPassword) {
-        setError("リセットファイルが正しく読み込めませんでした");
-        setResetInProgress(false);
-        return;
-      }
-
-      // パスワードをリセット
-      await resetPasswordFromFile(resetFileCheck.newPassword);
-
-      // リセットファイルを削除
-      await deletePasswordResetFile();
-
-      // 成功メッセージを表示してリロード
-      alert("✅ パスワードをリセットしました。\n新しいパスワードでログインしてください。");
-      setResetFileDetected(false);
-      setResetInProgress(false);
+      localStorage.removeItem('admin-password-hash');
+      alert("✅ パスワードをリセットしました。\nデフォルトパスワード「admin123」でログインしてください。");
       window.location.reload();
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "パスワードリセットに失敗しました"
-      );
-      setResetInProgress(false);
     }
   };
 
@@ -178,18 +109,7 @@ export function PasswordGate({ children }: PasswordGateProps) {
           </p>
         </div>
 
-        {resetFileDetected && (
-          <div className="password-gate-alert password-gate-alert-info">
-            <Key size={20} />
-            <div>
-              <strong>パスワードリセットファイルが検出されました</strong>
-              <br />
-              <small>下のボタンをクリックしてパスワードをリセットできます</small>
-            </div>
-          </div>
-        )}
-
-        {showDefaultPassword && !resetFileDetected && (
+        {showDefaultPassword && (
           <div className="password-gate-alert password-gate-alert-info">
             <Info size={20} />
             <div>
@@ -228,25 +148,17 @@ export function PasswordGate({ children }: PasswordGateProps) {
             <Shield size={20} />
             ログイン
           </button>
-
-          {resetFileDetected && (
-            <button
-              type="button"
-              onClick={handlePasswordReset}
-              disabled={resetInProgress}
-              className="password-gate-button"
-              style={{
-                marginTop: "12px",
-                backgroundColor: "var(--warning-bg, #fef3c7)",
-                borderColor: "var(--warning, #f59e0b)",
-                color: "var(--warning-text, #92400e)",
-              }}
-            >
-              <Key size={20} />
-              {resetInProgress ? "リセット中..." : "パスワードをリセット"}
-            </button>
-          )}
         </form>
+
+        <div className="password-gate-footer">
+          <button
+            type="button"
+            onClick={handlePasswordReset}
+            className="password-gate-reset-link"
+          >
+            パスワードを忘れた場合
+          </button>
+        </div>
       </div>
     </div>
   );
