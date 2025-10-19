@@ -32,21 +32,49 @@ export function PasswordGate({ children }: PasswordGateProps) {
     const sessionAuth = sessionStorage.getItem("admin-authenticated");
     if (sessionAuth === "true") {
       setAuthenticated(true);
+      setLoading(false);
+      return;
     }
 
     // Check if password has been changed and if reset file exists
+    let cancelled = false;
+
     (async () => {
-      const changed = await isPasswordChanged();
-      setShowDefaultPassword(!changed);
+      try {
+        const changed = await isPasswordChanged();
+        if (cancelled) return;
 
-      // リセットファイルの確認
-      const resetFileCheck = await checkPasswordResetFile();
-      if (resetFileCheck.exists) {
-        setResetFileDetected(true);
+        setShowDefaultPassword(!changed);
+        setLoading(false);
+
+        // リセットファイルの確認を遅延実行（初期表示を高速化）
+        setTimeout(async () => {
+          if (cancelled) return;
+
+          try {
+            const resetFileCheck = await checkPasswordResetFile();
+            if (cancelled) return;
+
+            if (resetFileCheck.exists) {
+              setResetFileDetected(true);
+            }
+          } catch (error) {
+            console.error("Failed to check password reset file:", error);
+            // リセットファイルチェックのエラーは無視（UI表示は継続）
+          }
+        }, 100);
+      } catch (error) {
+        console.error("Failed to initialize password gate:", error);
+        if (!cancelled) {
+          setLoading(false);
+          setError("初期化に失敗しました。ページを再読み込みしてください。");
+        }
       }
-
-      setLoading(false);
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

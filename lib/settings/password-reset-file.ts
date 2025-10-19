@@ -11,6 +11,17 @@ const RESET_FILE_NAME = ".admin-password-reset";
  * リセットファイルの存在確認と新しいパスワードの読み取り
  * Tauri環境でのみ動作
  */
+// Tauri FSプラグインのキャッシュ（メモリリーク防止）
+let tauriFsCache: {
+  BaseDirectory: any;
+  exists: any;
+  readTextFile: any;
+} | null = null;
+
+/**
+ * リセットファイルの存在確認と新しいパスワードの読み取り
+ * Tauri環境でのみ動作
+ */
 export async function checkPasswordResetFile(): Promise<{
   exists: boolean;
   newPassword?: string;
@@ -21,8 +32,17 @@ export async function checkPasswordResetFile(): Promise<{
   }
 
   try {
-    // Tauri v2のFSプラグインを動的にインポート
-    const { BaseDirectory, exists, readTextFile } = await import("@tauri-apps/plugin-fs");
+    // Tauri v2のFSプラグインを動的にインポート（キャッシュ利用）
+    if (!tauriFsCache) {
+      const fsModule = await import("@tauri-apps/plugin-fs");
+      tauriFsCache = {
+        BaseDirectory: fsModule.BaseDirectory,
+        exists: fsModule.exists,
+        readTextFile: fsModule.readTextFile,
+      };
+    }
+
+    const { BaseDirectory, exists, readTextFile } = tauriFsCache;
 
     // アプリケーション実行ディレクトリ（exe配置場所）のリセットファイルを確認
     const fileExists = await exists(RESET_FILE_NAME, {
@@ -65,12 +85,27 @@ export async function checkPasswordResetFile(): Promise<{
  * リセットファイルを削除
  * セキュリティのため、リセット処理完了後に必ず実行
  */
+/**
+ * リセットファイルを削除
+ * セキュリティのため、リセット処理完了後に必ず実行
+ */
 export async function deletePasswordResetFile(): Promise<void> {
   if (!isTauriEnvironment()) {
     return;
   }
 
   try {
+    // キャッシュされたFSプラグインを使用（新規インポートしない）
+    if (!tauriFsCache) {
+      const fsModule = await import("@tauri-apps/plugin-fs");
+      tauriFsCache = {
+        BaseDirectory: fsModule.BaseDirectory,
+        exists: fsModule.exists,
+        readTextFile: fsModule.readTextFile,
+      };
+    }
+
+    // removeは別途インポートが必要
     const { BaseDirectory, remove } = await import("@tauri-apps/plugin-fs");
 
     await remove(RESET_FILE_NAME, {

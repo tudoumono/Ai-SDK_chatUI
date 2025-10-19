@@ -6,6 +6,9 @@
 const STORAGE_KEY = "admin-password-hash";
 const DEFAULT_PASSWORD = "admin123"; // デフォルトパスワード
 
+// デフォルトパスワードのハッシュキャッシュ（パフォーマンス最適化）
+let defaultPasswordHashCache: string | null = null;
+
 /**
  * Simple hash function (SHA-256 via Web Crypto API)
  * ブラウザのWeb Crypto APIを使用した簡易ハッシュ関数
@@ -20,6 +23,17 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 /**
+ * Get cached default password hash (performance optimization)
+ * デフォルトパスワードのハッシュをキャッシュから取得
+ */
+async function getDefaultPasswordHash(): Promise<string> {
+  if (!defaultPasswordHashCache) {
+    defaultPasswordHashCache = await hashPassword(DEFAULT_PASSWORD);
+  }
+  return defaultPasswordHashCache;
+}
+
+/**
  * Initialize password hash if not exists
  * パスワードハッシュが存在しない場合は初期化
  */
@@ -27,7 +41,7 @@ export async function initializePasswordIfNeeded(): Promise<void> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) {
-      const defaultHash = await hashPassword(DEFAULT_PASSWORD);
+      const defaultHash = await getDefaultPasswordHash();
       localStorage.setItem(STORAGE_KEY, defaultHash);
     }
   } catch (error) {
@@ -102,7 +116,7 @@ export async function changePassword(
  */
 export async function resetPasswordToDefault(): Promise<void> {
   try {
-    const defaultHash = await hashPassword(DEFAULT_PASSWORD);
+    const defaultHash = await getDefaultPasswordHash();
     localStorage.setItem(STORAGE_KEY, defaultHash);
   } catch (error) {
     console.error("Failed to reset password:", error);
@@ -149,7 +163,7 @@ export async function isPasswordChanged(): Promise<boolean> {
     await initializePasswordIfNeeded();
 
     const stored = localStorage.getItem(STORAGE_KEY);
-    const defaultHash = await hashPassword(DEFAULT_PASSWORD);
+    const defaultHash = await getDefaultPasswordHash();
 
     return stored !== defaultHash;
   } catch (error) {
