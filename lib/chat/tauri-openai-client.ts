@@ -235,12 +235,38 @@ export function createTauriResponsesClient(connection: ConnectionSettings) {
       },
     },
     files: {
-      async create(params: FormData) {
-        throw new Error(
-          "File upload via Tauri is not yet implemented. Use browser mode for file uploads."
-        );
+      async create(params: any) {
+        const { file, purpose } = params;
+
+        // ファイルをBase64に変換
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        const base64 = btoa(String.fromCharCode(...uint8Array));
+
+        // Tauri経由でファイルをアップロード
+        const response = await invoke('proxy_file_upload', {
+          request: {
+            base_url: normalizeBaseUrl(connection.baseUrl),
+            api_key: connection.apiKey,
+            file_data: base64,
+            file_name: file.name,
+            purpose: purpose,
+            additional_headers: connection.additionalHeaders,
+            proxy_config: {
+              http_proxy: connection.httpProxy,
+              https_proxy: connection.httpsProxy,
+            },
+          },
+        });
+
+        const result = JSON.parse((response as OpenAIResponse).body);
+        if ((response as OpenAIResponse).status >= 400) {
+          throw new Error(result.error?.message || "File upload failed");
+        }
+
+        return result;
       },
-      async del(fileId: string) {
+      async delete(fileId: string) {
         return makeTauriOpenAIRequest(
           connection,
           "DELETE",

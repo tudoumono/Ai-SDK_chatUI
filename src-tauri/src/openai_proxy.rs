@@ -1,8 +1,9 @@
-use reqwest::{Client, Proxy};
+use reqwest::{Client, Proxy, multipart};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
 use uuid::Uuid;
+use base64::{Engine as _, engine::general_purpose};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProxyConfig {
@@ -17,6 +18,17 @@ pub struct OpenAIRequest {
     pub method: String,
     pub path: String,
     pub body: Option<serde_json::Value>,
+    pub additional_headers: Option<HashMap<String, String>>,
+    pub proxy_config: Option<ProxyConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FileUploadRequest {
+    pub base_url: String,
+    pub api_key: String,
+    pub file_data: String, // Base64 encoded file data
+    pub file_name: String,
+    pub purpose: String,
     pub additional_headers: Option<HashMap<String, String>>,
     pub proxy_config: Option<ProxyConfig>,
 }
@@ -246,6 +258,115 @@ pub async fn make_openai_request(request: OpenAIRequest) -> Result<OpenAIRespons
         log::error!("[Request {}] OpenAI API error ({}): {}", request_id, status, body_preview);
     } else {
         log::info!("[Request {}] Request completed successfully", request_id);
+    }
+
+    Ok(OpenAIResponse {
+        status,
+        body,
+        headers,
+    })
+}
+
+pub async fn upload_file_to_openai(request: FileUploadRequest) -> Result<OpenAIResponse, String> {
+    let request_id = Uuid::new_v4();
+    let start_time = Instant::now();
+
+    log::info!("[Request {}] Starting file upload: {}", request_id, request.file_name);
+
+    // クライアントビルダーを作成
+    let mut client_builder = Client::builder();
+
+    // プロキシ設定があれば適用
+    if let Some(proxy_config) = &request.proxy_config {
+        if let Some(http_proxy) = &proxy_config.http_proxy {
+            if !http_proxy.is_empty() {
+                let proxy = Proxy::http(http_proxy)
+                    .map_err(|e| format!("[Request {}] HTTP proxy error: {}", request_id, e))?;
+                client_builder = client_builder.proxy(proxy);
+            }
+        }
+        if let Some(https_proxy) = &proxy_config.https_proxy {
+            if !https_proxy.is_empty() {
+                let proxy = Proxy::https(https_proxy)
+                    .map_err(|e| format!("[Request {}] HTTPS proxy error: {}", request_id, e))?;
+                client_builder = client_builder.proxy(proxy);
+            }
+        }
+    }
+
+    let client = client_builder
+        .build()
+        .map_err(|e| format!("[Request {}] Failed to build HTTP client: {}", request_id, e))?;
+
+    // Base64デコード
+    let file_bytes = general_purpose::STANDARD
+        .decode(&request.file_data)
+        .map_err(|e| format!("[Request {}] Base64 decode error: {}", request_id, e))?;
+
+    log::info!("[Request {}] File size: {} bytes", request_id, file_bytes.len());
+
+    // URLを構築
+    let base_url = request.base_url.trim_end_matches('/');
+    let url = format!("{}/files", base_url);
+
+    // multipart/form-data を作成
+    let file_part = multipart::Part::bytes(file_bytes)
+        .file_name(request.file_name.clone())
+        .mime_str("application/octet-stream")
+        .map_err(|e| format!("[Request {}] Failed to create file part: {}", request_id, e))?;
+
+    let form = multipart::Form::new()
+        .part("file", file_part)
+        .text("purpose", request.purpose.clone());
+
+    // リクエストを送信
+    log::info!("[Request {}] Uploading to {}", request_id, url);
+    let mut req_builder = client.post(&url)
+        .header("Authorization", format!("Bearer {}", request.api_key))
+        .multipart(form);
+
+    // 追加ヘッダーを設定
+    if let Some(headers) = &request.additional_headers {
+        for (key, value) in headers {
+            req_builder = req_builder.header(key, value);
+        }
+    }
+
+    let send_start = Instant::now();
+    let response = req_builder
+        .send()
+        .await
+        .map_err(|e| {
+            log::error!("[Request {}] Upload failed: {}", request_id, e);
+            format!("[Request {}] Failed to upload file: {}", request_id, e)
+        })?;
+
+    let status = response.status().as_u16();
+    let network_time = send_start.elapsed();
+
+    // レスポンスヘッダーを取得
+    let mut headers = HashMap::new();
+    for (key, value) in response.headers() {
+        if let Ok(value_str) = value.to_str() {
+            headers.insert(key.to_string(), value_str.to_string());
+        }
+    }
+
+    // レスポンスボディを取得
+    let body = response
+        .text()
+        .await
+        .map_err(|e| format!("[Request {}] Failed to read response: {}", request_id, e))?;
+
+    let total_time = start_time.elapsed();
+
+    log::info!(
+        "[Request {}] Upload complete | Status: {} | Network: {:?} | Total: {:?}",
+        request_id, status, network_time, total_time
+    );
+
+    if status >= 400 {
+        log::error!("[Request {}] Upload error ({}): {}", request_id, status, body);
     }
 
     Ok(OpenAIResponse {

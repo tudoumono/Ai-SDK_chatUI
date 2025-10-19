@@ -382,55 +382,104 @@ export async function uploadFileToOpenAI(
   const connection = ensureConnection(
     connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = buildBaseUrl(connection);
-  const url = `${baseUrl}/files`;
 
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("purpose", "assistants");
+  // Tauri環境かどうかを判定
+  const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
-  const xhr = new XMLHttpRequest();
+  if (isTauri) {
+    // Tauri環境: Tauri invoke経由でアップロード
+    const { invoke } = await import("@tauri-apps/api/core");
 
-  return new Promise((resolve, reject) => {
-    xhr.upload.addEventListener("progress", (e) => {
-      if (e.lengthComputable && onProgress) {
-        const progress = Math.round((e.loaded / e.total) * 100);
-        onProgress(progress);
-      }
-    });
+    // ファイルをBase64に変換
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const base64 = btoa(String.fromCharCode(...uint8Array));
 
-    xhr.addEventListener("load", () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const response = JSON.parse(xhr.responseText);
-          resolve(response.id);
-        } catch (error) {
-          reject(new Error("Failed to parse response"));
-        }
-      } else {
-        reject(new Error(`HTTP ${xhr.status}: ${xhr.responseText}`));
-      }
-    });
-
-    xhr.addEventListener("error", () => {
-      reject(new Error("Network error"));
-    });
-
-    xhr.addEventListener("abort", () => {
-      reject(new Error("Upload aborted"));
-    });
-
-    xhr.open("POST", url);
-    xhr.setRequestHeader("Authorization", `Bearer ${connection.apiKey}`);
-
-    if (connection.additionalHeaders) {
-      Object.entries(connection.additionalHeaders).forEach(([key, value]) => {
-        xhr.setRequestHeader(key, value);
-      });
+    // プログレスのシミュレーション（Tauri版は実際のプログレスを取得できないため）
+    if (onProgress) {
+      onProgress(50);
     }
 
-    xhr.send(formData);
-  });
+    const baseUrl = buildBaseUrl(connection);
+
+    // Tauri経由でファイルをアップロード
+    const response = await invoke('proxy_file_upload', {
+      request: {
+        base_url: baseUrl,
+        api_key: connection.apiKey,
+        file_data: base64,
+        file_name: file.name,
+        purpose: "assistants",
+        additional_headers: connection.additionalHeaders,
+        proxy_config: {
+          http_proxy: connection.httpProxy,
+          https_proxy: connection.httpsProxy,
+        },
+      },
+    });
+
+    if (onProgress) {
+      onProgress(100);
+    }
+
+    const result = JSON.parse((response as any).body);
+    if ((response as any).status >= 400) {
+      throw new Error(result.error?.message || "File upload failed");
+    }
+
+    return result.id;
+  } else {
+    // ブラウザ環境: XMLHttpRequestを使用
+    const baseUrl = buildBaseUrl(connection);
+    const url = `${baseUrl}/files`;
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("purpose", "assistants");
+
+    const xhr = new XMLHttpRequest();
+
+    return new Promise((resolve, reject) => {
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable && onProgress) {
+          const progress = Math.round((e.loaded / e.total) * 100);
+          onProgress(progress);
+        }
+      });
+
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            resolve(response.id);
+          } catch (error) {
+            reject(new Error("Failed to parse response"));
+          }
+        } else {
+          reject(new Error(`HTTP ${xhr.status}: ${xhr.responseText}`));
+        }
+      });
+
+      xhr.addEventListener("error", () => {
+        reject(new Error("Network error"));
+      });
+
+      xhr.addEventListener("abort", () => {
+        reject(new Error("Upload aborted"));
+      });
+
+      xhr.open("POST", url);
+      xhr.setRequestHeader("Authorization", `Bearer ${connection.apiKey}`);
+
+      if (connection.additionalHeaders) {
+        Object.entries(connection.additionalHeaders).forEach(([key, value]) => {
+          xhr.setRequestHeader(key, value);
+        });
+      }
+
+      xhr.send(formData);
+    });
+  }
 }
 
 export async function attachFileToVectorStore(

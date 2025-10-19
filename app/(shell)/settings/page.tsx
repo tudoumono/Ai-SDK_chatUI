@@ -417,7 +417,8 @@ export default function SettingsPage() {
   // エラーログを初回読み込み
   useEffect(() => {
     loadErrorLogs();
-  }, [loadErrorLogs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 初回のみ実行
 
   const handleSave = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
