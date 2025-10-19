@@ -238,10 +238,18 @@ export function createTauriResponsesClient(connection: ConnectionSettings) {
       async create(params: any) {
         const { file, purpose } = params;
 
-        // ファイルをBase64に変換
+        // ファイルをBase64に変換（大きなファイルに対応）
         const arrayBuffer = await file.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
-        const base64 = btoa(String.fromCharCode(...uint8Array));
+
+        // チャンクごとに変換してメモリーエラーを防ぐ
+        let base64 = '';
+        const chunkSize = 0x8000; // 32KB chunks
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+          base64 += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        base64 = btoa(base64);
 
         // Tauri経由でファイルをアップロード
         const response = await invoke('proxy_file_upload', {

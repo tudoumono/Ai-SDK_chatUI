@@ -390,10 +390,18 @@ export async function uploadFileToOpenAI(
     // Tauri環境: Tauri invoke経由でアップロード
     const { invoke } = await import("@tauri-apps/api/core");
 
-    // ファイルをBase64に変換
+    // ファイルをBase64に変換（大きなファイルに対応）
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
-    const base64 = btoa(String.fromCharCode(...uint8Array));
+
+    // チャンクごとに変換してメモリーエラーを防ぐ
+    let base64 = '';
+    const chunkSize = 0x8000; // 32KB chunks
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+      base64 += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    base64 = btoa(base64);
 
     // プログレスのシミュレーション（Tauri版は実際のプログレスを取得できないため）
     if (onProgress) {
