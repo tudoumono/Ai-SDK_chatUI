@@ -130,14 +130,8 @@ export default function SettingsPage() {
       setTimeout(() => setCopiedLogId(null), 2000);
     } catch (error) {
       console.error("ログのコピーに失敗しました", error);
-      addLog(
-        "error",
-        "setup",
-        "ログのコピーに失敗しました",
-        error instanceof Error ? error.message : String(error),
-      );
     }
-  }, [addLog]);
+  }, []);
 
   const requestTarget = useMemo(() => {
     const trimmed = baseUrl.trim().replace(/\/$/, "");
@@ -205,7 +199,13 @@ export default function SettingsPage() {
     setErrorLogStatus({ state: "loading", message: "エラーログを削除中..." });
     try {
       await clearAllLogs();
-      await loadErrorLogs();
+      // エラーログを再読み込み
+      const [logsData, statsData] = await Promise.all([
+        getAllLogs(),
+        getLogStats(),
+      ]);
+      setErrorLogs(logsData);
+      setLogStats(statsData);
       setErrorLogStatus({ state: "success", message: "エラーログを削除しました。" });
     } catch (error) {
       console.error("Failed to clear error logs:", error);
@@ -214,7 +214,7 @@ export default function SettingsPage() {
         message: error instanceof Error ? `削除失敗: ${error.message}` : "削除に失敗しました",
       });
     }
-  }, [loadErrorLogs]);
+  }, []);
 
   // デバッグ用: テストエラーを生成
   const handleGenerateTestErrors = useCallback(async () => {
@@ -264,13 +264,18 @@ export default function SettingsPage() {
     );
 
     // ログを再読み込み
-    await loadErrorLogs();
+    const [logsData, statsData] = await Promise.all([
+      getAllLogs(),
+      getLogStats(),
+    ]);
+    setErrorLogs(logsData);
+    setLogStats(statsData);
 
     setErrorLogStatus({
       state: "success",
       message: "5件のテストエラーを生成しました。エクスポートして内容を確認してください。",
     });
-  }, [loadErrorLogs]);
+  }, []);
 
   // テスト用: ダウンロード機能をテスト
   const [downloadTestStatus, setDownloadTestStatus] = useState<Status>({ state: "idle", message: "" });
@@ -374,12 +379,6 @@ export default function SettingsPage() {
           setAdditionalHeaders(headersToTextarea(stored.additionalHeaders));
           setStoragePolicy(stored.storagePolicy);
           setEncryptionEnabled(stored.encryptionEnabled);
-          addLog(
-            "info",
-            "setup",
-            "設定を読み込みました",
-            `保存ポリシー: ${stored.storagePolicy}`,
-          );
         }
         setSavedFlags(hasStoredConnection());
         setStatus({
@@ -396,12 +395,6 @@ export default function SettingsPage() {
                 ? `設定の読み込みに失敗しました: ${error.message}`
                 : "設定の読み込みに失敗しました",
           });
-          addLog(
-            "error",
-            "setup",
-            "設定の読み込みに失敗しました",
-            error instanceof Error ? error.message : String(error),
-          );
         }
       } finally {
         if (!cancelled) {
@@ -412,13 +405,13 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [addLog]);
+  }, []); // 依存配列を空にしてメモリーリークを防止
 
-  // エラーログを初回読み込み
-  useEffect(() => {
-    loadErrorLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // 初回のみ実行
+  // エラーログは手動で読み込むように変更（メモリーエラー対策）
+  // useEffect(() => {
+  //   loadErrorLogs();
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, []); // 初回のみ実行
 
   const handleSave = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -470,12 +463,6 @@ export default function SettingsPage() {
           state: "success",
           message: "設定を保存しました。/v1/models への接続で動作を確認してください。",
         });
-        addLog(
-          "info",
-          "setup",
-          "設定を保存しました",
-          `保存ポリシー: ${storagePolicy}`,
-        );
       } catch (error) {
         console.error(error);
         setStatus({
@@ -485,16 +472,9 @@ export default function SettingsPage() {
               ? `設定の保存に失敗しました: ${error.message}`
               : "設定の保存に失敗しました",
         });
-        addLog(
-          "error",
-          "setup",
-          "設定の保存に失敗しました",
-          error instanceof Error ? error.message : String(error),
-        );
       }
     },
     [
-      addLog,
       additionalHeaders,
       apiKey,
       baseUrl,
@@ -522,8 +502,7 @@ export default function SettingsPage() {
       state: "success",
       message: "保存済みの接続設定を削除しました。必要に応じて再設定してください。",
     });
-    addLog("info", "setup", "G5 設定から保存済み接続を削除しました");
-  }, [addLog]);
+  }, []);
 
   const handleClearConversationHistory = useCallback(async () => {
     if (
@@ -540,7 +519,6 @@ export default function SettingsPage() {
         state: "success",
         message: "IndexedDB の会話履歴を削除しました。",
       });
-      addLog("info", "setup", "IndexedDB の会話履歴を削除しました");
     } catch (error) {
       console.error(error);
       setConversationStatus({
@@ -550,14 +528,8 @@ export default function SettingsPage() {
             ? `会話履歴の削除に失敗しました: ${error.message}`
             : "会話履歴の削除に失敗しました",
       });
-      addLog(
-        "error",
-        "setup",
-        "IndexedDB 会話履歴の削除に失敗しました",
-        error instanceof Error ? error.message : String(error),
-      );
     }
-  }, [addLog]);
+  }, []);
 
   const handleExportData = useCallback(async () => {
     setDataStatus({ state: "loading", message: "データをエクスポート中..." });
@@ -581,16 +553,14 @@ export default function SettingsPage() {
         state: "success",
         message: `データをエクスポートしました（会話: ${conversations.length}件、ベクターストア: ${vectorStores.length}件）`
       });
-      addLog("info", "setup", "データをエクスポートしました");
     } catch (error) {
       console.error(error);
       setDataStatus({
         state: "error",
         message: error instanceof Error ? `エクスポートに失敗: ${error.message}` : "エクスポートに失敗しました",
       });
-      addLog("error", "setup", "エクスポートに失敗", error instanceof Error ? error.message : String(error));
     }
-  }, [addLog]);
+  }, []);
 
   const handleImportClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -615,7 +585,6 @@ export default function SettingsPage() {
         state: "success",
         message: `${file.name} をインポートしました（会話: ${bundle.conversations.length}件、ベクターストア: ${bundle.vectorStores?.length ?? 0}件）`,
       });
-      addLog("info", "setup", `${file.name} をインポートしました`);
 
       // ファイル入力をリセット
       if (event.target) {
@@ -627,9 +596,8 @@ export default function SettingsPage() {
         state: "error",
         message: error instanceof Error ? `インポートに失敗: ${error.message}` : "インポートに失敗しました",
       });
-      addLog("error", "setup", "インポートに失敗", error instanceof Error ? error.message : String(error));
     }
-  }, [addLog]);
+  }, []);
 
   const handleRecreateDatabase = useCallback(async () => {
     if (!confirm(
@@ -667,7 +635,6 @@ export default function SettingsPage() {
         state: "success",
         message: "データベースを完全に再作成しました。APIキーロックも解除されました。ページをリロードしてください。",
       });
-      addLog("info", "setup", "データベースを完全に再作成し、APIキーロックを解除しました");
 
       // 3秒後に自動リロード
       setTimeout(() => {
@@ -682,14 +649,8 @@ export default function SettingsPage() {
             ? `DB再作成に失敗: ${error.message}`
             : "DB再作成に失敗しました",
       });
-      addLog(
-        "error",
-        "setup",
-        "データベースの再作成に失敗しました",
-        error instanceof Error ? error.message : String(error),
-      );
     }
-  }, [addLog]);
+  }, []);
 
   return (
     <main className="page-grid">
