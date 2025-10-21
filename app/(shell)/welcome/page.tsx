@@ -134,6 +134,14 @@ export default function WelcomePage() {
   const canGoBack = currentStepIndex > 0;
   const testCompleted = result.state === "success";
   const isLastStep = currentStepIndex >= ONBOARDING_STEPS.length - 1;
+  const storageBadges = useMemo(
+    () => [
+      { key: "session", label: "セッション保存", active: savedFlags.session },
+      { key: "persistent", label: "永続保存", active: savedFlags.persistent },
+      { key: "encrypted", label: "暗号化", active: savedFlags.encrypted },
+    ],
+    [savedFlags],
+  );
 
   const secureConfigBanner = useMemo(() => {
     if (!secureConfigInfo || secureConfigInfo.status === "none") {
