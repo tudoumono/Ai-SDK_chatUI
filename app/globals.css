@@ -13,6 +13,17 @@
   --foreground-secondary: rgba(245, 245, 245, 0.8);
   --foreground-tertiary: rgba(245, 245, 245, 0.6);
 
+  /* サーフェス */
+  --surface-base: rgba(15, 18, 28, 0.88);
+  --surface-raised: rgba(31, 36, 53, 0.66);
+  --surface-glass: rgba(255, 255, 255, 0.07);
+  --surface-disabled: rgba(255, 255, 255, 0.05);
+  --surface-outline: rgba(255, 255, 255, 0.12);
+
+  /* グラデーション */
+  --gradient-accent: linear-gradient(135deg, rgba(37, 99, 235, 0.55), rgba(59, 130, 246, 0.35));
+  --gradient-hero: linear-gradient(135deg, rgba(37, 99, 235, 0.65), rgba(13, 148, 136, 0.35));
+
   /* アクセントカラー */
   --accent: #2563eb;
   --accent-hover: #3b82f6;
@@ -76,6 +87,17 @@
   --foreground: #1a1a1a;
   --foreground-secondary: rgba(26, 26, 26, 0.8);
   --foreground-tertiary: rgba(26, 26, 26, 0.6);
+
+  /* サーフェス */
+  --surface-base: rgba(255, 255, 255, 0.82);
+  --surface-raised: rgba(245, 247, 255, 0.72);
+  --surface-glass: rgba(255, 255, 255, 0.65);
+  --surface-disabled: rgba(0, 0, 0, 0.05);
+  --surface-outline: rgba(0, 0, 0, 0.08);
+
+  /* グラデーション */
+  --gradient-accent: linear-gradient(135deg, rgba(37, 99, 235, 0.85), rgba(59, 130, 246, 0.55));
+  --gradient-hero: linear-gradient(135deg, rgba(37, 99, 235, 0.82), rgba(13, 148, 136, 0.45));
 
   /* アクセントカラー */
   --accent: #2563eb;
@@ -615,6 +637,257 @@ textarea {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
+}
+
+.onboarding-grid {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 56px) clamp(16px, 4vw, 48px) clamp(40px, 6vw, 72px);
+  width: 100%;
+}
+
+.onboarding-hero-card {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: clamp(16px, 3vw, 32px);
+  background: var(--gradient-hero);
+  border: 1px solid var(--surface-outline);
+  box-shadow: var(--shadow-lg);
+}
+
+.onboarding-hero-main {
+  flex: 1 1 320px;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 2vw, 20px);
+  color: var(--foreground);
+}
+
+.onboarding-title {
+  font-size: clamp(1.4rem, 4vw, 1.8rem);
+  font-weight: 700;
+  margin: 0;
+}
+
+.onboarding-subtitle {
+  font-size: clamp(0.95rem, 2.5vw, 1.05rem);
+  margin: 0;
+  opacity: 0.9;
+}
+
+.onboarding-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.onboarding-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--foreground);
+}
+
+.onboarding-badge-success {
+  background: rgba(16, 185, 129, 0.18);
+  color: #bbf7d0;
+}
+
+.onboarding-hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  align-items: flex-start;
+}
+
+@media (min-width: 720px) {
+  .onboarding-hero-actions {
+    flex: 0 0 auto;
+    justify-content: flex-start;
+  }
+}
+
+.onboarding-alert-card {
+  background: var(--surface-glass);
+  border: 1px solid var(--surface-outline);
+}
+
+.onboarding-step-card {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2.5vw, 24px);
+  background: var(--surface-base);
+  border: 1px solid var(--surface-outline);
+  box-shadow: var(--shadow-md);
+}
+
+.onboarding-stepper {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+@media (min-width: 720px) {
+  .onboarding-stepper {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-md);
+  }
+}
+
+.onboarding-step {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  border: 1px solid transparent;
+  transition: border-color var(--transition-base), transform var(--transition-base);
+}
+
+.onboarding-step-index {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.onboarding-step-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.onboarding-step-description {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+.onboarding-step-done {
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.onboarding-step-active {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.onboarding-step-pending {
+  border-color: var(--surface-outline);
+  opacity: 0.85;
+}
+
+.onboarding-inline-error {
+  margin: 0;
+}
+
+.onboarding-form {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2vw, 24px);
+}
+
+.field-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.field-hint.accent {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.onboarding-advanced-toggle {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.onboarding-inline-actions {
+  margin-top: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .onboarding-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .onboarding-actions > * {
+    width: 100%;
+  }
+}
+
+.onboarding-summary-grid {
+  display: grid;
+  gap: var(--spacing-md);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.summary-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--surface-outline);
+  background: var(--surface-glass);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.summary-value {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.onboarding-next-links {
+  margin-top: var(--spacing-md);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+@media (max-width: 640px) {
+  .onboarding-next-links {
+    flex-direction: column;
+  }
+
+  .onboarding-hero-card {
+    padding: clamp(16px, 4vw, 24px);
+  }
 }
 
 @media (min-width: 768px) {

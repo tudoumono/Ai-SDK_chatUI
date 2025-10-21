@@ -55,6 +55,26 @@ const STORAGE_POLICIES: Array<{
 
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
+type OnboardingStep = "credentials" | "storage" | "test";
+
+const ONBOARDING_STEPS: Array<{ id: OnboardingStep; title: string; description: string }> = [
+  {
+    id: "credentials",
+    title: "API キーを入力",
+    description: "利用する OpenAI API キーと接続先を登録します。",
+  },
+  {
+    id: "storage",
+    title: "保存方法を決める",
+    description: "API キーの保存ポリシーと暗号化パスフレーズを選びます。",
+  },
+  {
+    id: "test",
+    title: "接続テスト",
+    description: "/v1/models へ接続し、設定を保存します。",
+  },
+];
+
 function headersToTextarea(headers?: Record<string, string>) {
   if (!headers) return "";
   return Object.entries(headers)
@@ -96,12 +116,20 @@ export default function WelcomePage() {
     }
     | null
   >(null);
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>("credentials");
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [wizardError, setWizardError] = useState<string | null>(null);
 
   const requestTarget = useMemo(() => {
     const result = validateBaseUrl(baseUrl);
     const normalized = result.ok ? result.normalized : DEFAULT_BASE_URL;
     return `${normalized}/models`;
   }, [baseUrl]);
+  const currentStepIndex = useMemo(
+    () => ONBOARDING_STEPS.findIndex((step) => step.id === currentStep),
+    [currentStep],
+  );
+  const isLastStep = currentStepIndex >= ONBOARDING_STEPS.length - 1;
 
   const secureConfigBanner = useMemo(() => {
     if (!secureConfigInfo || secureConfigInfo.status === "none") {
@@ -193,620 +221,399 @@ export default function WelcomePage() {
     }
   }, [secureConfigInfo]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const stored = await loadConnection();
-      if (cancelled) {
-        return;
-      }
-
-      if (stored) {
-        setApiKey(stored.apiKey ?? "");
-        setBaseUrl(stored.baseUrl || DEFAULT_BASE_URL);
-        setHttpProxy(stored.httpProxy ?? "");
-        setHttpsProxy(stored.httpsProxy ?? "");
-        setAdditionalHeaders(headersToTextarea(stored.additionalHeaders));
-        setStoragePolicy(stored.storagePolicy);
-        setEncryptionEnabled(stored.encryptionEnabled);
-      }
-
-      setSavedFlags(hasStoredConnection());
-
-      // Check if whitelist is configured
-      const whitelistOrgIds = await getWhitelistedOrgIds();
-      setWhitelistEnabled(whitelistOrgIds.length > 0);
-
-      // Check if API key is locked
-      setIsLocked(isApiKeyLocked());
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const refreshStatus = () => {
-      setSecureConfigInfo(getSecureConfigStatus());
-    };
-    refreshStatus();
-    const handler = (event: StorageEvent) => {
-      if (event.key === "secure-config:last-path" || event.key === "secure-config:last-status") {
-        refreshStatus();
-      }
-    };
-    window.addEventListener("storage", handler);
-    return () => {
-      window.removeEventListener("storage", handler);
-    };
-  }, []);
-
-  const resetResult = useCallback(() => {
-    setResult({ state: "idle", message: "接続テストは未実行です。" });
-  }, []);
-
-  const handleSubmit = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-
-      if (!apiKey.trim()) {
-        setResult({
-          state: "error",
-          message: "API キーを入力してください。",
-        });
-        return;
-      }
-
-      if (encryptionEnabled && !passphrase.trim()) {
-        setPassphraseError("暗号化パスフレーズを入力してください。");
-        setResult({
-          state: "error",
-          message: "暗号化パスフレーズを入力してください。",
-        });
-        return;
-      }
-
-      const parsed = parseAdditionalHeaders(additionalHeaders);
-      if ("error" in parsed) {
-        setHeadersError(parsed.error);
-        setResult({
-          state: "error",
-          message: "追加ヘッダの形式エラーを修正してください。",
-        });
-        return;
-      }
-      setHeadersError(null);
-      setPassphraseError(null);
-
-      const baseUrlValidation = validateBaseUrl(baseUrl);
-      if (!baseUrlValidation.ok) {
-        setResult({
-          state: "error",
-          message: baseUrlValidation.message,
-        });
-        return;
-      }
-
-      const normalizedBaseUrl = baseUrlValidation.normalized;
-      const target = `${normalizedBaseUrl}/models`;
-
-      const headers = buildRequestHeaders(
-        { Authorization: `Bearer ${apiKey.trim()}` },
-        parsed.headers,
-      );
-
-      setResult({ state: "loading", message: "接続テストを実行中です…" });
-
-      // APIキーをマスクしてログ出力
-      const maskedHeaders = Array.from(headers.entries()).map(([key, value]) => {
-        if (key.toLowerCase() === 'authorization') {
-          // Bearer sk-proj-xxx... → Bearer sk-proj-****...末尾4文字
-          const match = value.match(/^(Bearer\s+)(.+)$/i);
-          if (match) {
-            const token = match[2];
-            const masked = token.length > 8
-              ? `${token.substring(0, 8)}****${token.substring(token.length - 4)}`
-              : '****';
-            return [key, `${match[1]}${masked}`];
-          }
-        }
-        return [key, value];
-      });
-
-      appendLog({
-        level: "info",
-        scope: "api",
-        message: `接続テスト開始 ${target}`,
-        detail: JSON.stringify(maskedHeaders),
-      });
-
-      try {
-        const response = await fetch(target, {
-          method: "GET",
-          headers,
-          cache: "no-store",
-        });
-
-        if (response.ok) {
-          const payload = await response.json().catch(() => null);
-          const count = Array.isArray(payload?.data) ? payload.data.length : undefined;
-          const suffix = count !== undefined ? ` (取得モデル数: ${count})` : "";
-          const policyLabel =
-            STORAGE_POLICIES.find((policy) => policy.value === storagePolicy)?.title ??
-            "不明";
-
-          // Validate organization whitelist if enabled
-          if (whitelistEnabled) {
-            setResult({
-              state: "loading",
-              message: "組織IDを検証中...",
-            });
-
-            const validation = await validateOrgWhitelist(apiKey.trim(), normalizedBaseUrl);
-
-            if (!validation.valid) {
-              appendLog({
-                level: "error",
-                scope: "setup",
-                message: "組織ID検証失敗",
-                detail: validation.error || "Unknown error",
-              });
-
-              setResult({
-                state: "error",
-                message: `組織ID検証エラー: ${validation.error || "このAPIキーは許可されていません"}`,
-              });
-              return;
-            }
-
-            appendLog({
-              level: "info",
-              scope: "setup",
-              message: "組織ID検証成功",
-              detail: `Matched org: ${validation.matchedOrgId || "N/A"}`,
-            });
-
-            // 検証結果をキャッシュに保存（軽量な検証用）
-            await saveValidationResult(apiKey.trim(), validation.matchedOrgId || "");
-            // APIキー入力をロック
-            lockApiKeyInput();
-            setIsLocked(true);
-          } else {
-            // ホワイトリストが無効な場合はキャッシュをクリア
-            clearValidationResult();
-          }
-
-          await saveConnection({
-            baseUrl: normalizedBaseUrl,
-            apiKey: apiKey.trim(),
-            additionalHeaders: parsed.headers,
-            httpProxy: httpProxy.trim() || undefined,
-            httpsProxy: httpsProxy.trim() || undefined,
-            storagePolicy,
-            encryptionEnabled,
-            passphrase: passphrase.trim() || undefined,
-          });
-          setBaseUrl(normalizedBaseUrl);
-          setSavedFlags(hasStoredConnection());
-
-          appendLog({
-            level: "info",
-            scope: "setup",
-            message: "接続テスト成功",
-            detail: `HTTP ${response.status}${suffix}`,
-          });
-
-          const whitelistMessage = whitelistEnabled ? " / 組織ID検証: OK" : "";
-          setResult({
-            state: "success",
-            statusCode: response.status,
-            message: `接続成功: HTTP ${response.status}${suffix}${whitelistMessage} / 保存ポリシー: ${policyLabel}`,
-          });
-          return;
-        }
-
-        const responseText = await response.text();
-        const detail = responseText ? `レスポンス: ${responseText}` : "";
-
-        appendLog({
-          level: "error",
-          scope: "api",
-          message: `接続テスト失敗 HTTP ${response.status}`,
-          detail,
-        });
-
-        setResult({
-          state: "error",
-          statusCode: response.status,
-          message: `接続失敗: HTTP ${response.status}. ${detail}`.trim(),
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "原因不明のエラーです";
-        appendLog({
-          level: "error",
-          scope: "api",
-          message: "接続テスト例外",
-          detail: message,
-        });
-        setResult({
-          state: "error",
-          message: `接続テストに失敗しました: ${message}`,
-        });
-      }
-    },
-    [
-      additionalHeaders,
-      apiKey,
-      baseUrl,
-      encryptionEnabled,
-      httpProxy,
-      httpsProxy,
-      passphrase,
-      storagePolicy,
-      whitelistEnabled,
-    ],
-  );
-
-  const handleUnlock = useCallback(() => {
-    if (!confirm("⚠️ APIキーのロックを解除すると、検証キャッシュも削除されます。\n\n再度APIキーを入力し、組織ID検証を行う必要があります。\n\n続行しますか？")) {
-      return;
-    }
-    unlockApiKeyInput(); // 検証キャッシュも削除される
-    setIsLocked(false);
-    setResult({ state: "idle", message: "ロックを解除しました。APIキーを再入力してください。" });
-    appendLog({
-      level: "info",
-      scope: "setup",
-      message: "APIキーのロックを解除しました",
-    });
-  }, []);
-
-  const handleClear = useCallback(async () => {
-    await clearConnection();
-    unlockApiKeyInput(); // ロック解除＋検証キャッシュクリア
-    setIsLocked(false);
-    setSavedFlags({ session: false, persistent: false, encrypted: false });
-    setApiKey("");
-    setBaseUrl(DEFAULT_BASE_URL);
-    setHttpProxy("");
-    setHttpsProxy("");
-    setAdditionalHeaders("");
-    setStoragePolicy("none");
-    setEncryptionEnabled(true); // デフォルトに戻す
-    setPassphrase("");
-    setPassphraseError(null);
-    setResult({ state: "success", message: "保存済み設定を削除しました。" });
-    appendLog({
-      level: "info",
-      scope: "setup",
-      message: "保存済み接続を削除しました",
-    });
-  }, []);
 
   return (
-    <main className="page-grid">
-      <div className="page-header">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
-          <div>
-            <h1 className="page-header-title">ようこそ！まずは接続を確認しましょう</h1>
-            {whitelistEnabled && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem", color: "var(--accent)" }}>
-                <Shield size={16} />
-                <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>組織IDホワイトリスト検証が有効です</span>
+    <main className="page-grid onboarding-grid">
+      <section className="section-card onboarding-hero-card">
+        <div className="onboarding-hero-main">
+          <h1 className="onboarding-title">ようこそ！3ステップで準備しましょう</h1>
+          <p className="onboarding-subtitle">
+            現在ステップ {currentStepIndex + 1} / {totalSteps} ：{currentStepMeta.title}
+          </p>
+          {whitelistEnabled && (
+            <div className="onboarding-badge onboarding-badge-success">
+              <Shield size={16} />
+              <span>組織IDホワイトリスト検証が有効です</span>
+            </div>
+          )}
+          <div className="onboarding-badges">
+            {storageBadges.map((badge) => (
+              <div
+                key={badge.key}
+                className={clsx(
+                  "storage-badge",
+                  badge.key === "encrypted"
+                    ? badge.active
+                      ? "storage-badge-encrypted"
+                      : "storage-badge-not-encrypted"
+                    : badge.active
+                    ? "storage-badge-active"
+                    : "storage-badge-inactive",
+                )}
+              >
+                <span className="storage-badge-icon">
+                  {badge.key === "encrypted"
+                    ? badge.active
+                      ? "🔒"
+                      : "🔓"
+                    : badge.active
+                    ? "✓"
+                    : "－"}
+                </span>
+                <span className="storage-badge-label">{badge.label}</span>
               </div>
-            )}
+            ))}
           </div>
-          <Link
-            href="/admin"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.5rem 1rem",
-              background: "var(--background-secondary)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              textDecoration: "none",
-              color: "var(--foreground)",
-              fontSize: "0.875rem",
-              transition: "all var(--transition-fast)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--accent)";
-              e.currentTarget.style.color = "var(--accent)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--border)";
-              e.currentTarget.style.color = "var(--foreground)";
-            }}
-          >
+        </div>
+        <div className="onboarding-hero-actions">
+          <Link className="outline-button" href="/admin">
             <Shield size={16} />
             管理者画面
           </Link>
-        </div>
-        <p className="page-header-description">
-          API キーと（必要に応じて）プロキシ設定を入力して `/v1/models` への接続をテストします。
-        </p>
-        <div className="storage-status-container">
-          <div className="storage-status-badges">
-            <div className={`storage-badge ${savedFlags.session ? 'storage-badge-active' : 'storage-badge-inactive'}`}>
-              <span className="storage-badge-icon">{savedFlags.session ? '✓' : '－'}</span>
-              <span className="storage-badge-label">セッション保存</span>
-            </div>
-            <div className={`storage-badge ${savedFlags.persistent ? 'storage-badge-active' : 'storage-badge-inactive'}`}>
-              <span className="storage-badge-icon">{savedFlags.persistent ? '✓' : '－'}</span>
-              <span className="storage-badge-label">永続保存（オプション）</span>
-            </div>
-            <div className={`storage-badge ${savedFlags.encrypted ? 'storage-badge-encrypted' : 'storage-badge-not-encrypted'}`}>
-              <span className="storage-badge-icon">{savedFlags.encrypted ? '🔒' : '🔓'}</span>
-              <span className="storage-badge-label">暗号化</span>
-            </div>
-          </div>
-          <p className="storage-status-hint">
-            ※ セッション保存のみでも利用可能です。永続保存は共有端末では推奨されません。
-          </p>
-        </div>
-      </div>
-
-      {secureConfigBanner}
-
-      <section className="section-card">
-        <div className="section-card-title">接続テスト</div>
-        <p className="section-card-description">
-          現在のリクエスト先: <code className="inline-code">{requestTarget}</code>
-        </p>
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <div className="field-group">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <label className="field-label" htmlFor="api-key">
-                API キー <span className="field-required">*</span>
-              </label>
-              {isLocked && (
-                <span style={{ fontSize: "0.875rem", color: "var(--accent)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                  🔒 認証済み（ロック中）
-                </span>
-              )}
-            </div>
-            <input
-              autoComplete="off"
-              className="field-input"
-              id="api-key"
-              placeholder="例: sk-..."
-              type="password"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              disabled={isLocked}
-              style={isLocked ? { backgroundColor: "var(--background-secondary)", cursor: "not-allowed" } : {}}
-            />
-            {isLocked && (
-              <div style={{ marginTop: "0.5rem" }}>
-                <button
-                  type="button"
-                  className="outline-button"
-                  onClick={handleUnlock}
-                  style={{ fontSize: "0.875rem", padding: "0.375rem 0.75rem" }}
-                >
-                  🔓 ロック解除（検証キャッシュを削除）
-                </button>
-                <p className="field-hint" style={{ marginTop: "0.5rem" }}>
-                  ⚠️ ロックを解除すると検証キャッシュが削除され、再度組織ID検証が必要になります。
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="field-group">
-            <label className="field-label" htmlFor="base-url">
-              Base URL
-            </label>
-            <input
-              autoComplete="off"
-              className="field-input"
-              id="base-url"
-              placeholder={DEFAULT_BASE_URL}
-              type="url"
-              value={baseUrl}
-              onChange={(event) => {
-                setBaseUrl(event.target.value);
-                resetResult();
-              }}
-            />
-          </div>
-
-          <div className="advanced-panel">
-            <div className="advanced-panel-title">詳細設定（プロキシ、追加ヘッダ、保存ポリシー）</div>
-            <div className="advanced-content">
-              <div className="field-grid-two">
-                <div className="field-group">
-                  <label className="field-label" htmlFor="http-proxy">
-                    HTTP プロキシ
-                  </label>
-                  <input
-                    autoComplete="off"
-                    className="field-input"
-                    id="http-proxy"
-                    placeholder="例: http://proxy.example.com:8080"
-                    value={httpProxy}
-                    onChange={(event) => setHttpProxy(event.target.value)}
-                  />
-                  <p className="field-hint">HTTP 経由でアクセスする際のゲートウェイ URL。</p>
-                </div>
-
-                <div className="field-group">
-                  <label className="field-label" htmlFor="https-proxy">
-                    HTTPS プロキシ
-                  </label>
-                  <input
-                    autoComplete="off"
-                    className="field-input"
-                    id="https-proxy"
-                    placeholder="例: https://secure-proxy.example.com:8443"
-                    value={httpsProxy}
-                    onChange={(event) => setHttpsProxy(event.target.value)}
-                  />
-                  <p className="field-hint">HTTPS 通信で利用するゲートウェイ URL。</p>
-                </div>
-              </div>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="additional-headers">
-                  追加ヘッダ（1 行 = `Header-Name: value`）
-                </label>
-                <textarea
-                  className="field-textarea"
-                  id="additional-headers"
-                  placeholder="例: X-Proxy-Token: example-token"
-                  rows={3}
-                  value={additionalHeaders}
-                  onChange={(event) => {
-                    setAdditionalHeaders(event.target.value);
-                    if (headersError) {
-                      setHeadersError(null);
-                    }
-                  }}
-                />
-                {headersError ? (
-                  <p className="field-error">{headersError}</p>
-                ) : (
-                  <p className="field-hint">
-                    ゲートウェイや追加認証用ヘッダを設定できます。複数行で複数指定してください。
-                  </p>
-                )}
-              </div>
-
-              <fieldset className="field-group">
-                <legend className="field-label">保存ポリシー</legend>
-                <div className="radio-card-group">
-                  {STORAGE_POLICIES.map((policy) => {
-                    const checked = storagePolicy === policy.value;
-                    return (
-                      <label
-                        key={policy.value}
-                        className={clsx("radio-card", checked && "radio-card-active")}
-                      >
-                        <input
-                          checked={checked}
-                          className="radio-card-input"
-                          name="storage-policy"
-                          onChange={() => setStoragePolicy(policy.value)}
-                          type="radio"
-                          value={policy.value}
-                        />
-                        <div className="radio-card-body">
-                          <span className="radio-card-title">{policy.title}</span>
-                          <span className="radio-card-description">{policy.description}</span>
-                          {policy.note ? (
-                            <span className="radio-card-note">{policy.note}</span>
-                          ) : null}
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              </fieldset>
-
-              <div className="field-group">
-                <label className="toggle-row">
-                  <input
-                    checked={encryptionEnabled}
-                    onChange={(event) => {
-                      const enabled = event.target.checked;
-
-                      // 暗号化を無効にする場合は警告を表示
-                      if (!enabled) {
-                        const confirmed = window.confirm(
-                          "⚠️ 警告: 暗号化を無効にすると、API キーが平文で保存されます。\n\n" +
-                          "セキュリティリスクが高まりますが、本当に無効化しますか？"
-                        );
-                        if (!confirmed) {
-                          return; // キャンセルされた場合は変更しない
-                        }
-                        setPassphrase("");
-                        setPassphraseError(null);
-                      }
-
-                      setEncryptionEnabled(enabled);
-                    }}
-                    type="checkbox"
-                  />
-                  <span>API キーを AES-GCM で暗号化して保存する（推奨）</span>
-                </label>
-                <p className="field-hint">
-                  暗号化を有効にするとパスフレーズが必須になります。忘れると復号できません。
-                </p>
-              </div>
-
-              {encryptionEnabled && (
-                <div className="field-group">
-                  <label className="field-label" htmlFor="passphrase">
-                    暗号化パスフレーズ <span className="field-required">*</span>
-                  </label>
-                  <input
-                    autoComplete="off"
-                    className="field-input"
-                    id="passphrase"
-                    placeholder="8文字以上を推奨"
-                    type="password"
-                    value={passphrase}
-                    onChange={(event) => {
-                      setPassphrase(event.target.value);
-                      if (passphraseError) {
-                        setPassphraseError(null);
-                      }
-                    }}
-                  />
-                  {passphraseError ? (
-                    <p className="field-error">{passphraseError}</p>
-                  ) : (
-                    <p className="field-hint">
-                      設定画面などで復号する際に必要です。忘れると API キーを復元できません。
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="form-actions">
-            <button
-              className="primary-button"
-              disabled={result.state === "loading" || isLocked}
-              type="submit"
-            >
-              {result.state === "loading" ? "テスト中…" : isLocked ? "認証済み（ロック中）" : "/v1/models に接続"}
-            </button>
-          </div>
-        </form>
-
-        <div className={`status-banner status-${result.state}`} role="status">
-          <div className="status-title">
-            接続ステータス
-            {result.statusCode ? ` (HTTP ${result.statusCode})` : ""}
-          </div>
-          <p className="status-message">{result.message}</p>
-          {result.state === "error" && (
-            <ul className="status-guidance">
-              <li>401/403: API キーまたは権限を再確認してください。</li>
-              <li>429: 利用制限に達しています。待機または制限緩和をご検討ください。</li>
-              <li>
-                ネットワーク/CORS: プロキシや追加ヘッダが必要な場合は詳細設定欄で再入力してください。
-              </li>
-              <li>
-                既存設定を編集したい場合は <Link href="/settings">設定</Link> を開いてください。
-              </li>
-            </ul>
-          )}
-        </div>
-
-        <div className="form-navigation">
           <button className="outline-button" onClick={handleClear} type="button">
-            保存済み接続を削除
+            保存済み設定を削除
           </button>
         </div>
       </section>
+
+      {secureConfigBanner ? (
+        <section className="section-card onboarding-alert-card">{secureConfigBanner}</section>
+      ) : null}
+
+      <section className="section-card onboarding-step-card">
+        <ol className="onboarding-stepper">
+          {ONBOARDING_STEPS.map((step, index) => {
+            const state =
+              index < currentStepIndex ? "done" : index === currentStepIndex ? "active" : "pending";
+            return (
+              <li key={step.id} className={clsx("onboarding-step", `onboarding-step-${state}`)}>
+                <span className="onboarding-step-index">{index + 1}</span>
+                <div className="onboarding-step-copy">
+                  <span className="onboarding-step-title">{step.title}</span>
+                  <span className="onboarding-step-description">{step.description}</span>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+
+        {wizardError ? (
+          <div className="status-banner status-error onboarding-inline-error">
+            <div className="status-title">確認してください</div>
+            <p className="status-message">{wizardError}</p>
+          </div>
+        ) : null}
+
+        {currentStep === "credentials" && (
+          <form
+            className="form-grid onboarding-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleNextStep();
+            }}
+          >
+            <div className="field-group">
+              <div className="field-label-row">
+                <label className="field-label" htmlFor="api-key">
+                  API キー <span className="field-required">*</span>
+                </label>
+                {isLocked && <span className="field-hint accent">🔒 認証済み</span>}
+              </div>
+              <input
+                autoComplete="off"
+                className="field-input"
+                id="api-key"
+                placeholder="例: sk-..."
+                type="password"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+                disabled={isLocked}
+                style={isLocked ? { backgroundColor: "var(--surface-disabled)", cursor: "not-allowed" } : undefined}
+              />
+              {isLocked ? (
+                <div className="onboarding-inline-actions">
+                  <button type="button" className="outline-button" onClick={handleUnlock}>
+                    🔓 ロック解除
+                  </button>
+                  <p className="field-hint">ロック解除すると組織ID検証キャッシュが削除されます。</p>
+                </div>
+              ) : (
+                <p className="field-hint">OpenAI の管理画面から発行した API キーを入力してください。</p>
+              )}
+            </div>
+
+            <div className="field-group">
+              <label className="field-label" htmlFor="base-url">
+                Base URL
+              </label>
+              <input
+                autoComplete="off"
+                className="field-input"
+                id="base-url"
+                placeholder={DEFAULT_BASE_URL}
+                type="url"
+                value={baseUrl}
+                onChange={(event) => {
+                  setBaseUrl(event.target.value);
+                  resetResult();
+                }}
+              />
+              <p className="field-hint">プロキシやゲートウェイを利用する場合はこちらを変更します。</p>
+            </div>
+
+            <div className="onboarding-advanced-toggle">
+              <button
+                type="button"
+                className="outline-button"
+                onClick={() => setShowAdvancedOptions((prev) => !prev)}
+                aria-expanded={showAdvancedOptions}
+              >
+                {showAdvancedOptions ? "詳細設定を閉じる" : "詳細設定を開く"}
+              </button>
+            </div>
+
+            {showAdvancedOptions && (
+              <div className="advanced-panel">
+                <div className="advanced-panel-title">ネットワークと追加ヘッダ</div>
+                <div className="advanced-content">
+                  <div className="field-group">
+                    <label className="field-label" htmlFor="http-proxy">
+                      HTTP プロキシ
+                    </label>
+                    <input
+                      autoComplete="off"
+                      className="field-input"
+                      id="http-proxy"
+                      placeholder="例: http://proxy.example.com:8080"
+                      value={httpProxy}
+                      onChange={(event) => setHttpProxy(event.target.value)}
+                    />
+                    <p className="field-hint">HTTP 通信時に経由させたいゲートウェイ URL。</p>
+                  </div>
+
+                  <div className="field-group">
+                    <label className="field-label" htmlFor="https-proxy">
+                      HTTPS プロキシ
+                    </label>
+                    <input
+                      autoComplete="off"
+                      className="field-input"
+                      id="https-proxy"
+                      placeholder="例: https://secure-proxy.example.com:8443"
+                      value={httpsProxy}
+                      onChange={(event) => setHttpsProxy(event.target.value)}
+                    />
+                    <p className="field-hint">HTTPS 通信に利用するゲートウェイ URL。</p>
+                  </div>
+
+                  <div className="field-group">
+                    <label className="field-label" htmlFor="additional-headers">
+                      追加ヘッダ（1 行 = Header: value）
+                    </label>
+                    <textarea
+                      className="field-textarea"
+                      id="additional-headers"
+                      placeholder="例: X-Proxy-Token: example-token"
+                      rows={3}
+                      value={additionalHeaders}
+                      onChange={(event) => {
+                        setAdditionalHeaders(event.target.value);
+                        if (headersError) {
+                          setHeadersError(null);
+                        }
+                      }}
+                    />
+                    {headersError ? (
+                      <p className="field-error">{headersError}</p>
+                    ) : (
+                      <p className="field-hint">認証ゲートウェイや社内プロキシのヘッダをまとめて設定できます。</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="onboarding-actions">
+              <button className="primary-button" type="submit">
+                保存方法へ進む
+              </button>
+            </div>
+          </form>
+        )}
+
+        {currentStep === "storage" && (
+          <form
+            className="form-grid onboarding-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleNextStep();
+            }}
+          >
+            <fieldset className="field-group">
+              <legend className="field-label">保存ポリシー</legend>
+              <div className="radio-card-group">
+                {STORAGE_POLICIES.map((policy) => {
+                  const checked = storagePolicy === policy.value;
+                  return (
+                    <label
+                      key={policy.value}
+                      className={clsx("radio-card", checked && "radio-card-active")}
+                    >
+                      <input
+                        checked={checked}
+                        className="radio-card-input"
+                        name="storage-policy"
+                        onChange={() => setStoragePolicy(policy.value)}
+                        type="radio"
+                        value={policy.value}
+                      />
+                      <div className="radio-card-body">
+                        <span className="radio-card-title">{policy.title}</span>
+                        <span className="radio-card-description">{policy.description}</span>
+                        {policy.note ? <span className="radio-card-note">{policy.note}</span> : null}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <div className="field-group">
+              <label className="toggle-row">
+                <input
+                  checked={encryptionEnabled}
+                  onChange={(event) => {
+                    const enabled = event.target.checked;
+                    if (!enabled) {
+                      const confirmed = window.confirm(
+                        "⚠️ 警告: 暗号化を無効にすると、API キーが平文で保存されます。\n\n本当に無効化しますか？",
+                      );
+                      if (!confirmed) {
+                        return;
+                      }
+                      setPassphrase("");
+                      setPassphraseError(null);
+                    }
+                    setEncryptionEnabled(enabled);
+                  }}
+                  type="checkbox"
+                />
+                <span>API キーを AES-GCM で暗号化して保存する（推奨）</span>
+              </label>
+              <p className="field-hint">暗号化を有効にするとパスフレーズが必須です。忘れると復号できません。</p>
+            </div>
+
+            {encryptionEnabled && (
+              <div className="field-group">
+                <label className="field-label" htmlFor="passphrase">
+                  暗号化パスフレーズ <span className="field-required">*</span>
+                </label>
+                <input
+                  autoComplete="off"
+                  className="field-input"
+                  id="passphrase"
+                  placeholder="8文字以上を推奨"
+                  type="password"
+                  value={passphrase}
+                  onChange={(event) => {
+                    setPassphrase(event.target.value);
+                    if (passphraseError) {
+                      setPassphraseError(null);
+                    }
+                  }}
+                />
+                {passphraseError ? (
+                  <p className="field-error">{passphraseError}</p>
+                ) : (
+                  <p className="field-hint">設定画面で復号する際にも同じパスフレーズが必要です。</p>
+                )}
+              </div>
+            )}
+
+            <div className="onboarding-actions">
+              {canGoBack && (
+                <button className="outline-button" onClick={handlePreviousStep} type="button">
+                  戻る
+                </button>
+              )}
+              <button className="primary-button" type="submit">
+                接続テストへ
+              </button>
+            </div>
+          </form>
+        )}
+
+        {currentStep === "test" && (
+          <div className="onboarding-form">
+            <div className="onboarding-summary-grid">
+              <div className="summary-card">
+                <span className="summary-label">接続先</span>
+                <code className="inline-code">{requestTarget}</code>
+              </div>
+              <div className="summary-card">
+                <span className="summary-label">保存ポリシー</span>
+                <span className="summary-value">
+                  {STORAGE_POLICIES.find((policy) => policy.value === storagePolicy)?.title ?? "未選択"}
+                </span>
+              </div>
+              <div className="summary-card">
+                <span className="summary-label">暗号化</span>
+                <span className="summary-value">{encryptionEnabled ? "有効" : "無効"}</span>
+              </div>
+            </div>
+
+            <div className="onboarding-actions">
+              {canGoBack && (
+                <button className="outline-button" onClick={handlePreviousStep} type="button">
+                  戻る
+                </button>
+              )}
+              <button
+                className="primary-button"
+                disabled={result.state === "loading" || isLocked}
+                onClick={handleConnectionTest}
+                type="button"
+              >
+                {result.state === "loading"
+                  ? "テスト中…"
+                  : isLocked
+                  ? "認証済み（ロック中）"
+                  : "/v1/models に接続"}
+              </button>
+            </div>
+
+            <div className={`status-banner status-${result.state}`} role="status">
+              <div className="status-title">
+                接続ステータス
+                {result.statusCode ? ` (HTTP ${result.statusCode})` : ""}
+              </div>
+              <p className="status-message">{result.message}</p>
+              {result.state === "error" && (
+                <ul className="status-guidance">
+                  <li>401/403: API キーまたは権限を再確認してください。</li>
+                  <li>429: 利用制限に達しています。待機または制限緩和をご検討ください。</li>
+                  <li>ネットワーク/CORS: プロキシや追加ヘッダを確認してください。</li>
+                  <li>
+                    既存設定を編集する場合は <Link href="/settings">設定</Link> を開いてください。
+                  </li>
+                </ul>
+              )}
+            </div>
+
+            {testCompleted && (
+              <div className="onboarding-next-links">
+                <Link className="primary-button" href="/chat">
+                  チャットを開く
+                </Link>
+                <Link className="outline-button" href="/dashboard">
+                  ダッシュボードを見る
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
     </main>
   );
+
 }
