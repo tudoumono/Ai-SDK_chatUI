@@ -163,6 +163,9 @@ export default function ChatPage() {
   const canUseVectorStore = featureRestrictions.allowVectorStore;
   const canAttachFiles = featureRestrictions.allowFileUpload && featureRestrictions.allowChatFileAttachment;
 
+  // ドキュメントファイル（file_search対象）が添付されているかチェック
+  const hasDocumentAttachment = attachedFiles.some(item => item.purpose === 'assistants');
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -595,6 +598,16 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
         tools: info.purpose === 'vision' ? [] : [{ type: 'file_search' as const }],
       }));
 
+      // ファイル添付時のWeb検索制限チェック
+      // file_searchツールを使用するファイル（ドキュメント）が添付されている場合、
+      // OpenAI Responses APIの制限によりWeb検索を無効化する必要がある
+      const hasDocumentAttachments = attachments.some(att => att.tools.length > 0);
+      const effectiveWebSearchEnabled = hasDocumentAttachments ? false : webSearchEnabled;
+
+      if (hasDocumentAttachments && webSearchEnabled) {
+        setStatusMessage("⚠️ ドキュメント添付時はWeb検索を一時的に無効化します");
+      }
+
       // メモリ最適化：直接参照を使用（コピー不要）
       const baseHistory = messagesRef.current;
       const result = await streamAssistantResponse(
@@ -603,7 +616,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
           model: (selectedModel || DEFAULT_MODEL).trim() || DEFAULT_MODEL,
           messages: baseHistory,
           vectorStoreIds: vectorSearchEnabled ? selectedVectorStoreIds : undefined,
-          webSearchEnabled,
+          webSearchEnabled: effectiveWebSearchEnabled,
           abortSignal: controller.signal,
           attachments: attachments.length > 0 ? attachments : undefined,
           systemRole: systemRoleEnabled ? systemRole : undefined,
@@ -902,15 +915,31 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
 
     setAttachedFiles((prev) => [...prev, ...validatedFiles]);
 
+    // ドキュメントファイルが追加された場合、Web検索を自動的に無効化
+    const hasNewDocuments = validatedFiles.some(f => f.purpose === 'assistants');
+    if (hasNewDocuments && webSearchEnabled) {
+      setWebSearchEnabled(false);
+      setStatusMessage("ℹ️ ドキュメントファイル添付のため、Web検索を自動的に無効化しました");
+    }
+
     // inputをリセット
     if (event.target) {
       event.target.value = '';
     }
-  }, [canAttachFiles]);
+  }, [canAttachFiles, webSearchEnabled]);
 
   const handleRemoveFile = useCallback((index: number) => {
+    const removedFile = attachedFiles[index];
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
-  }, []);
+
+    // ドキュメントファイルを削除した場合の通知
+    if (removedFile?.purpose === 'assistants') {
+      const remainingDocuments = attachedFiles.filter((f, i) => i !== index && f.purpose === 'assistants');
+      if (remainingDocuments.length === 0) {
+        setStatusMessage("ℹ️ ドキュメントファイルを削除しました。Web検索を再び有効化できます。");
+      }
+    }
+  }, [attachedFiles]);
 
   const handleAttachClick = useCallback(() => {
     if (!canAttachFiles) {
@@ -1586,15 +1615,28 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
 
               {canUseWebSearch && (
                 <div className="settings-toggle">
-                  <label className="settings-toggle-label">Web Search</label>
+                  <label className="settings-toggle-label">
+                    Web Search
+                    {hasDocumentAttachment && (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>
+                        (ドキュメント添付時は無効)
+                      </span>
+                    )}
+                  </label>
                   <button
-                    className={`toggle-switch ${webSearchEnabled ? "active" : ""}`}
+                    className={`toggle-switch ${webSearchEnabled && !hasDocumentAttachment ? "active" : ""}`}
                     onClick={() => {
+                      if (hasDocumentAttachment) {
+                        setSendError("ドキュメントファイル添付時はWeb検索を使用できません。ファイルを削除するか、画像のみを添付してください。");
+                        return;
+                      }
                       const event = {
                         target: { checked: !webSearchEnabled },
                       } as React.ChangeEvent<HTMLInputElement>;
                       handleWebSearchToggle(event);
                     }}
+                    disabled={hasDocumentAttachment}
+                    style={hasDocumentAttachment ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                   >
                     <span className="toggle-switch-slider"></span>
                   </button>
