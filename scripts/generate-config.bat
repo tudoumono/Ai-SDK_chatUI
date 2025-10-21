@@ -145,14 +145,13 @@ if not "%INPUT_BASE_URL%"=="" set PS_BASE_URL=%INPUT_BASE_URL%
 set "PS_API_KEY_ENV=%PS_API_KEY%"
 set "PS_BASE_URL_ENV=%PS_BASE_URL%"
 set FETCH_FILE=%TEMP_FILE%.fetch
-powershell -NoProfile -Command ^
-  "$ErrorActionPreference='Stop';" ^
-  "$headers=@{Authorization='Bearer ' + $env:PS_API_KEY_ENV};" ^
-  "$uri=$env:PS_BASE_URL_ENV.TrimEnd('/') + '/me';" ^
-  "$response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers;" ^
-  "if(-not $response.orgs -or -not $response.orgs.data){ throw 'No organizations found.' }" ^
-  "$response.orgs.data | ForEach-Object { ($_.id ?? '') + '|' + ($_.name ?? '') }" ^
-  > "%FETCH_FILE%" 2> "%FETCH_FILE%.err"
+set "PS_COMMAND=$ErrorActionPreference='Stop';"
+set "PS_COMMAND=!PS_COMMAND! $headers=@{Authorization='Bearer ' + $Env:PS_API_KEY_ENV};"
+set "PS_COMMAND=!PS_COMMAND! $uri=$Env:PS_BASE_URL_ENV.TrimEnd('/') + '/me';"
+set "PS_COMMAND=!PS_COMMAND! $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers;"
+set "PS_COMMAND=!PS_COMMAND! if(-not $response.orgs -or -not $response.orgs.data){ throw 'No organizations found.' }"
+set "PS_COMMAND=!PS_COMMAND! $response.orgs.data | ForEach-Object { ($_.id ?? '') + '|' + ($_.name ?? '') }"
+powershell -NoProfile -Command "!PS_COMMAND!" > "%FETCH_FILE%" 2> "%FETCH_FILE%.err"
 
 if errorlevel 1 (
   echo 組織情報の取得に失敗しました。詳細:
@@ -166,6 +165,10 @@ del "%FETCH_FILE%.err" >nul 2>&1
 for /f "usebackq tokens=1,2 delims=|" %%A in ("%FETCH_FILE%") do (
   set "FETCHED_ID=%%~A"
   set "FETCHED_NAME=%%~B"
+  if "!FETCHED_ID!"=="" (
+    echo 空の行をスキップします。
+    goto SkipFetchedEntry
+  )
   if not "!FETCHED_ID!"=="" (
     echo 取得: !FETCHED_ID! (!FETCHED_NAME!)
     set ADD_ID_CHOICE=
@@ -178,6 +181,8 @@ for /f "usebackq tokens=1,2 delims=|" %%A in ("%FETCH_FILE%") do (
       call :AddOrgEntry
     )
   )
+  :SkipFetchedEntry
+  rem continue loop
 )
 del "%FETCH_FILE%" >nul 2>&1
 set PS_API_KEY=
