@@ -68,13 +68,13 @@ if %ORG_COUNT% gtr 0 (
     )
     set /a entryIndex+=1
     >> "%TEMP_FILE%" echo     {
-    >> "%TEMP_FILE%" echo       "id": "org-entry-!entryIndex!",
-    >> "%TEMP_FILE%" echo       "orgId": "!ENTRY_ID!",
-    >> "%TEMP_FILE%" echo       "orgName": "!ENTRY_NAME!",
+  >> "%TEMP_FILE%" echo       "id": "org-entry-!entryIndex!",
+  >> "%TEMP_FILE%" echo       "orgId": "!ENTRY_ID!",
+  >> "%TEMP_FILE%" echo       "orgName": "!ENTRY_NAME!",
     if not "!ENTRY_NOTES!"=="" (
       >> "%TEMP_FILE%" echo       "notes": "!ENTRY_NOTES!",
     )
-    >> "%TEMP_FILE%" echo       "addedAt": "!ENTRY_ADDED_AT!"
+  >> "%TEMP_FILE%" echo       "addedAt": "!ENTRY_ADDED_AT!"
     >> "%TEMP_FILE%" echo     }
     if !entryIndex! lss %ORG_COUNT% (
       >> "%TEMP_FILE%" echo     ,
@@ -207,7 +207,7 @@ set "ENTRY_ID=%ENTRY_ID:"='%"
 set "ENTRY_NAME=%ENTRY_NAME:"='%"
 set "ENTRY_NOTES=%ENTRY_NOTES:"='%"
 if "%ENTRY_NOTES%"=="" (
-  >> "%ORG_ENTRIES_FILE%" echo !ENTRY_ID!|!ENTRY_NAME!||!ENTRY_ADDED_AT!
+  >> "%ORG_ENTRIES_FILE%" echo !ENTRY_ID!|!ENTRY_NAME!| |!ENTRY_ADDED_AT!
 ) else (
   >> "%ORG_ENTRIES_FILE%" echo !ENTRY_ID!|!ENTRY_NAME!|!ENTRY_NOTES!|!ENTRY_ADDED_AT!
 )
