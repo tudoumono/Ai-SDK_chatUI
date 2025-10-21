@@ -4,6 +4,7 @@ import {
   type ConnectionSettings,
 } from "@/lib/settings/connection-storage";
 import { buildRequestHeaders } from "@/lib/settings/header-utils";
+import { saveLog } from "@/lib/logging/error-logger";
 
 function ensureConnection(connection?: ConnectionSettings | null) {
   if (!connection) {
@@ -411,31 +412,59 @@ export async function uploadFileToOpenAI(
     const baseUrl = buildBaseUrl(connection);
 
     // Tauri経由でファイルをアップロード
-    const response = await invoke('proxy_file_upload', {
-      request: {
-        base_url: baseUrl,
-        api_key: connection.apiKey,
-        file_data: base64,
-        file_name: file.name,
-        purpose: "assistants",
-        additional_headers: connection.additionalHeaders,
-        proxy_config: {
-          http_proxy: connection.httpProxy,
-          https_proxy: connection.httpsProxy,
+    try {
+      const response = await invoke('proxy_file_upload', {
+        request: {
+          base_url: baseUrl,
+          api_key: connection.apiKey,
+          file_data: base64,
+          file_name: file.name,
+          purpose: "assistants",
+          additional_headers: connection.additionalHeaders,
+          proxy_config: {
+            http_proxy: connection.httpProxy,
+            https_proxy: connection.httpsProxy,
+          },
         },
-      },
-    });
+      });
 
-    if (onProgress) {
-      onProgress(100);
+      if (onProgress) {
+        onProgress(100);
+      }
+
+      const result = JSON.parse((response as any).body);
+      if ((response as any).status >= 400) {
+        const errorMsg = result.error?.message || "File upload failed";
+        console.error('[Tauri] File upload failed:', errorMsg, result);
+        await saveLog('error', 'api', `Tauri file upload failed: ${errorMsg}`, undefined, {
+          status: (response as any).status,
+          fileName: file.name,
+          result,
+        });
+        throw new Error(errorMsg);
+      }
+
+      if (!result.id) {
+        console.error('[Tauri] File upload response missing id:', result);
+        await saveLog('error', 'api', 'Tauri file upload response missing id', undefined, {
+          fileName: file.name,
+          result,
+        });
+        throw new Error("ファイルアップロードのレスポンスにIDがありません");
+      }
+
+      return result.id;
+    } catch (error) {
+      console.error('[Tauri] File upload error:', error);
+      await saveLog('error', 'api', 'Tauri file upload error', error instanceof Error ? error : undefined, {
+        fileName: file.name,
+        errorType: typeof error,
+      });
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(`ファイルアップロードに失敗しました: ${String(error)}`);
     }
-
-    const result = JSON.parse((response as any).body);
-    if ((response as any).status >= 400) {
-      throw new Error(result.error?.message || "File upload failed");
-    }
-
-    return result.id;
   } else {
     // ブラウザ環境: XMLHttpRequestを使用
     const baseUrl = buildBaseUrl(connection);
