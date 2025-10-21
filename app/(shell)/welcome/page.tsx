@@ -129,6 +129,10 @@ export default function WelcomePage() {
     () => ONBOARDING_STEPS.findIndex((step) => step.id === currentStep),
     [currentStep],
   );
+  const totalSteps = ONBOARDING_STEPS.length;
+  const currentStepMeta = ONBOARDING_STEPS[currentStepIndex] ?? ONBOARDING_STEPS[0];
+  const canGoBack = currentStepIndex > 0;
+  const testCompleted = result.state === "success";
   const isLastStep = currentStepIndex >= ONBOARDING_STEPS.length - 1;
 
   const secureConfigBanner = useMemo(() => {
