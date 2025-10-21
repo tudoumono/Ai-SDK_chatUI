@@ -13,6 +13,9 @@ import {
 import { changePassword, getDefaultPassword } from "@/lib/settings/admin-password";
 import { fetchOrgInfo } from "@/lib/openai/org-validation";
 import {
+  FEATURE_RESTRICTIONS_EVENT,
+  FEATURE_RESTRICTIONS_STORAGE_KEY,
+  isFeatureRestrictionsManaged,
   loadFeatureRestrictions,
   saveFeatureRestrictions,
   type FeatureRestrictions,
@@ -52,8 +55,11 @@ export default function AdminPage() {
   const [featureRestrictions, setFeatureRestrictions] = useState<FeatureRestrictions>({
     allowWebSearch: true,
     allowVectorStore: true,
+    allowFileUpload: true,
+    allowChatFileAttachment: true,
     updatedAt: new Date().toISOString(),
   });
+  const [featureRestrictionsManaged, setFeatureRestrictionsManagedState] = useState(false);
   const [restrictionsSuccess, setRestrictionsSuccess] = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,6 +79,7 @@ export default function AdminPage() {
             setPasswordManagedExternally(
               window.localStorage.getItem("admin-password:managed-by-secure-config") === "true",
             );
+            setFeatureRestrictionsManagedState(isFeatureRestrictionsManaged());
           }
         }
       } catch (error) {
@@ -90,6 +97,31 @@ export default function AdminPage() {
 
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleUpdate = () => {
+      setFeatureRestrictions(loadFeatureRestrictions());
+      setFeatureRestrictionsManagedState(isFeatureRestrictionsManaged());
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === FEATURE_RESTRICTIONS_STORAGE_KEY || event.key === `${FEATURE_RESTRICTIONS_STORAGE_KEY}:managed-by-secure-config`) {
+        handleUpdate();
+      }
+    };
+
+    window.addEventListener(FEATURE_RESTRICTIONS_EVENT, handleUpdate);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener(FEATURE_RESTRICTIONS_EVENT, handleUpdate);
+      window.removeEventListener("storage", handleStorage);
     };
   }, []);
 
@@ -248,22 +280,42 @@ export default function AdminPage() {
     setLookupResult(result);
   }, [lookupApiKey, lookupBaseUrl]);
 
-  const handleFeatureRestrictionChange = useCallback((field: keyof FeatureRestrictions, value: boolean) => {
+  type FeatureToggleField = Exclude<keyof FeatureRestrictions, "updatedAt">;
+
+  const handleFeatureRestrictionChange = useCallback((field: FeatureToggleField, value: boolean) => {
+    if (featureRestrictionsManaged) {
+      setRestrictionsSuccess("config.pkg で機能制限が固定されています。");
+      return;
+    }
+
+    setRestrictionsSuccess(null);
     setFeatureRestrictions((prev) => ({
       ...prev,
       [field]: value,
+      ...(field === "allowFileUpload" && !value ? { allowChatFileAttachment: false } : {}),
     }));
-  }, []);
+  }, [featureRestrictionsManaged]);
 
   const handleSaveFeatureRestrictions = useCallback(() => {
+    if (featureRestrictionsManaged) {
+      setRestrictionsSuccess("config.pkg で機能制限が管理されています。設定変更は配布担当者へお問い合わせください。");
+      return;
+    }
+
     try {
-      saveFeatureRestrictions(featureRestrictions);
-      setRestrictionsSuccess("機能制限設定を保存しました");
+      const updated = saveFeatureRestrictions({
+        allowWebSearch: featureRestrictions.allowWebSearch,
+        allowVectorStore: featureRestrictions.allowVectorStore,
+        allowFileUpload: featureRestrictions.allowFileUpload,
+        allowChatFileAttachment: featureRestrictions.allowChatFileAttachment,
+      });
+      setFeatureRestrictions(updated);
+      setRestrictionsSuccess("機能制限の設定を保存しました");
       setTimeout(() => setRestrictionsSuccess(null), 3000);
     } catch (error) {
       setError("機能制限設定の保存に失敗しました");
     }
-  }, [featureRestrictions]);
+  }, [featureRestrictions, featureRestrictionsManaged]);
 
   if (loading) {
     return <PageLoading message="Loading admin panel..." />;
@@ -729,6 +781,13 @@ export default function AdminPage() {
             </div>
           )}
 
+          {featureRestrictionsManaged && (
+            <div className="admin-alert admin-alert-info" style={{ alignItems: "center", gap: "8px" }}>
+              <AlertCircle size={18} />
+              <span>config.pkg で設定された機能ポリシーを適用中です。変更する場合は配布担当者にご相談ください。</span>
+            </div>
+          )}
+
           <div className="admin-form">
             <div className="admin-form-group">
               <label className="admin-checkbox-label">
@@ -736,6 +795,7 @@ export default function AdminPage() {
                   type="checkbox"
                   checked={featureRestrictions.allowWebSearch}
                   onChange={(e) => handleFeatureRestrictionChange("allowWebSearch", e.target.checked)}
+                  disabled={featureRestrictionsManaged}
                   style={{ marginRight: "8px" }}
                 />
                 <strong>Web検索機能を許可</strong>
@@ -752,6 +812,7 @@ export default function AdminPage() {
                   type="checkbox"
                   checked={featureRestrictions.allowVectorStore}
                   onChange={(e) => handleFeatureRestrictionChange("allowVectorStore", e.target.checked)}
+                  disabled={featureRestrictionsManaged}
                   style={{ marginRight: "8px" }}
                 />
                 <strong>Vector Store機能を許可</strong>
@@ -762,10 +823,43 @@ export default function AdminPage() {
               </p>
             </div>
 
+            <div className="admin-form-group" style={{ marginTop: "var(--spacing-lg)" }}>
+              <label className="admin-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={featureRestrictions.allowFileUpload}
+                  onChange={(e) => handleFeatureRestrictionChange("allowFileUpload", e.target.checked)}
+                  disabled={featureRestrictionsManaged}
+                  style={{ marginRight: "8px" }}
+                />
+                <strong>ファイルアップロード機能を許可</strong>
+              </label>
+              <p className="admin-hint" style={{ marginTop: "4px", marginLeft: "24px" }}>
+                Vector Store 取り込みやチャット添付で OpenAI にファイルを送信できるかを制御します。無効化すると関連 UI が非表示になり、アップロード API もブロックされます。
+              </p>
+            </div>
+
+            <div className="admin-form-group" style={{ marginTop: "var(--spacing-lg)" }}>
+              <label className="admin-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={featureRestrictions.allowChatFileAttachment}
+                  onChange={(e) => handleFeatureRestrictionChange("allowChatFileAttachment", e.target.checked)}
+                  disabled={featureRestrictionsManaged || !featureRestrictions.allowFileUpload}
+                  style={{ marginRight: "8px" }}
+                />
+                <strong>チャットでのファイル添付を許可</strong>
+              </label>
+              <p className="admin-hint" style={{ marginTop: "4px", marginLeft: "24px" }}>
+                ファイルアップロードを許可している場合のみ有効です。無効化するとチャット入力欄のクリップボタンが使えなくなります。
+              </p>
+            </div>
+
             <button
               type="button"
               className="admin-button admin-button-primary"
               onClick={handleSaveFeatureRestrictions}
+              disabled={featureRestrictionsManaged}
               style={{ marginTop: "var(--spacing-lg)" }}
             >
               <Save size={20} />

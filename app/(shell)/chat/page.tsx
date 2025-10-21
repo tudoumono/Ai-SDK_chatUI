@@ -18,7 +18,12 @@ import { loadConnection } from "@/lib/settings/connection-storage";
 import { checkApiKeyAccess } from "@/lib/settings/org-validation-guard";
 import { getAllVectorStores } from "@/lib/storage/indexed-db";
 import { fetchModelsFromApi, getDefaultModels, type ModelInfo } from "@/lib/openai/models";
-import { isWebSearchAllowed, isVectorStoreAllowed } from "@/lib/settings/feature-restrictions";
+import {
+  FEATURE_RESTRICTIONS_EVENT,
+  FEATURE_RESTRICTIONS_STORAGE_KEY,
+  loadFeatureRestrictions,
+  type FeatureRestrictions,
+} from "@/lib/settings/feature-restrictions";
 import { PageLoading } from "@/components/ui/page-loading";
 import type {
   ConversationRecord,
@@ -130,6 +135,7 @@ export default function ChatPage() {
     tags: ConversationRecord[];
     messages: ConversationRecord[];
   } | null>(null);
+  const [featureRestrictions, setFeatureRestrictionsState] = useState<FeatureRestrictions>(() => loadFeatureRestrictions());
   const [attachedFiles, setAttachedFiles] = useState<Array<{ file: File; purpose: 'vision' | 'assistants'; isImage: boolean }>>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -153,6 +159,56 @@ export default function ChatPage() {
   const totalMatches = searchResults
     ? searchResults.title.length + searchResults.tags.length + searchResults.messages.length
     : 0;
+  const canUseWebSearch = featureRestrictions.allowWebSearch;
+  const canUseVectorStore = featureRestrictions.allowVectorStore;
+  const canAttachFiles = featureRestrictions.allowFileUpload && featureRestrictions.allowChatFileAttachment;
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleUpdate = () => {
+      setFeatureRestrictionsState(loadFeatureRestrictions());
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === FEATURE_RESTRICTIONS_STORAGE_KEY || event.key === `${FEATURE_RESTRICTIONS_STORAGE_KEY}:managed-by-secure-config`) {
+        handleUpdate();
+      }
+    };
+
+    window.addEventListener(FEATURE_RESTRICTIONS_EVENT, handleUpdate);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener(FEATURE_RESTRICTIONS_EVENT, handleUpdate);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!canUseWebSearch && webSearchEnabled) {
+      setWebSearchEnabled(false);
+    }
+  }, [canUseWebSearch, webSearchEnabled]);
+
+  useEffect(() => {
+    if (!canUseVectorStore) {
+      if (vectorSearchEnabled) {
+        setVectorSearchEnabled(false);
+      }
+      if (selectedVectorStoreIds.length > 0) {
+        setSelectedVectorStoreIds([]);
+      }
+    }
+  }, [canUseVectorStore, vectorSearchEnabled, selectedVectorStoreIds.length]);
+
+  useEffect(() => {
+    if (!canAttachFiles && attachedFiles.length > 0) {
+      setAttachedFiles([]);
+    }
+  }, [canAttachFiles, attachedFiles.length]);
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeConversationId) ?? null,
@@ -817,6 +873,14 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
   );
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canAttachFiles) {
+      setSendError("管理者によりチャットでのファイル添付が無効化されています。");
+      if (event.target) {
+        event.target.value = "";
+      }
+      return;
+    }
+
     const files = Array.from(event.target.files || []);
     const validatedFiles: typeof attachedFiles = [];
     const errors: string[] = [];
@@ -842,15 +906,19 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     if (event.target) {
       event.target.value = '';
     }
-  }, []);
+  }, [canAttachFiles]);
 
   const handleRemoveFile = useCallback((index: number) => {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   const handleAttachClick = useCallback(() => {
+    if (!canAttachFiles) {
+      setSendError("管理者によりチャットでのファイル添付が無効化されています。");
+      return;
+    }
     fileInputRef.current?.click();
-  }, []);
+  }, [canAttachFiles]);
 
   const handleCopyMessage = useCallback(async (text: string, messageId: string) => {
     try {
@@ -1435,9 +1503,9 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                   <button
                     type="button"
                     className="chat-attach-button"
-                    title="ファイル添付"
+                    title={canAttachFiles ? "ファイル添付" : "管理者により無効化されています"}
                     onClick={handleAttachClick}
-                    disabled={!connectionReady || isStreaming}
+                    disabled={!connectionReady || isStreaming || !canAttachFiles}
                   >
                     📎
                   </button>
@@ -1516,7 +1584,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                 </select>
               </div>
 
-              {isWebSearchAllowed() && (
+              {canUseWebSearch && (
                 <div className="settings-toggle">
                   <label className="settings-toggle-label">Web Search</label>
                   <button
@@ -1533,7 +1601,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                 </div>
               )}
 
-              {isVectorStoreAllowed() && (
+              {canUseVectorStore && (
                 <div className="settings-toggle">
                   <label className="settings-toggle-label">Vector Store</label>
                   <button
@@ -1550,7 +1618,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                 </div>
               )}
 
-              {vectorSearchEnabled && isVectorStoreAllowed() && (
+              {vectorSearchEnabled && canUseVectorStore && (
                 <div className="field-group">
                   <label className="field-label">Vector Store IDs (最大3件)</label>
                   <div className="vector-store-ids-container">

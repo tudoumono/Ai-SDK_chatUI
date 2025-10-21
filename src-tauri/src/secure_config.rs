@@ -27,7 +27,22 @@ pub struct SecureConfig {
     #[serde(default)]
     pub admin_password_hash: Option<String>,
     #[serde(default)]
+    pub features: Option<SecureFeatureRestrictions>,
+    #[serde(default)]
     pub signature: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SecureFeatureRestrictions {
+    #[serde(default)]
+    pub allow_web_search: Option<bool>,
+    #[serde(default)]
+    pub allow_vector_store: Option<bool>,
+    #[serde(default)]
+    pub allow_file_upload: Option<bool>,
+    #[serde(default)]
+    pub allow_chat_file_attachment: Option<bool>,
 }
 
 fn config_file_path(app: &tauri::AppHandle) -> Option<PathBuf> {
