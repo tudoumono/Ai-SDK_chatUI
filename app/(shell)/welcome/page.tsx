@@ -26,7 +26,7 @@ import {
   isApiKeyLocked,
 } from "@/lib/settings/org-validation-guard";
 import { validateBaseUrl } from "@/lib/security/base-url";
-import { getSecureConfigStatus } from "@/lib/security/secure-config";
+import { getSecureConfigStatus, type SecureConfigSearchPath } from "@/lib/security/secure-config";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -89,7 +89,12 @@ export default function WelcomePage() {
   const [whitelistEnabled, setWhitelistEnabled] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [secureConfigInfo, setSecureConfigInfo] = useState<
-    { path: string | null; status: "applied" | "missing" | "error" | "unsupported" | "none" } | null
+    {
+      path: string | null;
+      status: "applied" | "missing" | "error" | "unsupported" | "none";
+      searchedPaths: SecureConfigSearchPath[];
+    }
+    | null
   >(null);
 
   const requestTarget = useMemo(() => {
@@ -102,20 +107,59 @@ export default function WelcomePage() {
     if (!secureConfigInfo || secureConfigInfo.status === "none") {
       return null;
     }
-    const pathLabel = secureConfigInfo.path ?? "不明";
+    const pathLabel = secureConfigInfo.path ?? null;
+    const searchedPaths = secureConfigInfo.searchedPaths ?? [];
+    const searchedList =
+      searchedPaths.length > 0 ? (
+        <ul style={{ margin: "8px 0 0", paddingLeft: "20px" }}>
+          {searchedPaths.map((item) => (
+            <li key={`${item.label}:${item.path}`} style={{ marginBottom: "6px" }}>
+              <span>{item.label}</span>
+              <div>
+                <code style={{ display: "inline-block", marginTop: "4px", fontSize: "12px" }}>{item.path}</code>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null;
+
     switch (secureConfigInfo.status) {
-      case "applied":
+      case "applied": {
+        const matched = pathLabel
+          ? searchedPaths.find((entry) => entry.path === pathLabel)
+          : undefined;
+        const description = matched
+          ? `${matched.label} にある config.pkg を読み込みました。`
+          : pathLabel
+          ? `パス: ${pathLabel} から設定を読み込みました。`
+          : "設定ファイルを読み込みました。";
+
         return (
           <div className="status-banner status-success">
             <div className="status-title">config.pkg を適用中</div>
-            <p className="status-message">パス: {pathLabel} から設定を読み込みました。</p>
+            <div className="status-message">
+              <p style={{ marginBottom: matched ? "8px" : 0 }}>{description}</p>
+              {matched && pathLabel && (
+                <code style={{ display: "inline-block", fontSize: "12px" }}>{pathLabel}</code>
+              )}
+            </div>
           </div>
         );
+      }
       case "missing":
         return (
           <div className="status-banner status-info">
             <div className="status-title">config.pkg は見つかりませんでした</div>
-            <p className="status-message">検索されたパス: {pathLabel} / ローカル設定を使用しています。</p>
+            <div className="status-message">
+              <p style={{ marginBottom: "8px" }}>
+                配布用の設定ファイル <code>config.pkg</code> が見つかりませんでした。次の場所を自動的に探しました:
+              </p>
+              {searchedList}
+              <p style={{ marginTop: "12px" }}>
+                ファイルが手元にある場合は、<strong>Ai-SDK ChatUI.exe と同じフォルダ</strong>に <code>config.pkg</code> を置いてからアプリを再起動してください。
+                アプリが設定フォルダへ反映します。ご不明な場合は配布担当者にお問い合わせください。
+              </p>
+            </div>
           </div>
         );
       case "unsupported":
@@ -129,7 +173,19 @@ export default function WelcomePage() {
         return (
           <div className="status-banner status-error">
             <div className="status-title">config.pkg の読み込みに失敗しました</div>
-            <p className="status-message">パス: {pathLabel} / 詳細はログを確認してください。</p>
+            <div className="status-message">
+              <p style={{ marginBottom: pathLabel ? "8px" : "0" }}>
+                設定ファイルの読み込み中にエラーが発生しました。詳細はログを確認してください。
+              </p>
+              {pathLabel && (
+                <p style={{ marginBottom: searchedList ? "8px" : 0 }}>
+                  対象のファイル:
+                  <br />
+                  <code style={{ display: "inline-block", marginTop: "4px", fontSize: "12px" }}>{pathLabel}</code>
+                </p>
+              )}
+              {searchedList}
+            </div>
           </div>
         );
       default:

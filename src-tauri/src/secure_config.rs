@@ -32,11 +32,20 @@ pub struct SecureConfig {
     pub signature: Option<String>,
 }
 
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SecureConfigSearchPath {
+    pub path: String,
+    pub label: String,
+}
+
 #[derive(Debug, Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecureConfigResult {
     pub config: Option<SecureConfig>,
     pub path: Option<String>,
+    #[serde(default)]
+    pub searched_paths: Vec<SecureConfigSearchPath>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -52,47 +61,87 @@ pub struct SecureFeatureRestrictions {
     pub allow_chat_file_attachment: Option<bool>,
 }
 
-fn config_file_path(app: &tauri::AppHandle) -> Option<PathBuf> {
+fn candidate_paths(app: &tauri::AppHandle) -> Vec<(PathBuf, String)> {
     let resolver = app.path();
-    let config_dir = resolver.app_config_dir().ok()?;
-    Some(config_dir.join("config.pkg"))
-}
+    let mut paths: Vec<(PathBuf, String)> = Vec::new();
 
-fn read_secure_config(app: &tauri::AppHandle) -> Result<Option<SecureConfig>, String> {
-    let path = match config_file_path(app) {
-        Some(path) => path,
-        None => return Err("アプリの設定ディレクトリを取得できませんでした".to_string()),
-    };
-
-    if !path.exists() {
-        return Ok(None);
+    if let Ok(config_dir) = resolver.app_config_dir() {
+        paths.push((
+            config_dir.join("config.pkg"),
+            "アプリの設定フォルダ（自動コピー先）".to_string(),
+        ));
     }
 
-    let data = fs::read(&path)
-        .map_err(|err| format!("config.pkg の読み込みに失敗しました: {}", err))?;
+    if let Ok(exe_dir) = resolver.executable_dir() {
+        let candidate = exe_dir.join("config.pkg");
+        if !paths.iter().any(|(existing, _)| existing == &candidate) {
+            paths.push((candidate, "アプリを起動したフォルダ".to_string()));
+        }
+    }
 
-    let config: SecureConfig = serde_json::from_slice(&data)
-        .map_err(|err| format!("config.pkg の解析に失敗しました: {}", err))?;
+    if let Ok(resource_dir) = resolver.resource_dir() {
+        let candidate = resource_dir.join("config.pkg");
+        if !paths.iter().any(|(existing, _)| existing == &candidate) {
+            paths.push((candidate, "アプリのリソースフォルダ".to_string()));
+        }
+    }
 
-    Ok(Some(config))
+    paths
 }
 
 #[tauri::command]
 pub fn load_secure_config(app: tauri::AppHandle) -> Result<SecureConfigResult, String> {
-    let maybe_path = config_file_path(&app);
-    if let Some(path) = &maybe_path {
+    let candidates = candidate_paths(&app);
+
+    for (path, _) in candidates.iter() {
+        if !path.exists() {
+            continue;
+        }
+
         log::info!("Loading secure config from {:?}", path);
+
+        let data = fs::read(path).map_err(|err| {
+            format!(
+                "config.pkg の読み込みに失敗しました ({}): {}",
+                path.display(),
+                err
+            )
+        })?;
+
+        let config: SecureConfig = serde_json::from_slice(&data).map_err(|err| {
+            format!(
+                "config.pkg の解析に失敗しました ({}): {}",
+                path.display(),
+                err
+            )
+        })?;
+
+        let searched_paths = candidates
+            .iter()
+            .map(|(candidate_path, label)| SecureConfigSearchPath {
+                path: candidate_path.display().to_string(),
+                label: label.clone(),
+            })
+            .collect();
+
+        return Ok(SecureConfigResult {
+            config: Some(config),
+            path: Some(path.display().to_string()),
+            searched_paths,
+        });
     }
 
-    let config = match read_secure_config(&app) {
-        Ok(value) => value,
-        Err(err) => return Err(err),
-    };
-
-    let path_string = maybe_path.map(|p| p.display().to_string());
+    let searched_paths = candidates
+        .iter()
+        .map(|(candidate_path, label)| SecureConfigSearchPath {
+            path: candidate_path.display().to_string(),
+            label: label.clone(),
+        })
+        .collect();
 
     Ok(SecureConfigResult {
-        config,
-        path: path_string,
+        config: None,
+        path: None,
+        searched_paths,
     })
 }
