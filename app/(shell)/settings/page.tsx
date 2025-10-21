@@ -29,10 +29,7 @@ import {
 } from "@/lib/logging/error-logger";
 import { clearAllValidationData } from "@/lib/settings/org-validation-guard";
 import { createLogExportBundle, downloadLogBundle } from "@/lib/logging/log-sanitizer";
-import type { LogEntry as ErrorLogEntry } from "@/lib/logging/error-logger";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { EmptyState } from "@/components/ui/empty-state";
-import { AlertCircle, Download, Trash2, Database, Info } from "lucide-react";
+import { Download, Trash2, Info } from "lucide-react";
 import { isTauriEnvironment, saveFile } from "@/lib/utils/tauri-helpers";
 
 const STORAGE_POLICIES: Array<{
@@ -106,23 +103,15 @@ export default function SettingsPage() {
   const { entries: logs, addLog, resetLogs } = useLogs();
   const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
 
-  // エラーログ管理用のState
-  const [errorLogs, setErrorLogs] = useState<ErrorLogEntry[]>([]);
-  const [logStats, setLogStats] = useState<{
-    total: number;
-    byLevel: Record<string, number>;
-    byCategory: Record<string, number>;
-  }>({ total: 0, byLevel: {}, byCategory: {} });
+  // エラーログ管理用のState（表示なし、エクスポート・削除のみ）
   const [errorLogStatus, setErrorLogStatus] = useState<Status>({
     state: "idle",
-    message: "エラーログを管理できます。",
+    message: "エラーログはエクスポートまたは削除のみ可能です。",
   });
   const [dbRecreateStatus, setDbRecreateStatus] = useState<Status>({
     state: "idle",
     message: "DBに問題がある場合のみ使用してください。",
   });
-  // エラーログを読み込んだかどうかのフラグ（メモリーリーク対策）
-  const [errorLogsLoaded, setErrorLogsLoaded] = useState(false);
 
   const handleCopyLog = useCallback(async (log: LogEntry) => {
     const text = JSON.stringify(log, null, 2);
@@ -139,41 +128,6 @@ export default function SettingsPage() {
     const trimmed = baseUrl.trim().replace(/\/$/, "");
     return `${trimmed}/models`;
   }, [baseUrl]);
-
-  // エラーログを読み込む（メモリーリーク対策：手動実行のみ、最新50件のみ取得）
-  const loadErrorLogs = useCallback(async () => {
-    // 重複実行を防ぐ
-    if (errorLogStatus.state === "loading") {
-      return;
-    }
-
-    setErrorLogStatus({ state: "loading", message: "エラーログを読み込み中..." });
-    try {
-      const [logsData, statsData] = await Promise.all([
-        getAllLogs(50), // メモリー対策：最新50件のみ取得
-        getLogStats(),
-      ]);
-      setErrorLogs(logsData);
-      setLogStats(statsData);
-      setErrorLogsLoaded(true);
-      setErrorLogStatus({
-        state: "success",
-        message: `エラーログを読み込みました（表示: ${logsData.length}件 / 全体: ${statsData.total}件）`
-      });
-    } catch (error) {
-      console.error("Failed to load error logs:", error);
-      setErrorLogStatus({
-        state: "error",
-        message: error instanceof Error ? `読み込み失敗: ${error.message}` : "読み込みに失敗しました",
-      });
-      await saveErrorLog(
-        "error",
-        "storage",
-        "エラーログの読み込みに失敗しました",
-        error instanceof Error ? error : undefined
-      );
-    }
-  }, [errorLogStatus.state]);
 
   // エラーログをエクスポート（メモリー対策：全ログを一度に取得）
   const handleExportErrorLogs = useCallback(async () => {
@@ -210,7 +164,7 @@ export default function SettingsPage() {
     }
   }, []);
 
-  // エラーログをクリア
+  // エラーログをクリア（表示なし版）
   const handleClearErrorLogs = useCallback(async () => {
     if (!confirm("すべてのエラーログを削除しますか？この操作は取り消せません。")) {
       return;
@@ -219,9 +173,6 @@ export default function SettingsPage() {
     setErrorLogStatus({ state: "loading", message: "エラーログを削除中..." });
     try {
       await clearAllLogs();
-      // stateをクリア（DBから再読み込みしない）
-      setErrorLogs([]);
-      setLogStats({ total: 0, byLevel: {}, byCategory: {} });
       setErrorLogStatus({ state: "success", message: "エラーログを削除しました。" });
     } catch (error) {
       console.error("Failed to clear error logs:", error);
@@ -1051,51 +1002,27 @@ export default function SettingsPage() {
         <div className="section-card-title">🚨 詳細エラーログ（開発者向け）</div>
         <p className="section-card-description">
           アプリケーション全体で発生したエラーの詳細情報を記録します。
-          予期せぬエラーやトラブルが発生した際は、このログをエクスポートして開発者に送信してください。
+          予期せぬエラーやトラブルが発生した際は、ログをエクスポートして開発者に送信してください。
         </p>
-
-        {/* 統計情報 */}
-        <div className="error-log-stats">
-          <div className="stat-card">
-            <Database size={20} color="var(--accent)" />
-            <div className="stat-content">
-              <div className="stat-value">{logStats.total}</div>
-              <div className="stat-label">総ログ数</div>
-            </div>
-          </div>
-          <div className="stat-card">
-            <AlertCircle size={20} color="var(--error)" />
-            <div className="stat-content">
-              <div className="stat-value">{logStats.byLevel.error || 0}</div>
-              <div className="stat-label">エラー</div>
-            </div>
-          </div>
-        </div>
+        <p className="section-card-description" style={{ color: "var(--warning)", fontWeight: "600" }}>
+          ⚠️ メモリー対策のため、ログは画面に表示されません。エクスポートしてファイルで確認してください。
+        </p>
 
         {/* アクションボタン */}
         <div className="form-navigation">
           <button
             className="primary-button"
-            onClick={loadErrorLogs}
+            onClick={handleExportErrorLogs}
             disabled={errorLogStatus.state === "loading"}
             type="button"
           >
-            <Database size={16} />
-            更新
-          </button>
-          <button
-            className="outline-button"
-            onClick={handleExportErrorLogs}
-            disabled={errorLogStatus.state === "loading" || errorLogs.length === 0}
-            type="button"
-          >
             <Download size={16} />
-            {errorLogStatus.state === "loading" ? "エクスポート中..." : "ログをエクスポート"}
+            {errorLogStatus.state === "loading" ? "エクスポート中..." : "📦 ログをエクスポート"}
           </button>
           <button
             className="outline-button"
             onClick={handleClearErrorLogs}
-            disabled={errorLogStatus.state === "loading" || errorLogs.length === 0}
+            disabled={errorLogStatus.state === "loading"}
             type="button"
           >
             <Trash2 size={16} />
@@ -1117,65 +1044,9 @@ export default function SettingsPage() {
           <div className="status-title">{errorLogStatus.message}</div>
           <p className="status-message">
             エクスポートされたJSONファイルにはAPIキーなどの機密情報は含まれません（自動的にサニタイズされます）。
+            エクスポートしたファイルをテキストエディタで開いて内容を確認できます。
           </p>
         </div>
-
-        {/* ログ一覧 */}
-        {!errorLogsLoaded ? (
-          <EmptyState
-            icon={Info}
-            title="エラーログを読み込んでいません"
-            description="メモリーリーク対策のため、エラーログは自動的に読み込まれません。上の「更新」ボタンをクリックして読み込んでください。"
-          />
-        ) : errorLogs.length === 0 ? (
-          <EmptyState
-            icon={AlertCircle}
-            title="エラーログはありません"
-            description="アプリケーションでエラーが発生すると、ここに記録されます。"
-          />
-        ) : (
-          <div className="error-log-list">
-            <div className="error-log-header">
-              <span>レベル</span>
-              <span>カテゴリ</span>
-              <span>メッセージ</span>
-              <span>日時</span>
-            </div>
-            {errorLogs.map((log, index) => (
-              <div key={log.id || index} className="error-log-item">
-                <div className="error-log-level">
-                  <StatusBadge
-                    status={
-                      log.level === "error"
-                        ? "error"
-                        : log.level === "warning"
-                        ? "warning"
-                        : log.level === "info"
-                        ? "idle"
-                        : "idle"
-                    }
-                    text={log.level}
-                  />
-                </div>
-                <div className="error-log-category">{log.category}</div>
-                <div className="error-log-message">{log.message}</div>
-                <div className="error-log-time">
-                  {new Date(log.timestamp).toLocaleString("ja-JP", {
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
-              </div>
-            ))}
-            {logStats.total > errorLogs.length && (
-              <p className="error-log-footer">
-                最新{errorLogs.length}件を表示しています（全{logStats.total}件）
-              </p>
-            )}
-          </div>
-        )}
       </section>
 
       <section className="section-card" style={{ borderColor: "var(--accent)", borderWidth: "1px" }}>
