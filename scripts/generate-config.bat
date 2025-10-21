@@ -1,6 +1,8 @@
 @echo off
 chcp 65001 >nul
 setlocal enabledelayedexpansion
+set NEED_PAUSE=1
+if /i "%1"=="/nopause" set NEED_PAUSE=0
 
 echo.
 echo ===========================================
@@ -17,7 +19,7 @@ if exist "%OUTPUT_PATH%" (
   choice /m "%OUTPUT_PATH% を上書きしますか?"
   if errorlevel 2 (
     echo 処理を中止しました。
-    goto :eof
+    call :Finish
   )
 )
 
@@ -104,11 +106,12 @@ if exist "%ORG_ENTRIES_FILE%" del "%ORG_ENTRIES_FILE%"
 move /y "%TEMP_FILE%" "%OUTPUT_PATH%" >nul
 if errorlevel 1 (
   echo ファイルの生成に失敗しました。
+  call :Finish
 ) else (
   echo.
   echo %OUTPUT_PATH% を生成しました。
+  call :Finish
 )
-goto :eof
 
 :CollectOrgEntries
 echo.
@@ -229,3 +232,10 @@ if /i "!VALUE!"=="y" (
   set "%KEY%=false"
 )
 goto :eof
+
+:Finish
+if "%NEED_PAUSE%"=="1" (
+  echo.
+  pause
+)
+exit /b
