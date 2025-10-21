@@ -597,6 +597,33 @@ function IngestContent() {
     }
   }, []);
 
+  const featureRestrictionMessage = !canUseVectorStore && !canUploadFiles
+    ? "管理者により Vector Store とファイルアップロード機能が無効化されています。"
+    : !canUseVectorStore
+      ? "管理者により Vector Store 機能が無効化されています。"
+      : !canUploadFiles
+        ? "管理者によりファイルアップロード機能が無効化されています。"
+        : null;
+
+  if (featureRestrictionMessage) {
+    return (
+      <div className="ingest-page">
+        <main className="ingest-main">
+          <div className="ingest-disabled">
+            <h2>機能が無効化されています</h2>
+            <p>{featureRestrictionMessage}</p>
+            <p>
+              設定を変更する必要がある場合は、管理者にお問い合わせください。
+            </p>
+            <Link href="/admin" className="ingest-disabled-link">
+              管理者画面へ戻る
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="ingest-page">
       <header className="ingest-header">
@@ -915,29 +942,3 @@ function IngestContent() {
     </div>
   );
 }
-  const featureRestrictionMessage = !canUseVectorStore && !canUploadFiles
-    ? "管理者により Vector Store とファイルアップロード機能が無効化されています。"
-    : !canUseVectorStore
-      ? "管理者により Vector Store 機能が無効化されています。"
-      : !canUploadFiles
-        ? "管理者によりファイルアップロード機能が無効化されています。"
-        : null;
-
-  if (featureRestrictionMessage) {
-    return (
-      <div className="ingest-page">
-        <main className="ingest-main">
-          <div className="ingest-disabled">
-            <h2>機能が無効化されています</h2>
-            <p>{featureRestrictionMessage}</p>
-            <p>
-              設定を変更する必要がある場合は、管理者にお問い合わせください。
-            </p>
-            <Link href="/admin" className="ingest-disabled-link">
-              管理者画面へ戻る
-            </Link>
-          </div>
-        </main>
-      </div>
-    );
-  }
