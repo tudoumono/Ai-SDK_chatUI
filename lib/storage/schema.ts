@@ -84,6 +84,7 @@ export type VectorStoreRecord = {
   lastActiveAt?: string;
   description?: string;
   isFavorite?: boolean;
+  isTemporary?: boolean; // チャット添付で自動作成された一時的なVector Store
   expiresAfter?: {
     anchor: "last_active_at" | "created_at";
     days: number | null;

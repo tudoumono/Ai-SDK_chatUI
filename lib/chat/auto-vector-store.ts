@@ -64,6 +64,7 @@ export async function createTempVectorStoreForChat(
     createdAt: now,
     updatedAt: now,
     lastActiveAt: now,
+    isTemporary: true, // 一時的なVector Storeとしてマーク
     expiresAfter: {
       anchor: "last_active_at",
       days: expiryDays,

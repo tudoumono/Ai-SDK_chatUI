@@ -212,11 +212,14 @@ export default function VectorStoresPage() {
   }, [showColumnSelector]);
 
   const filteredStores = useMemo(() => {
+    // 一時的なVector Storeを除外（チャット添付で自動作成されたもの）
+    const permanentStores = vectorStores.filter(store => !store.isTemporary);
+
     const query = searchQuery.trim().toLowerCase();
     if (!query) {
-      return vectorStores;
+      return permanentStores;
     }
-    return vectorStores.filter((store) => {
+    return permanentStores.filter((store) => {
       const name = store.name.toLowerCase();
       const id = store.id.toLowerCase();
       return name.includes(query) || id.includes(query);

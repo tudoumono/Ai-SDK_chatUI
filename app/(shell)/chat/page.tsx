@@ -167,6 +167,16 @@ export default function ChatPage() {
   // ドキュメントファイル（file_search対象）が添付されているかチェック
   const hasDocumentAttachment = attachedFiles.some(item => item.purpose === 'assistants');
 
+  // Vector Storeを一時的なものと永続的なものに分類
+  const temporaryVectorStores = useMemo(
+    () => vectorStores.filter(store => store.isTemporary),
+    [vectorStores]
+  );
+  const permanentVectorStores = useMemo(
+    () => vectorStores.filter(store => !store.isTemporary),
+    [vectorStores]
+  );
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -1692,6 +1702,46 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                   >
                     <span className="toggle-switch-slider"></span>
                   </button>
+                </div>
+              )}
+
+              {/* 一時的なVector Storeの表示 */}
+              {temporaryVectorStores.length > 0 && (
+                <div className="field-group">
+                  <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    📄 チャット添付ファイル
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      ({temporaryVectorStores.length}件)
+                    </span>
+                  </label>
+                  <div className="vector-store-ids-container" style={{ flexDirection: 'column', gap: '8px' }}>
+                    {temporaryVectorStores.map((store) => {
+                      const expiryInfo = formatExpiryInfo(store);
+                      return (
+                        <div key={store.id} className="temp-vector-store-item" style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px',
+                          backgroundColor: 'var(--surface-secondary)',
+                          borderRadius: '6px',
+                          fontSize: '0.875rem'
+                        }}>
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {store.name}
+                          </span>
+                          {expiryInfo && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                              {expiryInfo}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <span className="field-hint">
+                    添付したドキュメントは自動的にVector Storeに保存され、会話全体で参照できます
+                  </span>
                 </div>
               )}
 
