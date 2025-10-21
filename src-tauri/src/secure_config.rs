@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -20,17 +21,17 @@ pub struct SecureOrgWhitelistEntry {
 #[serde(rename_all = "camelCase")]
 pub struct SecureConfig {
     #[serde(default)]
-    pub version: Option<u32>;
+    pub version: Option<u32>,
     #[serde(default)]
-    pub org_whitelist: Vec<SecureOrgWhitelistEntry>;
+    pub org_whitelist: Vec<SecureOrgWhitelistEntry>,
     #[serde(default)]
-    pub admin_password_hash: Option<String>;
+    pub admin_password_hash: Option<String>,
     #[serde(default)]
-    pub signature: Option<String>;
+    pub signature: Option<String>,
 }
 
 fn config_file_path(app: &tauri::AppHandle) -> Option<PathBuf> {
-    let resolver = app.path_resolver();
+    let resolver = app.path();
     let config_dir = resolver.app_config_dir()?;
     Some(config_dir.join("config.pkg"))
 }
@@ -55,7 +56,7 @@ fn read_secure_config(app: &tauri::AppHandle) -> Result<Option<SecureConfig>, St
 }
 
 #[tauri::command]
-pub async fn load_secure_config(app: tauri::AppHandle) -> Result<Option<SecureConfig>, String> {
+pub fn load_secure_config(app: tauri::AppHandle) -> Result<Option<SecureConfig>, String> {
     let path = config_file_path(&app);
     if let Some(path) = &path {
         log::info!("Loading secure config from {:?}", path);
