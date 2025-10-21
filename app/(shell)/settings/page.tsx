@@ -121,6 +121,8 @@ export default function SettingsPage() {
     state: "idle",
     message: "DBに問題がある場合のみ使用してください。",
   });
+  // エラーログを読み込んだかどうかのフラグ（メモリーリーク対策）
+  const [errorLogsLoaded, setErrorLogsLoaded] = useState(false);
 
   const handleCopyLog = useCallback(async (log: LogEntry) => {
     const text = JSON.stringify(log, null, 2);
@@ -138,8 +140,14 @@ export default function SettingsPage() {
     return `${trimmed}/models`;
   }, [baseUrl]);
 
-  // エラーログを読み込む
+  // エラーログを読み込む（メモリーリーク対策：手動実行のみ）
   const loadErrorLogs = useCallback(async () => {
+    // 重複実行を防ぐ
+    if (errorLogStatus.state === "loading") {
+      return;
+    }
+
+    setErrorLogStatus({ state: "loading", message: "エラーログを読み込み中..." });
     try {
       const [logsData, statsData] = await Promise.all([
         getAllLogs(),
@@ -147,8 +155,17 @@ export default function SettingsPage() {
       ]);
       setErrorLogs(logsData);
       setLogStats(statsData);
+      setErrorLogsLoaded(true);
+      setErrorLogStatus({
+        state: "success",
+        message: `エラーログを読み込みました（${logsData.length}件）`
+      });
     } catch (error) {
       console.error("Failed to load error logs:", error);
+      setErrorLogStatus({
+        state: "error",
+        message: error instanceof Error ? `読み込み失敗: ${error.message}` : "読み込みに失敗しました",
+      });
       await saveErrorLog(
         "error",
         "storage",
@@ -156,7 +173,7 @@ export default function SettingsPage() {
         error instanceof Error ? error : undefined
       );
     }
-  }, []);
+  }, [errorLogStatus.state]);
 
   // エラーログをエクスポート
   const handleExportErrorLogs = useCallback(async () => {
@@ -199,13 +216,9 @@ export default function SettingsPage() {
     setErrorLogStatus({ state: "loading", message: "エラーログを削除中..." });
     try {
       await clearAllLogs();
-      // エラーログを再読み込み
-      const [logsData, statsData] = await Promise.all([
-        getAllLogs(),
-        getLogStats(),
-      ]);
-      setErrorLogs(logsData);
-      setLogStats(statsData);
+      // stateをクリア（DBから再読み込みしない）
+      setErrorLogs([]);
+      setLogStats({ total: 0, byLevel: {}, byCategory: {} });
       setErrorLogStatus({ state: "success", message: "エラーログを削除しました。" });
     } catch (error) {
       console.error("Failed to clear error logs:", error);
@@ -263,17 +276,9 @@ export default function SettingsPage() {
       { buttonId: "test-button", timestamp: Date.now() }
     );
 
-    // ログを再読み込み
-    const [logsData, statsData] = await Promise.all([
-      getAllLogs(),
-      getLogStats(),
-    ]);
-    setErrorLogs(logsData);
-    setLogStats(statsData);
-
     setErrorLogStatus({
       state: "success",
-      message: "5件のテストエラーを生成しました。エクスポートして内容を確認してください。",
+      message: "5件のテストエラーを生成しました。「更新」ボタンをクリックして確認してください。",
     });
   }, []);
 
@@ -1113,7 +1118,13 @@ export default function SettingsPage() {
         </div>
 
         {/* ログ一覧 */}
-        {errorLogs.length === 0 ? (
+        {!errorLogsLoaded ? (
+          <EmptyState
+            icon={Info}
+            title="エラーログを読み込んでいません"
+            description="メモリーリーク対策のため、エラーログは自動的に読み込まれません。上の「更新」ボタンをクリックして読み込んでください。"
+          />
+        ) : errorLogs.length === 0 ? (
           <EmptyState
             icon={AlertCircle}
             title="エラーログはありません"
