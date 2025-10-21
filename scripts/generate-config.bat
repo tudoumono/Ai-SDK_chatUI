@@ -145,13 +145,22 @@ if not "%INPUT_BASE_URL%"=="" set PS_BASE_URL=%INPUT_BASE_URL%
 set "PS_API_KEY_ENV=%PS_API_KEY%"
 set "PS_BASE_URL_ENV=%PS_BASE_URL%"
 set FETCH_FILE=%TEMP_FILE%.fetch
-set "PS_COMMAND=$ErrorActionPreference='Stop';"
-set "PS_COMMAND=!PS_COMMAND! $headers=@{Authorization='Bearer ' + $Env:PS_API_KEY_ENV};"
-set "PS_COMMAND=!PS_COMMAND! $uri=$Env:PS_BASE_URL_ENV.TrimEnd('/') + '/me';"
-set "PS_COMMAND=!PS_COMMAND! $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers;"
-set "PS_COMMAND=!PS_COMMAND! if(-not $response.orgs -or -not $response.orgs.data){ throw 'No organizations found.' }"
-set "PS_COMMAND=!PS_COMMAND! $response.orgs.data | ForEach-Object { ($_.id ?? '') + '|' + ($_.name ?? '') }"
-powershell -NoProfile -Command "!PS_COMMAND!" > "%FETCH_FILE%" 2> "%FETCH_FILE%.err"
+set FETCH_PS=%TEMP_FILE%.ps1
+(
+  echo $ErrorActionPreference = 'Stop'
+  echo $headers = @{ Authorization = 'Bearer ' + $Env:PS_API_KEY_ENV }
+  echo $uri = $Env:PS_BASE_URL_ENV.TrimEnd('/') + '/me'
+  echo $response = Invoke-RestMethod -Method Get -Uri $uri -Headers $headers
+  echo if(-not $response.orgs -or -not $response.orgs.data){ throw 'No organizations found.' }
+  echo foreach($org in $response.orgs.data){
+  echo   $id = if ($null -eq $org.id) { '' } else { $org.id }
+  echo   $name = if ($null -eq $org.name) { '' } else { $org.name }
+  echo   Write-Output ("{0}|{1}" -f $id, $name)
+  echo }
+) > "%FETCH_PS%"
+
+powershell -NoProfile -File "%FETCH_PS%" > "%FETCH_FILE%" 2> "%FETCH_FILE%.err"
+del "%FETCH_PS%" >nul 2>&1
 
 if errorlevel 1 (
   echo 組織情報の取得に失敗しました。詳細:
