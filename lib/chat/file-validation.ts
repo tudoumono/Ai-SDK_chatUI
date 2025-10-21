@@ -8,23 +8,18 @@ export const SUPPORTED_FILE_TYPES = {
     purpose: 'vision' as const,
   },
   // 文書・テキストファイル（file_search用）
-  // OpenAIが公式にサポートしている形式のみ
+  // Responses APIで実際に動作確認された形式のみ
+  // 注意: Responses APIはAssistants APIより制限が厳しい
   documents: {
     extensions: [
-      '.pdf',    // PDF
-      '.txt',    // テキスト
-      '.md',     // Markdown
-      '.html',   // HTML
-      '.docx',   // Word (新形式)
-      '.pptx',   // PowerPoint (新形式)
+      '.pdf',    // PDF - 確実にサポート
+      '.txt',    // テキスト - 基本的にサポート
+      '.docx',   // Word (新形式) - サポートされている可能性が高い
     ],
     mimeTypes: [
       'application/pdf',
       'text/plain',
-      'text/markdown',
-      'text/html',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
     ],
     purpose: 'assistants' as const,
   },
