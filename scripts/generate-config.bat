@@ -3,19 +3,19 @@ setlocal enabledelayedexpansion
 
 echo.
 echo ===========================================
-echo  AI-SDK ChatUI config.pkg Generator
+echo  AI-SDK ChatUI config.pkg 生成ツール
 echo ===========================================
 echo.
 
 set OUTPUT_PATH=config.pkg
-set /p OUTPUT_PATH=Output file path (default: config.pkg): 
+set /p OUTPUT_PATH=保存先ファイルパス (default: config.pkg): 
 if "%OUTPUT_PATH%"=="" set OUTPUT_PATH=config.pkg
 
 if exist "%OUTPUT_PATH%" (
   echo.
-  choice /m "Overwrite existing %OUTPUT_PATH% ?"
+  choice /m "%OUTPUT_PATH% を上書きしますか?"
   if errorlevel 2 (
-    echo Aborted.
+    echo 処理を中止しました。
     goto :eof
   )
 )
@@ -23,11 +23,11 @@ if exist "%OUTPUT_PATH%" (
 echo.
 set ADMIN_PASSWORD_HASH=
 echo.
-set /p ADMIN_PASSWORD=Include admin password hash? (y/N): 
+set /p ADMIN_PASSWORD=管理者パスワードのハッシュ値を含めますか? (y/N): 
 if /i "%ADMIN_PASSWORD%"=="y" (
-  set /p ADMIN_PLAIN=Enter new admin password: 
+  set /p ADMIN_PLAIN=新しい管理者パスワードを入力してください: 
   if "%ADMIN_PLAIN%"=="" (
-    echo No password entered. Skipping.
+    echo パスワードが入力されなかったためスキップします。
   ) else (
     set "ADMIN_PLAIN_ESC=%ADMIN_PLAIN:"=\""%"
     for /f %%H in ('powershell -NoProfile -Command "$pass = \"%ADMIN_PLAIN_ESC%\"; $bytes = [Text.Encoding]::UTF8.GetBytes($pass); $hash = [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes); ($hash | ForEach-Object { $_.ToString(''x2'') }) -join \"\""') do set ADMIN_PASSWORD_HASH=%%H
@@ -103,19 +103,19 @@ if errorlevel 1 (
   echo ファイルの生成に失敗しました。
 ) else (
   echo.
-  echo Created %OUTPUT_PATH% successfully.
+  echo %OUTPUT_PATH% を生成しました。
 )
 goto :eof
 
 :CollectOrgEntries
 echo.
 set FETCH_CHOICE=
-set /p FETCH_CHOICE=Fetch organization IDs from OpenAI API now? (y/N): 
+set /p FETCH_CHOICE=OpenAI API から組織IDを取得しますか? (y/N): 
 if /i "%FETCH_CHOICE%"=="y" call :FetchOrgIds
 
 :CollectManualLoop
 set ADD_CHOICE=
-set /p ADD_CHOICE=Add organization manually? (y/N): 
+set /p ADD_CHOICE=組織を手動で追加しますか? (y/N): 
 if /i "%ADD_CHOICE%"=="y" (
   call :AddOrgManual
   goto :CollectManualLoop
@@ -124,7 +124,7 @@ goto :eof
 
 :FetchOrgIds
 set PS_API_KEY=
-set /p PS_API_KEY=Enter API key for lookup: 
+set /p PS_API_KEY=組織ID取得に使用するAPIキーを入力してください: 
 if "%PS_API_KEY%"=="" (
   echo Skipping fetch (no API key provided).
   goto :eof
@@ -147,7 +147,7 @@ powershell -NoProfile -Command ^
   > "%FETCH_FILE%" 2> "%FETCH_FILE%.err"
 
 if errorlevel 1 (
-  echo Failed to fetch organization info. Details:
+  echo 組織情報の取得に失敗しました。詳細:
   type "%FETCH_FILE%.err"
   del "%FETCH_FILE%" >nul 2>&1
   del "%FETCH_FILE%.err" >nul 2>&1
@@ -159,9 +159,9 @@ for /f "usebackq tokens=1,2 delims=|" %%A in ("%FETCH_FILE%") do (
   set "FETCHED_ID=%%~A"
   set "FETCHED_NAME=%%~B"
   if not "!FETCHED_ID!"=="" (
-    echo Found: !FETCHED_ID! (!FETCHED_NAME!)
+    echo 取得: !FETCHED_ID! (!FETCHED_NAME!)
     set ADD_ID_CHOICE=
-    set /p ADD_ID_CHOICE=Add this organization? (y/N): 
+    set /p ADD_ID_CHOICE=この組織を追加しますか? (y/N): 
     if /i "!ADD_ID_CHOICE!"=="y" (
       set "ENTRY_ID=!FETCHED_ID!"
       set "ENTRY_NAME=!FETCHED_NAME!"
@@ -178,17 +178,17 @@ set PS_BASE_URL_ENV=
 goto :eof
 
 :AddOrgManual
-echo --- Manual entry ---
+echo --- 手動入力 ---
 set ORG_ID=
 set /p ORG_ID=Organization ID (org-xxxx): 
 if "%ORG_ID%"=="" (
-  echo Skipping entry (empty ID).
+  echo IDが空のためスキップします。
   goto :eof
 )
 set ORG_NAME=
 set /p ORG_NAME=Organization Name: 
 set ORG_NOTES=
-set /p ORG_NOTES=Notes (optional): 
+set /p ORG_NOTES=Notes (任意): 
 set "ENTRY_ID=%ORG_ID%"
 set "ENTRY_NAME=%ORG_NAME%"
 set "ENTRY_NOTES=%ORG_NOTES%"
