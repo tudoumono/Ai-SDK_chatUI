@@ -95,14 +95,14 @@ function toInputMessages(
 
       // ファイルIDを追加（画像とドキュメントで異なるtypeを使用）
       for (const att of attachments) {
-        if (att.tools.some(t => t.type === 'code_interpreter')) {
-          // Vision用（画像ファイル）
+        if (att.tools.length === 0) {
+          // Vision用（画像ファイル）- ツールなし
           contentParts.push({
             type: "input_image",
             file_id: att.fileId,
           });
         } else {
-          // file_search用（ドキュメントファイル）
+          // file_search/code_interpreter用（ドキュメントファイル）
           contentParts.push({
             type: "input_file",
             file_id: att.fileId,

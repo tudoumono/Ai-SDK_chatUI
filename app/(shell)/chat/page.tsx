@@ -535,7 +535,8 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
       // attachmentsを構築
       const attachments = uploadedFileInfos.map(info => ({
         fileId: info.fileId,
-        tools: [{ type: info.purpose === 'vision' ? 'code_interpreter' as const : 'file_search' as const }],
+        // vision（画像）の場合はツール不要、assistantsの場合はfile_search
+        tools: info.purpose === 'vision' ? [] : [{ type: 'file_search' as const }],
       }));
 
       // メモリ最適化：直接参照を使用（コピー不要）
