@@ -1,4 +1,4 @@
-import { createVectorStore, attachFileToVectorStore, uploadFileToOpenAI as uploadFileForVectorStore } from "@/lib/openai/vector-stores";
+import { createVectorStore, attachFileToVectorStore, uploadFileToOpenAI as uploadFileForVectorStore, waitForVectorStoreReady } from "@/lib/openai/vector-stores";
 import { upsertVectorStores } from "@/lib/storage/indexed-db";
 import type { VectorStoreRecord } from "@/lib/storage/schema";
 import type { ConnectionSettings } from "@/lib/settings/connection-storage";
@@ -6,6 +6,7 @@ import type { ConnectionSettings } from "@/lib/settings/connection-storage";
 export type AutoVectorStoreOptions = {
   expiresAfterDays?: number;
   connection: ConnectionSettings;
+  onProgress?: (message: string) => void;
 };
 
 const DEFAULT_EXPIRY_DAYS = 7; // デフォルトは7日間
@@ -36,6 +37,9 @@ export async function createTempVectorStoreForChat(
   const description = `添付ファイル: ${shortFileNames} | ${expiryDays}日後に自動削除`;
 
   // Vector Storeを作成
+  if (options.onProgress) {
+    options.onProgress("Vector Storeを作成中...");
+  }
   const vectorStoreId = await createVectorStore(
     vectorStoreName,
     description,
@@ -46,10 +50,29 @@ export async function createTempVectorStoreForChat(
   );
 
   // ファイルをアップロードしてVector Storeに追加
+  if (options.onProgress) {
+    options.onProgress(`${files.length}件のファイルをアップロード中...`);
+  }
   for (const file of files) {
     const fileId = await uploadFileForVectorStore(file, options.connection);
     await attachFileToVectorStore(vectorStoreId, fileId, options.connection);
   }
+
+  // ファイルのインデックス化が完了するまで待機
+  if (options.onProgress) {
+    options.onProgress("ファイルをインデックス化中...");
+  }
+  await waitForVectorStoreReady(
+    vectorStoreId,
+    options.connection,
+    (status) => {
+      if (options.onProgress) {
+        options.onProgress(
+          `インデックス化中: ${status.completed}/${status.completed + status.inProgress}件完了`
+        );
+      }
+    }
+  );
 
   // IndexedDBに保存するレコードを作成
   const now = new Date().toISOString();

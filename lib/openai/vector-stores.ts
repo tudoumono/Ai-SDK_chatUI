@@ -598,3 +598,51 @@ export async function updateVectorStore(
     throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
   }
 }
+
+/**
+ * Vector Storeのファイルインデックス化が完了するまで待機
+ * @param vectorStoreId Vector Store ID
+ * @param connectionOverride 接続設定（オプション）
+ * @param onProgress 進捗コールバック（オプション）
+ * @param maxWaitSeconds 最大待機時間（秒、デフォルト: 300秒 = 5分）
+ * @returns 完了したファイル数
+ */
+export async function waitForVectorStoreReady(
+  vectorStoreId: string,
+  connectionOverride?: ConnectionSettings,
+  onProgress?: (status: { completed: number; inProgress: number; failed: number }) => void,
+  maxWaitSeconds: number = 300,
+): Promise<number> {
+  const connection = ensureConnection(connectionOverride ?? (await loadConnection()));
+  const startTime = Date.now();
+  const pollIntervalMs = 2000; // 2秒ごとにポーリング
+
+  while (true) {
+    const elapsedSeconds = (Date.now() - startTime) / 1000;
+    if (elapsedSeconds > maxWaitSeconds) {
+      throw new Error(`Vector Storeのインデックス化がタイムアウトしました（${maxWaitSeconds}秒）`);
+    }
+
+    const files = await fetchVectorStoreFiles(vectorStoreId, connection);
+    const completed = files.filter(f => f.status === "completed").length;
+    const inProgress = files.filter(f => f.status === "in_progress").length;
+    const failed = files.filter(f => f.status === "failed").length;
+
+    if (onProgress) {
+      onProgress({ completed, inProgress, failed });
+    }
+
+    // すべてのファイルが完了または失敗した場合
+    if (inProgress === 0) {
+      if (failed > 0) {
+        const failedFiles = files.filter(f => f.status === "failed");
+        const errorMessages = failedFiles.map(f => f.error).filter(Boolean).join(", ");
+        throw new Error(`${failed}件のファイルのインデックス化に失敗しました: ${errorMessages}`);
+      }
+      return completed;
+    }
+
+    // 次のポーリングまで待機
+    await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+  }
+}

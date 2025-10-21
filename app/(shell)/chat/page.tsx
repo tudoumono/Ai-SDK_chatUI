@@ -560,11 +560,12 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
 
         // ドキュメントファイルがある場合、Vector Storeを自動作成
         if (documentFiles.length > 0) {
-          setStatusMessage(`${documentFiles.length}件のドキュメントをVector Storeにアップロード中…`);
-
           const result = await createTempVectorStoreForChat(
             documentFiles.map(item => item.file),
-            { connection: currentConnection }
+            {
+              connection: currentConnection,
+              onProgress: (message) => setStatusMessage(message)
+            }
           );
 
           tempVectorStoreId = result.vectorStoreId;
@@ -735,11 +736,26 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
 
       await saveMessages([completedAssistant]);
 
+      // 一時的に作成したVector Store IDを会話に紐付けて保存
+      // これにより、続きの会話でも同じVector Storeを参照できる
+      const updatedVectorStoreIds = tempVectorStoreId
+        ? [...new Set([...selectedVectorStoreIds, tempVectorStoreId])] // 重複を排除
+        : selectedVectorStoreIds;
+
+      // Vector Storeが使用された場合は、Vector Searchを自動的に有効化
+      const shouldEnableVectorSearch = tempVectorStoreId ? true : vectorSearchEnabled;
+
+      // Vector Store IDsを更新
+      if (tempVectorStoreId && !selectedVectorStoreIds.includes(tempVectorStoreId)) {
+        setSelectedVectorStoreIds(updatedVectorStoreIds);
+        setVectorSearchEnabled(true); // 自動的にVector Searchを有効化
+      }
+
       await persistConversation({
         modelId: selectedModel.trim() || DEFAULT_MODEL,
         webSearchEnabled,
-        vectorSearchEnabled,
-        vectorStoreIds: vectorSearchEnabled ? selectedVectorStoreIds : [],
+        vectorSearchEnabled: shouldEnableVectorSearch,
+        vectorStoreIds: updatedVectorStoreIds,
         hasContent: true,
         ...(autoTitle ? { title: autoTitle } : {}),
       });
@@ -784,7 +800,24 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
       await saveMessages([failedAssistant]);
       }
 
-      await persistConversation({ hasContent: true, ...(autoTitle ? { title: autoTitle } : {}) });
+      // エラー時でも一時的に作成したVector Store IDを保存
+      const updatedVectorStoreIds = tempVectorStoreId
+        ? [...new Set([...selectedVectorStoreIds, tempVectorStoreId])]
+        : selectedVectorStoreIds;
+
+      const shouldEnableVectorSearch = tempVectorStoreId ? true : vectorSearchEnabled;
+
+      if (tempVectorStoreId && !selectedVectorStoreIds.includes(tempVectorStoreId)) {
+        setSelectedVectorStoreIds(updatedVectorStoreIds);
+        setVectorSearchEnabled(true);
+      }
+
+      await persistConversation({
+        hasContent: true,
+        vectorSearchEnabled: shouldEnableVectorSearch,
+        vectorStoreIds: updatedVectorStoreIds,
+        ...(autoTitle ? { title: autoTitle } : {})
+      });
 
       setSendError(errorMessage);
       setStatusMessage("エラーが発生しました。");
