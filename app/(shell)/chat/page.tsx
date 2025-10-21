@@ -641,7 +641,8 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
       }));
 
       // Vector Store IDsを構築
-      // 既存の選択されたVector Store + 一時的に作成したVector Store
+      // 一時的に作成したVector Storeがある場合は必ず含める
+      // 既存の選択されたVector Storeは、Vector Search有効時のみ含める
       const effectiveVectorStoreIds = tempVectorStoreId
         ? [...(vectorSearchEnabled ? selectedVectorStoreIds : []), tempVectorStoreId]
         : (vectorSearchEnabled ? selectedVectorStoreIds : []);

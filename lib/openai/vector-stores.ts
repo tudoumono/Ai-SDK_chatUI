@@ -627,20 +627,25 @@ export async function waitForVectorStoreReady(
     const completed = files.filter(f => f.status === "completed").length;
     const inProgress = files.filter(f => f.status === "in_progress").length;
     const failed = files.filter(f => f.status === "failed").length;
+    const total = files.length;
 
     if (onProgress) {
       onProgress({ completed, inProgress, failed });
     }
 
-    // すべてのファイルが完了または失敗した場合
-    if (inProgress === 0) {
+    // ファイルが存在し、すべてのファイルが完了または失敗した場合
+    if (total > 0 && inProgress === 0) {
       if (failed > 0) {
         const failedFiles = files.filter(f => f.status === "failed");
         const errorMessages = failedFiles.map(f => f.error).filter(Boolean).join(", ");
         throw new Error(`${failed}件のファイルのインデックス化に失敗しました: ${errorMessages}`);
       }
+      // すべて完了
       return completed;
     }
+
+    // ファイルが0件の場合は、まだファイルが登録されていないので待機を続ける
+    // （ファイルアップロード直後はOpenAI側での反映に時間がかかる場合がある）
 
     // 次のポーリングまで待機
     await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
