@@ -1428,7 +1428,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.md,.json,.html,.doc,.docx,.c,.cs,.cpp,.java,.js,.ts,.py,.rb,.go"
+                    accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.md,.html,.docx,.pptx"
                     onChange={handleFileSelect}
                     style={{ display: 'none' }}
                   />

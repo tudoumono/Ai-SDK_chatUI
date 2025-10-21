@@ -1,4 +1,5 @@
 // Responses APIでサポートされているファイル形式
+// 参考: https://platform.openai.com/docs/assistants/tools/file-search/supported-files
 export const SUPPORTED_FILE_TYPES = {
   // 画像ファイル（Vision対応モデル用）
   images: {
@@ -7,29 +8,23 @@ export const SUPPORTED_FILE_TYPES = {
     purpose: 'vision' as const,
   },
   // 文書・テキストファイル（file_search用）
+  // OpenAIが公式にサポートしている形式のみ
   documents: {
     extensions: [
-      '.pdf', '.txt', '.md', '.json', '.html',
-      '.doc', '.docx',
-      '.c', '.cs', '.cpp', '.java', '.js', '.ts', '.py', '.rb', '.go',
+      '.pdf',    // PDF
+      '.txt',    // テキスト
+      '.md',     // Markdown
+      '.html',   // HTML
+      '.docx',   // Word (新形式)
+      '.pptx',   // PowerPoint (新形式)
     ],
     mimeTypes: [
       'application/pdf',
       'text/plain',
       'text/markdown',
-      'application/json',
       'text/html',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/x-c',
-      'text/x-csharp',
-      'text/x-c++src',
-      'text/x-java',
-      'text/javascript',
-      'application/typescript',
-      'text/x-python',
-      'text/x-ruby',
-      'text/x-go',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
     ],
     purpose: 'assistants' as const,
   },
