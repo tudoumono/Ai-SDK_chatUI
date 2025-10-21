@@ -15,17 +15,28 @@ export type SecureConfigPayload = {
 
 export type SecureFeatureRestrictions = FeatureRestrictionsInput;
 
+export type SecureConfigSearchPath = {
+  path: string;
+  label: string;
+};
+
 type SecureConfigLoadResult = {
   config: SecureConfigPayload | null;
   path: string | null;
+  searchedPaths?: SecureConfigSearchPath[];
 };
 
 const SECURE_CONFIG_PATH_KEY = "secure-config:last-path";
 const SECURE_CONFIG_STATUS_KEY = "secure-config:last-status";
+const SECURE_CONFIG_SEARCHED_PATHS_KEY = "secure-config:last-searched";
 
 type SecureConfigStatus = "applied" | "missing" | "error" | "unsupported" | "none";
 
-function recordSecureConfigStatus(path: string | null, status: SecureConfigStatus) {
+function recordSecureConfigStatus(
+  path: string | null,
+  status: SecureConfigStatus,
+  searchedPaths: SecureConfigSearchPath[] = [],
+) {
   if (typeof window === "undefined") {
     return;
   }
@@ -36,16 +47,21 @@ function recordSecureConfigStatus(path: string | null, status: SecureConfigStatu
       window.localStorage.removeItem(SECURE_CONFIG_PATH_KEY);
     }
     window.localStorage.setItem(SECURE_CONFIG_STATUS_KEY, status);
+    if (searchedPaths.length > 0) {
+      window.localStorage.setItem(SECURE_CONFIG_SEARCHED_PATHS_KEY, JSON.stringify(searchedPaths));
+    } else {
+      window.localStorage.removeItem(SECURE_CONFIG_SEARCHED_PATHS_KEY);
+    }
   } catch (error) {
     console.warn("[SecureConfig] Failed to record status:", error);
   }
 }
 
 export function getSecureConfigStatus():
-  | { path: string | null; status: SecureConfigStatus }
+  | { path: string | null; status: SecureConfigStatus; searchedPaths: SecureConfigSearchPath[] }
   | null {
   if (!isTauriEnvironment()) {
-    return { path: null, status: "unsupported" };
+    return { path: null, status: "unsupported", searchedPaths: [] };
   }
   if (typeof window === "undefined") {
     return null;
@@ -54,7 +70,22 @@ export function getSecureConfigStatus():
     const path = window.localStorage.getItem(SECURE_CONFIG_PATH_KEY);
     const status =
       (window.localStorage.getItem(SECURE_CONFIG_STATUS_KEY) as SecureConfigStatus | null) ?? "none";
-    return { path, status };
+    const rawPaths = window.localStorage.getItem(SECURE_CONFIG_SEARCHED_PATHS_KEY);
+    const searchedPaths: SecureConfigSearchPath[] = rawPaths
+      ? (() => {
+          try {
+            const parsed = JSON.parse(rawPaths);
+            if (Array.isArray(parsed)) {
+              return parsed.filter((item) => typeof item?.path === "string" && typeof item?.label === "string");
+            }
+          } catch (error) {
+            console.warn("[SecureConfig] Failed to parse cached search paths:", error);
+          }
+          return [];
+        })()
+      : [];
+
+    return { path, status, searchedPaths };
   } catch {
     return null;
   }
@@ -106,14 +137,18 @@ export async function bootstrapSecureConfig(): Promise<void> {
   try {
     const result = await loadSecureConfig();
     if (!result) {
-      recordSecureConfigStatus(null, isTauriEnvironment() ? "missing" : "unsupported");
+      recordSecureConfigStatus(
+        null,
+        isTauriEnvironment() ? "missing" : "unsupported",
+        [],
+      );
       return;
     }
-    const { config, path } = result;
+    const { config, path, searchedPaths = [] } = result;
     if (config) {
-      recordSecureConfigStatus(path ?? null, "applied");
+      recordSecureConfigStatus(path ?? null, "applied", searchedPaths);
     } else {
-      recordSecureConfigStatus(path ?? null, "missing");
+      recordSecureConfigStatus(path ?? null, "missing", searchedPaths);
       return;
     }
 
