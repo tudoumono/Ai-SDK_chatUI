@@ -230,10 +230,15 @@ export async function getLogStats(): Promise<{
   }
 }
 
+// 無限ループ防止フラグ
+let isLoggingInProgress = false;
+
 // グローバルエラーハンドラーを設定
 if (typeof window !== "undefined") {
   // 未処理のエラーをキャッチ
   window.addEventListener("error", (event) => {
+    if (isLoggingInProgress) return;
+    isLoggingInProgress = true;
     saveLog(
       "error",
       "runtime",
@@ -244,53 +249,69 @@ if (typeof window !== "undefined") {
         lineno: event.lineno,
         colno: event.colno,
       }
-    );
+    ).finally(() => {
+      isLoggingInProgress = false;
+    });
   });
 
   // 未処理のPromise rejectをキャッチ
   window.addEventListener("unhandledrejection", (event) => {
+    if (isLoggingInProgress) return;
+    isLoggingInProgress = true;
     saveLog(
       "error",
       "runtime",
       `Unhandled Promise Rejection: ${event.reason}`,
       event.reason instanceof Error ? event.reason : undefined,
       { reason: String(event.reason) }
-    );
+    ).finally(() => {
+      isLoggingInProgress = false;
+    });
   });
 
   // Next.js Error Overlayのエラーも記録
   // Next.jsは内部的にコンソールエラーを使用するため、console.errorをフック
   const originalConsoleError = console.error;
   console.error = (...args: unknown[]) => {
-    // Next.jsの内部エラーやReactエラーをキャッチ
-    const message = args.map(arg =>
-      typeof arg === 'string' ? arg :
-      arg instanceof Error ? arg.message :
-      JSON.stringify(arg)
-    ).join(' ');
-
-    // Next.js特有のエラーパターンを検出
-    const isNextError = message.includes('Warning:') ||
-                       message.includes('Error:') ||
-                       message.includes('Failed to') ||
-                       message.includes('Unhandled');
-
-    if (isNextError) {
-      const error = args.find(arg => arg instanceof Error) as Error | undefined;
-      saveLog(
-        message.includes('Warning:') ? "warning" : "error",
-        "ui",
-        message,
-        error,
-        {
-          source: "Next.js",
-          args: args.map(arg => String(arg))
-        }
-      );
-    }
-
-    // 元のconsole.errorも呼び出す
+    // 元のconsole.errorを先に呼び出す（無限ループ防止のため）
     originalConsoleError.apply(console, args);
+
+    // ログ記録中は再帰的なログを防止
+    if (isLoggingInProgress) return;
+
+    try {
+      // Next.jsの内部エラーやReactエラーをキャッチ
+      const message = args.map(arg =>
+        typeof arg === 'string' ? arg :
+        arg instanceof Error ? arg.message :
+        JSON.stringify(arg)
+      ).join(' ');
+
+      // Next.js特有のエラーパターンを検出
+      const isNextError = message.includes('Warning:') ||
+                         message.includes('Error:') ||
+                         message.includes('Failed to') ||
+                         message.includes('Unhandled');
+
+      if (isNextError) {
+        isLoggingInProgress = true;
+        const error = args.find(arg => arg instanceof Error) as Error | undefined;
+        saveLog(
+          message.includes('Warning:') ? "warning" : "error",
+          "ui",
+          message,
+          error,
+          {
+            source: "Next.js",
+            args: args.map(arg => String(arg))
+          }
+        ).finally(() => {
+          isLoggingInProgress = false;
+        });
+      }
+    } catch (err) {
+      // ログ記録自体が失敗した場合は何もしない（無限ループ防止）
+    }
   };
 }
 
