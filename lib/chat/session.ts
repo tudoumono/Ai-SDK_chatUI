@@ -29,7 +29,7 @@ export function createConversationDraft(title?: string): ConversationRecord {
     createdAt: timestamp,
     updatedAt: timestamp,
     tags: [],
-    modelId: "gpt-4.1-mini",
+    modelId: "gpt-4o-mini",
     webSearchEnabled: false,
     vectorStoreIds: [],
     isFavorite: false,
