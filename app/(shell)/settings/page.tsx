@@ -31,6 +31,7 @@ import { clearAllValidationData } from "@/lib/settings/org-validation-guard";
 import { createLogExportBundle, downloadLogBundle } from "@/lib/logging/log-sanitizer";
 import { Download, Trash2, Info } from "lucide-react";
 import { isTauriEnvironment, saveFile } from "@/lib/utils/tauri-helpers";
+import { validateBaseUrl } from "@/lib/security/base-url";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -125,8 +126,9 @@ export default function SettingsPage() {
   }, []);
 
   const requestTarget = useMemo(() => {
-    const trimmed = baseUrl.trim().replace(/\/$/, "");
-    return `${trimmed}/models`;
+    const result = validateBaseUrl(baseUrl);
+    const normalized = result.ok ? result.normalized : "https://api.openai.com/v1";
+    return `${normalized}/models`;
   }, [baseUrl]);
 
   // エラーログをエクスポート（メモリー対策：全ログを一度に取得）
@@ -406,10 +408,21 @@ export default function SettingsPage() {
       setHeadersError(null);
       setPassphraseError(null);
 
+      const baseUrlValidation = validateBaseUrl(baseUrl);
+      if (!baseUrlValidation.ok) {
+        setStatus({
+          state: "error",
+          message: baseUrlValidation.message,
+        });
+        return;
+      }
+
+      const normalizedBaseUrl = baseUrlValidation.normalized;
+
       setStatus({ state: "loading", message: "設定を保存しています…" });
       try {
         await saveConnection({
-          baseUrl: baseUrl.trim(),
+          baseUrl: normalizedBaseUrl,
           apiKey: apiKey.trim(),
           additionalHeaders: parsed.headers,
           httpProxy: httpProxy.trim() || undefined,
@@ -418,6 +431,7 @@ export default function SettingsPage() {
           encryptionEnabled,
           passphrase: passphrase.trim() || undefined,
         });
+        setBaseUrl(normalizedBaseUrl);
         setSavedFlags(hasStoredConnection());
         setStatus({
           state: "success",

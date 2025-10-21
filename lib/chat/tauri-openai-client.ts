@@ -1,14 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ConnectionSettings } from "@/lib/settings/connection-storage";
 import { saveLog } from "@/lib/logging/error-logger";
-
-function normalizeBaseUrl(url: string | undefined) {
-  const trimmed = (url ?? "").trim();
-  if (!trimmed) {
-    return "https://api.openai.com/v1";
-  }
-  return trimmed.replace(/\/$/, "");
-}
+import { filterForbiddenHeaders } from "@/lib/security/headers";
+import { normalizeBaseUrl } from "@/lib/security/base-url";
 
 interface ProxyConfig {
   http_proxy?: string;
@@ -47,7 +41,12 @@ export async function makeTauriOpenAIRequest(
     method,
     path,
     body,
-    additional_headers: connection.additionalHeaders,
+    additional_headers: filterForbiddenHeaders(
+      connection.additionalHeaders,
+      (name) => {
+        console.warn(`[Tauri] Forbidden header dropped: ${name}`);
+      },
+    ),
     proxy_config: {
       http_proxy: connection.httpProxy,
       https_proxy: connection.httpsProxy,

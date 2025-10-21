@@ -4,6 +4,7 @@
  */
 
 import { getWhitelistedOrgIds } from "@/lib/settings/org-whitelist";
+import { normalizeBaseUrl } from "@/lib/security/base-url";
 
 export interface OrgValidationResult {
   valid: boolean;
@@ -20,7 +21,7 @@ export async function fetchOrgInfo(
   baseUrl: string = "https://api.openai.com/v1",
 ): Promise<{ orgIds: string[]; error?: string }> {
   try {
-    const endpoint = `${baseUrl.replace(/\/$/, "")}/me`;
+    const endpoint = `${normalizeBaseUrl(baseUrl)}/me`;
     const response = await fetch(endpoint, {
       method: "GET",
       headers: {
