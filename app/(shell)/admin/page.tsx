@@ -350,33 +350,49 @@ export default function AdminPage() {
           </div>
         )}
 
-        <section className="admin-info-section">
-          <h3 className="admin-info-title">How It Works</h3>
-          <div className="admin-info-content">
-            <p>
-              このホワイトリストは、会社配布のAPIキーのみを使用できるようにするための機能です。
-            </p>
-            <ol className="admin-info-list">
-              <li>
-                <strong>組織IDの取得:</strong> OpenAI API の{" "}
-                <code>/v1/me</code>{" "}
-                エンドポイントを使用して、入力されたAPIキーに紐づく組織IDを取得します。
-              </li>
-              <li>
-                <strong>ホワイトリスト照合:</strong>{" "}
-                取得した組織IDが、ここで登録されたホワイトリストに含まれているかを確認します。
-              </li>
-              <li>
-                <strong>検証結果:</strong>{" "}
-                ホワイトリストに含まれていない場合は、個人のAPIキーと判断してエラーを返します。
-              </li>
-            </ol>
-            <p className="admin-info-note">
-              <strong>注意:</strong> APIキーのプレフィックス（sk-proj など）だけでは個人のキーと区別できないため、
-              組織IDでの検証が推奨されます。
-            </p>
+        {whitelistManagedExternally && (
+          <div className="status-banner status-info">
+            <div className="status-title">ホワイトリストは配布設定で管理されています</div>
+            <p className="status-message">`config.pkg` に設定された組織IDリストが適用されており、この画面からは変更できません。</p>
           </div>
-        </section>
+        )}
+
+        {passwordManagedExternally && (
+          <div className="status-banner status-info">
+            <div className="status-title">管理者パスワードは配布設定で管理されています</div>
+            <p className="status-message">ローカルでの再設定は無効化されています。必要な場合は配布担当者にご連絡ください。</p>
+          </div>
+        )}
+
+        {!whitelistManagedExternally && (
+          <section className="admin-info-section">
+            <h3 className="admin-info-title">How It Works</h3>
+            <div className="admin-info-content">
+              <p>
+                このホワイトリストは、会社配布のAPIキーのみを使用できるようにするための機能です。
+              </p>
+              <ol className="admin-info-list">
+                <li>
+                  <strong>組織IDの取得:</strong> OpenAI API の{" "}
+                  <code>/v1/me</code>{" "}
+                  エンドポイントを使用して、入力されたAPIキーに紐づく組織IDを取得します。
+                </li>
+                <li>
+                  <strong>ホワイトリスト照合:</strong>{" "}
+                  取得した組織IDが、ここで登録されたホワイトリストに含まれているかを確認します。
+                </li>
+                <li>
+                  <strong>検証結果:</strong>{" "}
+                  ホワイトリストに含まれていない場合は、個人のAPIキーと判断してエラーを返します。
+                </li>
+              </ol>
+              <p className="admin-info-note">
+                <strong>注意:</strong> APIキーのプレフィックス（sk-proj など）だけでは個人のキーと区別できないため、
+                組織IDでの検証が推奨されます。
+              </p>
+            </div>
+          </section>
+        )}
 
         <section className="section-card">
           <h2 className="admin-section-title">
@@ -484,79 +500,75 @@ export default function AdminPage() {
           </div>
         </section>
 
-        <section className="admin-section">
-          <h2 className="admin-section-title">Add New Organization</h2>
-          <p className="admin-section-description">
-            会社配布のAPIキーに紐づく組織IDをホワイトリストに追加します。
-            個人のAPIキーが使用されるのを防ぎます。
-          </p>
-          {whitelistManagedExternally && (
-            <div className="admin-alert admin-alert-info" style={{ alignItems: "center", gap: "8px" }}>
-              <AlertCircle size={18} />
-              <span>このホワイトリストは config.pkg によって管理されています。編集するには管理者に依頼してください。</span>
-            </div>
-          )}
+        {!whitelistManagedExternally && (
+          <section className="admin-section">
+            <h2 className="admin-section-title">Add New Organization</h2>
+            <p className="admin-section-description">
+              会社配布のAPIキーに紐づく組織IDをホワイトリストに追加します。
+              個人のAPIキーが使用されるのを防ぎます。
+            </p>
 
-          <div className="admin-form">
-            <div className="admin-form-row">
-              <div className="admin-form-group">
-                <label htmlFor="org-id" className="admin-label">
-                  Organization ID *
-                </label>
-                <input
-                  id="org-id"
-                  type="text"
-                  className="admin-input"
-                  placeholder="org-abc123xyz"
-                  value={newOrgId}
-                  onChange={(e) => setNewOrgId(e.target.value)}
-                />
-                <span className="admin-hint">
-                  Format: org-xxxx (OpenAI organization ID)
-                </span>
+            <div className="admin-form">
+              <div className="admin-form-row">
+                <div className="admin-form-group">
+                  <label htmlFor="org-id" className="admin-label">
+                    Organization ID *
+                  </label>
+                  <input
+                    id="org-id"
+                    type="text"
+                    className="admin-input"
+                    placeholder="org-abc123xyz"
+                    value={newOrgId}
+                    onChange={(e) => setNewOrgId(e.target.value)}
+                  />
+                  <span className="admin-hint">
+                    Format: org-xxxx (OpenAI organization ID)
+                  </span>
+                </div>
+
+                <div className="admin-form-group">
+                  <label htmlFor="org-name" className="admin-label">
+                    Organization Name *
+                  </label>
+                  <input
+                    id="org-name"
+                    type="text"
+                    className="admin-input"
+                    placeholder="Company Name"
+                    value={newOrgName}
+                    onChange={(e) => setNewOrgName(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div className="admin-form-group">
-                <label htmlFor="org-name" className="admin-label">
-                  Organization Name *
+                <label htmlFor="org-notes" className="admin-label">
+                  Notes (Optional)
                 </label>
-                <input
-                  id="org-name"
-                  type="text"
-                  className="admin-input"
-                  placeholder="Company Name"
-                  value={newOrgName}
-                  onChange={(e) => setNewOrgName(e.target.value)}
+                <textarea
+                  id="org-notes"
+                  className="admin-textarea"
+                  placeholder="Additional notes about this organization..."
+                  rows={3}
+                  value={newNotes}
+                  onChange={(e) => setNewNotes(e.target.value)}
                 />
               </div>
+
+              <button
+                type="button"
+                className="admin-button admin-button-primary"
+                onClick={handleAdd}
+              >
+                <Plus size={20} />
+                Add Organization
+              </button>
             </div>
+          </section>
+        )}
 
-            <div className="admin-form-group">
-              <label htmlFor="org-notes" className="admin-label">
-                Notes (Optional)
-              </label>
-              <textarea
-                id="org-notes"
-                className="admin-textarea"
-                placeholder="Additional notes about this organization..."
-                rows={3}
-                value={newNotes}
-                onChange={(e) => setNewNotes(e.target.value)}
-              />
-            </div>
-
-            <button
-              type="button"
-              className="admin-button admin-button-primary"
-              onClick={handleAdd}
-              disabled={whitelistManagedExternally}
-            >
-              <Plus size={20} />
-              Add Organization
-            </button>
-          </div>
-        </section>
-
+        {!whitelistManagedExternally && (
         <section className="admin-section">
           <h2 className="admin-section-title">
             Whitelisted Organizations ({entries.length})
@@ -634,7 +646,6 @@ export default function AdminPage() {
                                   className="admin-action-button admin-action-save"
                                   onClick={handleSaveEdit}
                                   title="Save"
-                                  disabled={whitelistManagedExternally}
                                 >
                                   <Save size={16} />
                                 </button>
@@ -652,7 +663,6 @@ export default function AdminPage() {
                                   className="admin-action-button admin-action-edit"
                                   onClick={() => handleStartEdit(entry)}
                                   title="Edit"
-                                  disabled={whitelistManagedExternally}
                                 >
                                   <Edit2 size={16} />
                                 </button>
@@ -660,7 +670,6 @@ export default function AdminPage() {
                                   className="admin-action-button admin-action-delete"
                                   onClick={() => handleDelete(entry.id)}
                                   title="Delete"
-                                  disabled={whitelistManagedExternally}
                                 >
                                   <Trash2 size={16} />
                                 </button>
@@ -676,95 +685,91 @@ export default function AdminPage() {
             </div>
           )}
         </section>
+        )}
 
-        <section className="admin-section">
-          <h2 className="admin-section-title">
-            <Key size={20} style={{ display: "inline", marginRight: "8px" }} />
-            パスワード変更
-          </h2>
-          <p className="admin-section-description">
-            管理者画面のパスワードを変更します。初期パスワード「{getDefaultPassword()}」から必ず変更してください。
-          </p>
-          {passwordManagedExternally && (
-            <div className="admin-alert admin-alert-info" style={{ alignItems: "center", gap: "8px" }}>
-              <AlertCircle size={18} />
-              <span>パスワードは config.pkg でロックされています。変更する場合は配布担当者に連絡してください。</span>
-            </div>
-          )}
+        {!passwordManagedExternally && (
+          <section className="admin-section">
+            <h2 className="admin-section-title">
+              <Key size={20} style={{ display: "inline", marginRight: "8px" }} />
+              パスワード変更
+            </h2>
+            <p className="admin-section-description">
+              管理者画面のパスワードを変更します。初期パスワード「{getDefaultPassword()}」から必ず変更してください。
+            </p>
 
-          {passwordError && (
-            <div className="admin-alert admin-alert-error">
-              <AlertCircle size={20} />
-              <span>{passwordError}</span>
-              <button onClick={() => setPasswordError(null)} className="admin-alert-close">
-                ×
+            {passwordError && (
+              <div className="admin-alert admin-alert-error">
+                <AlertCircle size={20} />
+                <span>{passwordError}</span>
+                <button onClick={() => setPasswordError(null)} className="admin-alert-close">
+                  ×
+                </button>
+              </div>
+            )}
+
+            {passwordSuccess && (
+              <div className="admin-alert admin-alert-success">
+                <span>{passwordSuccess}</span>
+              </div>
+            )}
+
+            <div className="admin-form">
+              <div className="admin-form-group">
+                <label htmlFor="current-password" className="admin-label">
+                  <Lock size={16} style={{ display: "inline", marginRight: "4px" }} />
+                  現在のパスワード *
+                </label>
+                <input
+                  id="current-password"
+                  type="password"
+                  className="admin-input"
+                  placeholder="現在のパスワードを入力"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+              </div>
+
+              <div className="admin-form-row">
+                <div className="admin-form-group">
+                  <label htmlFor="new-password" className="admin-label">
+                    新しいパスワード *
+                  </label>
+                  <input
+                    id="new-password"
+                    type="password"
+                    className="admin-input"
+                    placeholder="新しいパスワード（6文字以上）"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+
+                <div className="admin-form-group">
+                  <label htmlFor="confirm-password" className="admin-label">
+                    パスワード確認 *
+                  </label>
+                  <input
+                    id="confirm-password"
+                    type="password"
+                    className="admin-input"
+                    placeholder="新しいパスワードを再入力"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="admin-button admin-button-primary"
+                onClick={handlePasswordChange}
+              >
+                <Key size={20} />
+                パスワードを変更
               </button>
             </div>
-          )}
-
-          {passwordSuccess && (
-            <div className="admin-alert admin-alert-success">
-              <span>{passwordSuccess}</span>
-            </div>
-          )}
-
-          <div className="admin-form">
-            <div className="admin-form-group">
-              <label htmlFor="current-password" className="admin-label">
-                <Lock size={16} style={{ display: "inline", marginRight: "4px" }} />
-                現在のパスワード *
-              </label>
-              <input
-                id="current-password"
-                type="password"
-                className="admin-input"
-                placeholder="現在のパスワードを入力"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
-            </div>
-
-            <div className="admin-form-row">
-              <div className="admin-form-group">
-                <label htmlFor="new-password" className="admin-label">
-                  新しいパスワード *
-                </label>
-                <input
-                  id="new-password"
-                  type="password"
-                  className="admin-input"
-                  placeholder="新しいパスワード（6文字以上）"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-              </div>
-
-              <div className="admin-form-group">
-                <label htmlFor="confirm-password" className="admin-label">
-                  パスワード確認 *
-                </label>
-                <input
-                  id="confirm-password"
-                  type="password"
-                  className="admin-input"
-                  placeholder="新しいパスワードを再入力"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="admin-button admin-button-primary"
-              onClick={handlePasswordChange}
-              disabled={passwordManagedExternally}
-            >
-              <Key size={20} />
-              パスワードを変更
-            </button>
-          </div>
-        </section>
+          </section>
+        )}
 
         <section className="admin-section">
           <h2 className="admin-section-title">
