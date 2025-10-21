@@ -142,8 +142,6 @@ export default function WelcomePage() {
     ],
     [savedFlags],
   );
-<<<<<<< HEAD
-=======
 
   const resetResult = useCallback(() => {
     setResult({ state: "idle", message: "接続テストは未実行です。" });
@@ -423,7 +421,6 @@ export default function WelcomePage() {
       message: "保存済み接続を削除しました",
     });
   }, [resetResult]);
->>>>>>> 60d84a7 (feat: ガイド付きオンボーディングとUI刷新)
 
   const secureConfigBanner = useMemo(() => {
     if (!secureConfigInfo || secureConfigInfo.status === "none") {
