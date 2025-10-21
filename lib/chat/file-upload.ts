@@ -1,5 +1,6 @@
 import type { ConnectionSettings } from "@/lib/settings/connection-storage";
 import { createResponsesClient } from "./openai-client";
+import { saveLog } from "@/lib/logging/error-logger";
 
 export type UploadedFileInfo = {
   fileId: string;
@@ -17,10 +18,14 @@ export async function uploadFileToOpenAI(
   const client = createResponsesClient(connection);
 
   try {
+    console.log(`[file-upload] Uploading file: ${file.name} (${file.size} bytes) with purpose: ${purpose}`);
+
     const uploadedFile = await client.files.create({
       file,
       purpose,
     });
+
+    console.log(`[file-upload] Upload successful. File ID: ${uploadedFile.id}`);
 
     return {
       fileId: uploadedFile.id,
@@ -30,6 +35,23 @@ export async function uploadFileToOpenAI(
       isImage: purpose === 'vision',
     };
   } catch (error) {
+    console.error('[file-upload] Upload failed:', error);
+
+    // エラーログに記録
+    await saveLog(
+      'error',
+      'api',
+      `Chat file upload failed: ${file.name}`,
+      error instanceof Error ? error : undefined,
+      {
+        fileName: file.name,
+        fileSize: file.size,
+        purpose,
+        isImage: purpose === 'vision',
+        errorMessage: error instanceof Error ? error.message : String(error),
+      }
+    );
+
     if (error instanceof Error) {
       // OpenAI APIエラーメッセージを解析
       if (error.message.includes('unsupported')) {

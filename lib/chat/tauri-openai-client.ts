@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ConnectionSettings } from "@/lib/settings/connection-storage";
+import { saveLog } from "@/lib/logging/error-logger";
 
 function normalizeBaseUrl(url: string | undefined) {
   const trimmed = (url ?? "").trim();
@@ -238,41 +239,94 @@ export function createTauriResponsesClient(connection: ConnectionSettings) {
       async create(params: any) {
         const { file, purpose } = params;
 
-        // ファイルをBase64に変換（大きなファイルに対応）
-        const arrayBuffer = await file.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
+        console.log(`[Tauri] files.create called: ${file.name}, purpose: ${purpose}`);
 
-        // チャンクごとに変換してメモリーエラーを防ぐ
-        let base64 = '';
-        const chunkSize = 0x8000; // 32KB chunks
-        for (let i = 0; i < uint8Array.length; i += chunkSize) {
-          const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-          base64 += String.fromCharCode.apply(null, Array.from(chunk));
-        }
-        base64 = btoa(base64);
+        try {
+          // ファイルをBase64に変換（大きなファイルに対応）
+          const arrayBuffer = await file.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
 
-        // Tauri経由でファイルをアップロード
-        const response = await invoke('proxy_file_upload', {
-          request: {
-            base_url: normalizeBaseUrl(connection.baseUrl),
-            api_key: connection.apiKey,
-            file_data: base64,
-            file_name: file.name,
-            purpose: purpose,
-            additional_headers: connection.additionalHeaders,
-            proxy_config: {
-              http_proxy: connection.httpProxy,
-              https_proxy: connection.httpsProxy,
+          console.log(`[Tauri] File size: ${uint8Array.length} bytes`);
+
+          // チャンクごとに変換してメモリーエラーを防ぐ
+          let base64 = '';
+          const chunkSize = 0x8000; // 32KB chunks
+          for (let i = 0; i < uint8Array.length; i += chunkSize) {
+            const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+            base64 += String.fromCharCode.apply(null, Array.from(chunk));
+          }
+          base64 = btoa(base64);
+
+          console.log(`[Tauri] Base64 encoded, length: ${base64.length}`);
+
+          // Tauri経由でファイルをアップロード
+          const response = await invoke('proxy_file_upload', {
+            request: {
+              base_url: normalizeBaseUrl(connection.baseUrl),
+              api_key: connection.apiKey,
+              file_data: base64,
+              file_name: file.name,
+              purpose: purpose,
+              additional_headers: connection.additionalHeaders,
+              proxy_config: {
+                http_proxy: connection.httpProxy,
+                https_proxy: connection.httpsProxy,
+              },
             },
-          },
-        });
+          });
 
-        const result = JSON.parse((response as OpenAIResponse).body);
-        if ((response as OpenAIResponse).status >= 400) {
-          throw new Error(result.error?.message || "File upload failed");
+          console.log(`[Tauri] Response status: ${(response as OpenAIResponse).status}`);
+          console.log(`[Tauri] Response body:`, (response as OpenAIResponse).body);
+
+          const result = JSON.parse((response as OpenAIResponse).body);
+          if ((response as OpenAIResponse).status >= 400) {
+            const errorMsg = result.error?.message || "File upload failed";
+            console.error(`[Tauri] File upload failed:`, errorMsg, result);
+
+            // エラーログに記録
+            await saveLog(
+              'error',
+              'api',
+              `Tauri chat file upload failed: ${errorMsg}`,
+              undefined,
+              {
+                fileName: file.name,
+                fileSize: file.size,
+                purpose,
+                status: (response as OpenAIResponse).status,
+                result,
+              }
+            );
+
+            throw new Error(errorMsg);
+          }
+
+          console.log(`[Tauri] File uploaded successfully. ID: ${result.id}`);
+          return result;
+        } catch (error) {
+          console.error(`[Tauri] File upload error:`, error);
+
+          // エラーログに記録
+          await saveLog(
+            'error',
+            'api',
+            `Tauri chat file upload exception: ${file.name}`,
+            error instanceof Error ? error : undefined,
+            {
+              fileName: file.name,
+              fileSize: file.size,
+              purpose,
+              errorType: typeof error,
+              errorMessage: error instanceof Error ? error.message : String(error),
+            }
+          );
+
+          // エラーを再スロー
+          if (error instanceof Error) {
+            throw error;
+          }
+          throw new Error(`ファイルアップロードに失敗しました: ${String(error)}`);
         }
-
-        return result;
       },
       async delete(fileId: string) {
         return makeTauriOpenAIRequest(
