@@ -32,7 +32,7 @@ pub struct SecureConfig {
 
 fn config_file_path(app: &tauri::AppHandle) -> Option<PathBuf> {
     let resolver = app.path();
-    let config_dir = resolver.app_config_dir()?;
+    let config_dir = resolver.app_config_dir().ok()?;
     Some(config_dir.join("config.pkg"))
 }
 
