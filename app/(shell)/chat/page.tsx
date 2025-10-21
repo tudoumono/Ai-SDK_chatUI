@@ -279,7 +279,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
         setConnection(loadedConnection ?? null);
         if (!loadedConnection || !loadedConnection.apiKey) {
           setConnectionError(
-            "G0 のウェルカム画面で API キーと暗号化パスフレーズを入力してください。",
+            "ウェルカム画面で API キーと設定を入力してください。",
           );
         } else {
           setConnectionError(null);

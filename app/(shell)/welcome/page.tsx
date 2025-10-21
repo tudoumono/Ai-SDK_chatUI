@@ -120,6 +120,51 @@ export default function WelcomePage() {
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [wizardError, setWizardError] = useState<string | null>(null);
 
+  // 初期化: 保存済み設定を読み込む
+  useEffect(() => {
+    const initializeSettings = async () => {
+      // 保存済み設定の有無を確認
+      const flags = hasStoredConnection();
+      setSavedFlags(flags);
+
+      // ロック状態を確認
+      const locked = isApiKeyLocked();
+      setIsLocked(locked);
+
+      // 保存済み設定がある場合は読み込む
+      const connection = await loadConnection();
+      if (connection) {
+        setBaseUrl(connection.baseUrl || DEFAULT_BASE_URL);
+        setStoragePolicy(connection.storagePolicy);
+        setEncryptionEnabled(connection.encryptionEnabled);
+        setHttpProxy(connection.httpProxy || "");
+        setHttpsProxy(connection.httpsProxy || "");
+        setAdditionalHeaders(headersToTextarea(connection.additionalHeaders));
+
+        // APIキーがある場合は設定済み状態に
+        if (connection.apiKey) {
+          setApiKey(connection.apiKey);
+          // テスト完了状態として表示
+          setCurrentStep("test");
+          setResult({
+            state: "success",
+            message: "設定済みです。「/v1/models に接続」ボタンで再テストできます。",
+          });
+        }
+      }
+
+      // セキュア設定の状態を確認
+      const secureStatus = getSecureConfigStatus();
+      setSecureConfigInfo(secureStatus);
+
+      // ホワイトリストの状態を確認
+      const whitelist = await getWhitelistedOrgIds();
+      setWhitelistEnabled(whitelist.length > 0);
+    };
+
+    initializeSettings();
+  }, []);
+
   const requestTarget = useMemo(() => {
     const result = validateBaseUrl(baseUrl);
     const normalized = result.ok ? result.normalized : DEFAULT_BASE_URL;
@@ -521,6 +566,11 @@ export default function WelcomePage() {
           <p className="onboarding-subtitle">
             現在ステップ {currentStepIndex + 1} / {totalSteps} ：{currentStepMeta.title}
           </p>
+          {(savedFlags.session || savedFlags.persistent) && (
+            <div className="onboarding-badge onboarding-badge-success">
+              ✓ API接続設定が保存されています
+            </div>
+          )}
           {whitelistEnabled && (
             <div className="onboarding-badge onboarding-badge-success">
               <Shield size={16} />
@@ -557,6 +607,11 @@ export default function WelcomePage() {
           </div>
         </div>
         <div className="onboarding-hero-actions">
+          {(savedFlags.session || savedFlags.persistent) && (
+            <Link className="primary-button" href="/chat">
+              チャットを開く
+            </Link>
+          )}
           <Link className="outline-button" href="/admin">
             <Shield size={16} />
             管理者画面
