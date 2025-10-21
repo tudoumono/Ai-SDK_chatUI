@@ -172,7 +172,8 @@ export default function SettingsPage() {
 
     setErrorLogStatus({ state: "loading", message: "エラーログを削除中..." });
     try {
-      await clearAllLogs();
+      // データベースを再作成して確実に削除
+      await recreateErrorLogDatabase();
       setErrorLogStatus({ state: "success", message: "エラーログを削除しました。" });
     } catch (error) {
       console.error("Failed to clear error logs:", error);
