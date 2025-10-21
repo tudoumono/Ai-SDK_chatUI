@@ -32,6 +32,13 @@ pub struct SecureConfig {
     pub signature: Option<String>,
 }
 
+#[derive(Debug, Serialize, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SecureConfigResult {
+    pub config: Option<SecureConfig>,
+    pub path: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SecureFeatureRestrictions {
@@ -71,11 +78,21 @@ fn read_secure_config(app: &tauri::AppHandle) -> Result<Option<SecureConfig>, St
 }
 
 #[tauri::command]
-pub fn load_secure_config(app: tauri::AppHandle) -> Result<Option<SecureConfig>, String> {
-    let path = config_file_path(&app);
-    if let Some(path) = &path {
+pub fn load_secure_config(app: tauri::AppHandle) -> Result<SecureConfigResult, String> {
+    let maybe_path = config_file_path(&app);
+    if let Some(path) = &maybe_path {
         log::info!("Loading secure config from {:?}", path);
     }
 
-    read_secure_config(&app)
+    let config = match read_secure_config(&app) {
+        Ok(value) => value,
+        Err(err) => return Err(err),
+    };
+
+    let path_string = maybe_path.map(|p| p.display().to_string());
+
+    Ok(SecureConfigResult {
+        config,
+        path: path_string,
+    })
 }
