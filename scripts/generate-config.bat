@@ -21,13 +21,6 @@ if exist "%OUTPUT_PATH%" (
 )
 
 echo.
-set /p ORG_COUNT=Number of org IDs to whitelist (default: 0): 
-if "%ORG_COUNT%"=="" set ORG_COUNT=0
-for /f "tokens=* delims=0123456789" %%A in ("%ORG_COUNT%") do (
-  echo Please enter a number.
-  goto :eof
-)
-
 set ADMIN_PASSWORD_HASH=
 echo.
 set /p ADMIN_PASSWORD=Include admin password hash? (y/N): 
@@ -49,6 +42,12 @@ call :PromptToggle allowChatFileAttachment y
 set TEMP_FILE=%OUTPUT_PATH%.tmp
 if exist "%TEMP_FILE%" del "%TEMP_FILE%"
 
+set ORG_ENTRIES_FILE=%TEMP_FILE%.orgs
+if exist "%ORG_ENTRIES_FILE%" del "%ORG_ENTRIES_FILE%"
+set /a ORG_COUNT=0
+
+call :CollectOrgEntries
+
 (
   echo {
   echo   "version": 1,
@@ -56,32 +55,26 @@ if exist "%TEMP_FILE%" del "%TEMP_FILE%"
 ) >> "%TEMP_FILE%"
 
 if %ORG_COUNT% gtr 0 (
-  for /l %%I in (1,1,%ORG_COUNT%) do (
-    echo.
-  echo --- Org %%I ---
-    set ORG_ID=
-    set /p ORG_ID=Organization ID (org-xxxx): 
-    if "!ORG_ID!"=="" (
-      echo Invalid Org ID. Aborting.
-      del "%TEMP_FILE%"
-      goto :eof
+  set entryIndex=0
+  for /f "usebackq tokens=1,2,3,4 delims=|" %%A in ("%ORG_ENTRIES_FILE%") do (
+    set "ENTRY_ID=%%~A"
+    set "ENTRY_NAME=%%~B"
+    set "ENTRY_NOTES=%%~C"
+    set "ENTRY_ADDED_AT=%%~D"
+    if "!ENTRY_ADDED_AT!"=="" (
+      for /f %%T in ('powershell -NoProfile -Command "Get-Date -Format \"yyyy-MM-ddTHH:mm:ss\""') do set ENTRY_ADDED_AT=%%T
     )
-    set ORG_NAME=
-    set /p ORG_NAME=Organization Name: 
-    set ORG_NOTES=
-    set /p ORG_NOTES=Notes (optional): 
-    for /f %%T in ('powershell -NoProfile -Command "Get-Date -Format \"yyyy-MM-ddTHH:mm:ss\""') do set CURRENT_TIMESTAMP=%%T
-
+    set /a entryIndex+=1
     >> "%TEMP_FILE%" echo     {
-    >> "%TEMP_FILE%" echo       "id": "org-entry-%%I",
-    >> "%TEMP_FILE%" echo       "orgId": "!ORG_ID!",
-    >> "%TEMP_FILE%" echo       "orgName": "!ORG_NAME!",
-    if not "!ORG_NOTES!"=="" (
-      >> "%TEMP_FILE%" echo       "notes": "!ORG_NOTES!",
+    >> "%TEMP_FILE%" echo       "id": "org-entry-!entryIndex!",
+    >> "%TEMP_FILE%" echo       "orgId": "!ENTRY_ID!",
+    >> "%TEMP_FILE%" echo       "orgName": "!ENTRY_NAME!",
+    if not "!ENTRY_NOTES!"=="" (
+      >> "%TEMP_FILE%" echo       "notes": "!ENTRY_NOTES!",
     )
-    >> "%TEMP_FILE%" echo       "addedAt": "!CURRENT_TIMESTAMP!"
+    >> "%TEMP_FILE%" echo       "addedAt": "!ENTRY_ADDED_AT!"
     >> "%TEMP_FILE%" echo     }
-    if not %%I==%ORG_COUNT% (
+    if !entryIndex! lss %ORG_COUNT% (
       >> "%TEMP_FILE%" echo     ,
     )
   )
@@ -103,12 +96,118 @@ if "!ADMIN_PASSWORD_HASH!"=="" (
 >> "%TEMP_FILE%" echo   }
 >> "%TEMP_FILE%" echo }
 
+if exist "%ORG_ENTRIES_FILE%" del "%ORG_ENTRIES_FILE%"
+
 move /y "%TEMP_FILE%" "%OUTPUT_PATH%" >nul
 if errorlevel 1 (
   echo ファイルの生成に失敗しました。
 ) else (
   echo.
   echo Created %OUTPUT_PATH% successfully.
+)
+goto :eof
+
+:CollectOrgEntries
+echo.
+set FETCH_CHOICE=
+set /p FETCH_CHOICE=Fetch organization IDs from OpenAI API now? (y/N): 
+if /i "%FETCH_CHOICE%"=="y" call :FetchOrgIds
+
+:CollectManualLoop
+set ADD_CHOICE=
+set /p ADD_CHOICE=Add organization manually? (y/N): 
+if /i "%ADD_CHOICE%"=="y" (
+  call :AddOrgManual
+  goto :CollectManualLoop
+)
+goto :eof
+
+:FetchOrgIds
+set PS_API_KEY=
+set /p PS_API_KEY=Enter API key for lookup: 
+if "%PS_API_KEY%"=="" (
+  echo Skipping fetch (no API key provided).
+  goto :eof
+)
+set PS_BASE_URL=https://api.openai.com/v1
+set INPUT_BASE_URL=
+set /p INPUT_BASE_URL=Base URL (default: https://api.openai.com/v1): 
+if not "%INPUT_BASE_URL%"=="" set PS_BASE_URL=%INPUT_BASE_URL%
+
+set "PS_API_KEY_ENV=%PS_API_KEY%"
+set "PS_BASE_URL_ENV=%PS_BASE_URL%"
+set FETCH_FILE=%TEMP_FILE%.fetch
+powershell -NoProfile -Command ^
+  "$ErrorActionPreference='Stop';" ^
+  "$headers=@{Authorization='Bearer ' + $env:PS_API_KEY_ENV};" ^
+  "$uri=$env:PS_BASE_URL_ENV.TrimEnd('/') + '/me';" ^
+  "$response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers;" ^
+  "if(-not $response.orgs -or -not $response.orgs.data){ throw 'No organizations found.' }" ^
+  "$response.orgs.data | ForEach-Object { ($_.id ?? '') + '|' + ($_.name ?? '') }" ^
+  > "%FETCH_FILE%" 2> "%FETCH_FILE%.err"
+
+if errorlevel 1 (
+  echo Failed to fetch organization info. Details:
+  type "%FETCH_FILE%.err"
+  del "%FETCH_FILE%" >nul 2>&1
+  del "%FETCH_FILE%.err" >nul 2>&1
+  goto :eof
+)
+del "%FETCH_FILE%.err" >nul 2>&1
+
+for /f "usebackq tokens=1,2 delims=|" %%A in ("%FETCH_FILE%") do (
+  set "FETCHED_ID=%%~A"
+  set "FETCHED_NAME=%%~B"
+  if not "!FETCHED_ID!"=="" (
+    echo Found: !FETCHED_ID! (!FETCHED_NAME!)
+    set ADD_ID_CHOICE=
+    set /p ADD_ID_CHOICE=Add this organization? (y/N): 
+    if /i "!ADD_ID_CHOICE!"=="y" (
+      set "ENTRY_ID=!FETCHED_ID!"
+      set "ENTRY_NAME=!FETCHED_NAME!"
+      set "ENTRY_NOTES="
+      for /f %%T in ('powershell -NoProfile -Command "Get-Date -Format \"yyyy-MM-ddTHH:mm:ss\""') do set ENTRY_ADDED_AT=%%T
+      call :AddOrgEntry
+    )
+  )
+)
+del "%FETCH_FILE%" >nul 2>&1
+set PS_API_KEY=
+set PS_API_KEY_ENV=
+set PS_BASE_URL_ENV=
+goto :eof
+
+:AddOrgManual
+echo --- Manual entry ---
+set ORG_ID=
+set /p ORG_ID=Organization ID (org-xxxx): 
+if "%ORG_ID%"=="" (
+  echo Skipping entry (empty ID).
+  goto :eof
+)
+set ORG_NAME=
+set /p ORG_NAME=Organization Name: 
+set ORG_NOTES=
+set /p ORG_NOTES=Notes (optional): 
+set "ENTRY_ID=%ORG_ID%"
+set "ENTRY_NAME=%ORG_NAME%"
+set "ENTRY_NOTES=%ORG_NOTES%"
+for /f %%T in ('powershell -NoProfile -Command "Get-Date -Format \"yyyy-MM-ddTHH:mm:ss\""') do set ENTRY_ADDED_AT=%%T
+call :AddOrgEntry
+goto :eof
+
+:AddOrgEntry
+set /a ORG_COUNT+=1
+set "ENTRY_ID=%ENTRY_ID:|=/%"
+set "ENTRY_NAME=%ENTRY_NAME:|=/%"
+set "ENTRY_NOTES=%ENTRY_NOTES:|=/%"
+set "ENTRY_ID=%ENTRY_ID:"='%"
+set "ENTRY_NAME=%ENTRY_NAME:"='%"
+set "ENTRY_NOTES=%ENTRY_NOTES:"='%"
+if "%ENTRY_NOTES%"=="" (
+  >> "%ORG_ENTRIES_FILE%" echo !ENTRY_ID!|!ENTRY_NAME!||!ENTRY_ADDED_AT!
+) else (
+  >> "%ORG_ENTRIES_FILE%" echo !ENTRY_ID!|!ENTRY_NAME!|!ENTRY_NOTES!|!ENTRY_ADDED_AT!
 )
 goto :eof
 
