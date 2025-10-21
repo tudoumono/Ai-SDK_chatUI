@@ -124,15 +124,19 @@ function toInputMessages(
 function buildTools(vectorStoreIds?: string[], webSearchEnabled?: boolean): any {
   const tools: any[] = [];
   if (vectorStoreIds && vectorStoreIds.length > 0) {
+    console.log('[buildTools] Adding file_search with vector_store_ids:', vectorStoreIds);
     tools.push({
       type: "file_search",
       vector_store_ids: vectorStoreIds.slice(0, 3)
     });
   }
   if (webSearchEnabled) {
+    console.log('[buildTools] Adding web_search');
     tools.push({ type: "web_search" });
   }
-  return tools.length > 0 ? tools : undefined;
+  const result = tools.length > 0 ? tools : undefined;
+  console.log('[buildTools] Final tools:', result);
+  return result;
 }
 
 function extractSources(response: Response): MessagePart[] {
