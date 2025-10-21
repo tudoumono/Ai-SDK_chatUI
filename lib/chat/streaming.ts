@@ -331,25 +331,24 @@ export async function streamAssistantResponse(
     // Responses API呼び出しエラーをログに記録
     console.error('[streaming] Error in streamAssistantResponse:', error);
 
+    // エラーの詳細情報を収集
+    const errorDetails: Record<string, unknown> = {
+      model: request.model,
+      hasAttachments: !!request.attachments && request.attachments.length > 0,
+      attachmentCount: request.attachments?.length || 0,
+      vectorStoreIds: request.vectorStoreIds,
+      vectorStoreCount: request.vectorStoreIds?.length || 0,
+      webSearchEnabled: request.webSearchEnabled,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorType: typeof error,
+    };
+
     await saveLog(
       'error',
       'api',
       'Responses API call failed',
       error instanceof Error ? error : undefined,
-      {
-        model: request.model,
-        hasAttachments: !!request.attachments && request.attachments.length > 0,
-        attachmentCount: request.attachments?.length || 0,
-        attachments: request.attachments?.map(att => ({
-          fileId: att.fileId,
-          toolsLength: att.tools.length,
-          tools: att.tools.map(t => t.type),
-        })),
-        vectorStoreIds: request.vectorStoreIds,
-        webSearchEnabled: request.webSearchEnabled,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorType: typeof error,
-      }
+      errorDetails
     );
 
     // エラーを再スロー
