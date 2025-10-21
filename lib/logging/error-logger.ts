@@ -134,13 +134,15 @@ async function cleanupOldLogs(db: IDBPDatabase<ErrorLogDB>): Promise<void> {
 }
 
 /**
- * すべてのログを取得
+ * すべてのログを取得（制限付き）
+ * メモリーリーク対策として、デフォルトで最新100件のみ取得
  */
-export async function getAllLogs(): Promise<LogEntry[]> {
+export async function getAllLogs(limit = 100): Promise<LogEntry[]> {
   try {
     const db = await getDB();
     const logs = await db.getAllFromIndex(STORE_NAME, "by-timestamp");
-    return logs.reverse(); // 新しい順に
+    // 新しい順に制限
+    return logs.reverse().slice(0, limit);
   } catch (err) {
     console.error("Failed to get logs:", err);
     return [];
@@ -189,7 +191,8 @@ export async function clearAllLogs(): Promise<void> {
 }
 
 /**
- * ログ統計を取得
+ * ログ統計を取得（メモリー効率的な実装）
+ * 全ログをメモリに読み込まず、カーソルを使って統計を計算
  */
 export async function getLogStats(): Promise<{
   total: number;
@@ -197,17 +200,27 @@ export async function getLogStats(): Promise<{
   byCategory: Record<string, number>;
 }> {
   try {
-    const logs = await getAllLogs();
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const store = tx.objectStore(STORE_NAME);
+
+    const total = await store.count();
     const byLevel: Record<string, number> = {};
     const byCategory: Record<string, number> = {};
 
-    logs.forEach((log) => {
+    // カーソルを使って統計を計算（メモリ効率的）
+    let cursor = await store.openCursor();
+    while (cursor) {
+      const log = cursor.value;
       byLevel[log.level] = (byLevel[log.level] || 0) + 1;
       byCategory[log.category] = (byCategory[log.category] || 0) + 1;
-    });
+      cursor = await cursor.continue();
+    }
+
+    await tx.done;
 
     return {
-      total: logs.length,
+      total,
       byLevel,
       byCategory,
     };

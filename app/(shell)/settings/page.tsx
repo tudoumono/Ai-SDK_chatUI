@@ -140,7 +140,7 @@ export default function SettingsPage() {
     return `${trimmed}/models`;
   }, [baseUrl]);
 
-  // エラーログを読み込む（メモリーリーク対策：手動実行のみ）
+  // エラーログを読み込む（メモリーリーク対策：手動実行のみ、最新50件のみ取得）
   const loadErrorLogs = useCallback(async () => {
     // 重複実行を防ぐ
     if (errorLogStatus.state === "loading") {
@@ -150,7 +150,7 @@ export default function SettingsPage() {
     setErrorLogStatus({ state: "loading", message: "エラーログを読み込み中..." });
     try {
       const [logsData, statsData] = await Promise.all([
-        getAllLogs(),
+        getAllLogs(50), // メモリー対策：最新50件のみ取得
         getLogStats(),
       ]);
       setErrorLogs(logsData);
@@ -158,7 +158,7 @@ export default function SettingsPage() {
       setErrorLogsLoaded(true);
       setErrorLogStatus({
         state: "success",
-        message: `エラーログを読み込みました（${logsData.length}件）`
+        message: `エラーログを読み込みました（表示: ${logsData.length}件 / 全体: ${statsData.total}件）`
       });
     } catch (error) {
       console.error("Failed to load error logs:", error);
@@ -175,21 +175,24 @@ export default function SettingsPage() {
     }
   }, [errorLogStatus.state]);
 
-  // エラーログをエクスポート
+  // エラーログをエクスポート（メモリー対策：全ログを一度に取得）
   const handleExportErrorLogs = useCallback(async () => {
     setErrorLogStatus({ state: "loading", message: "エラーログをエクスポート中..." });
     try {
-      if (errorLogs.length === 0) {
+      // エクスポート用に全ログを取得（最大500件まで）
+      const allLogs = await getAllLogs(500);
+
+      if (allLogs.length === 0) {
         setErrorLogStatus({ state: "error", message: "エクスポートするログがありません。" });
         return;
       }
 
-      const bundle = createLogExportBundle(errorLogs);
+      const bundle = createLogExportBundle(allLogs);
       await downloadLogBundle(bundle);
 
       setErrorLogStatus({
         state: "success",
-        message: `エラーログをエクスポートしました（${errorLogs.length}件）`,
+        message: `エラーログをエクスポートしました（${allLogs.length}件）`,
       });
       await saveErrorLog("info", "storage", "エラーログをエクスポートしました");
     } catch (error) {
@@ -205,7 +208,7 @@ export default function SettingsPage() {
         error instanceof Error ? error : undefined
       );
     }
-  }, [errorLogs]);
+  }, []);
 
   // エラーログをクリア
   const handleClearErrorLogs = useCallback(async () => {
@@ -1138,7 +1141,7 @@ export default function SettingsPage() {
               <span>メッセージ</span>
               <span>日時</span>
             </div>
-            {errorLogs.slice(0, 50).map((log, index) => (
+            {errorLogs.map((log, index) => (
               <div key={log.id || index} className="error-log-item">
                 <div className="error-log-level">
                   <StatusBadge
@@ -1166,9 +1169,9 @@ export default function SettingsPage() {
                 </div>
               </div>
             ))}
-            {errorLogs.length > 50 && (
+            {logStats.total > errorLogs.length && (
               <p className="error-log-footer">
-                最新50件を表示しています（全{errorLogs.length}件）
+                最新{errorLogs.length}件を表示しています（全{logStats.total}件）
               </p>
             )}
           </div>
