@@ -50,6 +50,7 @@ import {
 import { streamAssistantResponse } from "@/lib/chat/streaming";
 import { validateFile, formatFileSize } from "@/lib/chat/file-validation";
 import { uploadFileToOpenAI, type UploadedFileInfo } from "@/lib/chat/file-upload";
+import { createTempVectorStoreForChat, formatExpiryInfo } from "@/lib/chat/auto-vector-store";
 import type { AttachedFileInfo } from "@/lib/storage/schema";
 import {
   loadRolePresets,
@@ -536,25 +537,55 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
     let uploadedFileInfos: UploadedFileInfo[] = [];
     let attachedFileInfos: AttachedFileInfo[] = [];
     let fileUploadError: string | null = null;
+    let tempVectorStoreId: string | null = null;
+    let vectorStoreExpiryInfo: string | null = null;
 
     if (attachedFiles.length > 0) {
       try {
         setUploadingFiles(true);
-        setStatusMessage(`${attachedFiles.length}件のファイルをアップロード中…`);
 
-        uploadedFileInfos = await Promise.all(
-          attachedFiles.map((item) =>
-            uploadFileToOpenAI(item.file, item.purpose, currentConnection)
-          )
-        );
+        // ドキュメントファイルと画像ファイルを分類
+        const documentFiles = attachedFiles.filter(item => item.purpose === 'assistants');
+        const imageFiles = attachedFiles.filter(item => item.purpose === 'vision');
 
-        // IndexedDB保存用のファイル情報を作成
-        attachedFileInfos = uploadedFileInfos.map(info => ({
-          fileName: info.fileName,
-          fileSize: info.fileSize,
-          fileId: info.fileId,
-          purpose: info.purpose,
-        }));
+        // ドキュメントファイルがある場合、Vector Storeを自動作成
+        if (documentFiles.length > 0) {
+          setStatusMessage(`${documentFiles.length}件のドキュメントをVector Storeにアップロード中…`);
+
+          const result = await createTempVectorStoreForChat(
+            documentFiles.map(item => item.file),
+            { connection: currentConnection }
+          );
+
+          tempVectorStoreId = result.vectorStoreId;
+          vectorStoreExpiryInfo = formatExpiryInfo(result.vectorStoreRecord);
+
+          // Vector Storesリストを更新
+          setVectorStores(prev => [result.vectorStoreRecord, ...prev]);
+
+          setStatusMessage(`Vector Store作成完了 (${vectorStoreExpiryInfo})`);
+        }
+
+        // 画像ファイルは従来通り直接アップロード
+        if (imageFiles.length > 0) {
+          setStatusMessage(`${imageFiles.length}件の画像をアップロード中…`);
+
+          const uploadedImages = await Promise.all(
+            imageFiles.map((item) =>
+              uploadFileToOpenAI(item.file, item.purpose, currentConnection)
+            )
+          );
+
+          uploadedFileInfos = uploadedImages;
+
+          // IndexedDB保存用のファイル情報を作成
+          attachedFileInfos = uploadedImages.map(info => ({
+            fileName: info.fileName,
+            fileSize: info.fileSize,
+            fileId: info.fileId,
+            purpose: info.purpose,
+          }));
+        }
 
         setStatusMessage("ファイルアップロード完了");
         setAttachedFiles([]);
@@ -591,21 +622,25 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
       const controller = new AbortController();
       streamingControllerRef.current = controller;
 
-      // attachmentsを構築
+      // attachmentsを構築（画像のみ）
       const attachments = uploadedFileInfos.map(info => ({
         fileId: info.fileId,
-        // vision（画像）の場合はツール不要、assistantsの場合はfile_search
-        tools: info.purpose === 'vision' ? [] : [{ type: 'file_search' as const }],
+        // vision（画像）の場合はツール不要
+        tools: [],
       }));
 
-      // ファイル添付時のWeb検索制限チェック
-      // file_searchツールを使用するファイル（ドキュメント）が添付されている場合、
-      // OpenAI Responses APIの制限によりWeb検索を無効化する必要がある
-      const hasDocumentAttachments = attachments.some(att => att.tools.length > 0);
-      const effectiveWebSearchEnabled = hasDocumentAttachments ? false : webSearchEnabled;
+      // Vector Store IDsを構築
+      // 既存の選択されたVector Store + 一時的に作成したVector Store
+      const effectiveVectorStoreIds = tempVectorStoreId
+        ? [...(vectorSearchEnabled ? selectedVectorStoreIds : []), tempVectorStoreId]
+        : (vectorSearchEnabled ? selectedVectorStoreIds : []);
 
-      if (hasDocumentAttachments && webSearchEnabled) {
-        setStatusMessage("⚠️ ドキュメント添付時はWeb検索を一時的に無効化します");
+      // Vector Store使用時のWeb検索制限チェック
+      const hasVectorStoreActive = effectiveVectorStoreIds.length > 0;
+      const effectiveWebSearchEnabled = hasVectorStoreActive ? false : webSearchEnabled;
+
+      if (hasVectorStoreActive && webSearchEnabled) {
+        setStatusMessage("⚠️ Vector Store使用時はWeb検索を一時的に無効化します");
       }
 
       // メモリ最適化：直接参照を使用（コピー不要）
@@ -615,7 +650,7 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
           connection: currentConnection,
           model: (selectedModel || DEFAULT_MODEL).trim() || DEFAULT_MODEL,
           messages: baseHistory,
-          vectorStoreIds: vectorSearchEnabled ? selectedVectorStoreIds : undefined,
+          vectorStoreIds: effectiveVectorStoreIds.length > 0 ? effectiveVectorStoreIds : undefined,
           webSearchEnabled: effectiveWebSearchEnabled,
           abortSignal: controller.signal,
           attachments: attachments.length > 0 ? attachments : undefined,
