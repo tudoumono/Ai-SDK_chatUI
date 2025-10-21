@@ -6,6 +6,11 @@ import { normalizeBaseUrl } from "@/lib/security/base-url";
 import { isFileUploadAllowed } from "@/lib/settings/feature-restrictions";
 import { filterForbiddenHeaders } from "@/lib/security/headers";
 
+// Tauri環境かどうかを判定
+function isTauriEnvironment(): boolean {
+  return typeof window !== "undefined" && "__TAURI__" in window;
+}
+
 function ensureConnection(connection?: ConnectionSettings | null) {
   if (!connection) {
     throw new Error("接続情報が保存されていません。まず G0 で接続テストを実施してください。");
@@ -68,20 +73,30 @@ export async function fetchVectorStoresFromApi(
   const connection = ensureConnection(
     connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = normalizeBaseUrl(connection.baseUrl);
-  const url = `${baseUrl}/vector_stores`;
-  const response = await fetch(url, {
-    method: "GET",
-    headers: buildRequestHeaders(
-      { Authorization: `Bearer ${connection.apiKey}` },
-      connection.additionalHeaders,
-    ),
-  });
-  if (!response.ok) {
-    const message = await response.text().catch(() => "");
-    throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+
+  let json: VectorStoreListResponse;
+
+  if (isTauriEnvironment()) {
+    // Tauri環境ではTauri invoke経由でリクエスト
+    const { makeTauriOpenAIRequest } = await import("@/lib/chat/tauri-openai-client");
+    json = await makeTauriOpenAIRequest(connection, "GET", "/vector_stores");
+  } else {
+    // ブラウザ環境では通常のfetchを使用
+    const baseUrl = normalizeBaseUrl(connection.baseUrl);
+    const url = `${baseUrl}/vector_stores`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: buildRequestHeaders(
+        { Authorization: `Bearer ${connection.apiKey}` },
+        connection.additionalHeaders,
+      ),
+    });
+    if (!response.ok) {
+      const message = await response.text().catch(() => "");
+      throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+    }
+    json = (await response.json()) as VectorStoreListResponse;
   }
-  const json = (await response.json()) as VectorStoreListResponse;
   return json.data.map((item) => {
     const expiresAfter = item.expires_after
       ? {
@@ -221,20 +236,28 @@ export async function fetchVectorStoreFiles(
   const connection = ensureConnection(
     connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = normalizeBaseUrl(connection.baseUrl);
-  const url = `${baseUrl}/vector_stores/${vectorStoreId}/files`;
-  const response = await fetch(url, {
-    method: "GET",
-    headers: buildRequestHeaders(
-      { Authorization: `Bearer ${connection.apiKey}` },
-      connection.additionalHeaders,
-    ),
-  });
-  if (!response.ok) {
-    const message = await response.text().catch(() => "");
-    throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+
+  let json: VectorStoreFilesResponse;
+
+  if (isTauriEnvironment()) {
+    const { makeTauriOpenAIRequest } = await import("@/lib/chat/tauri-openai-client");
+    json = await makeTauriOpenAIRequest(connection, "GET", `/vector_stores/${vectorStoreId}/files`);
+  } else {
+    const baseUrl = normalizeBaseUrl(connection.baseUrl);
+    const url = `${baseUrl}/vector_stores/${vectorStoreId}/files`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: buildRequestHeaders(
+        { Authorization: `Bearer ${connection.apiKey}` },
+        connection.additionalHeaders,
+      ),
+    });
+    if (!response.ok) {
+      const message = await response.text().catch(() => "");
+      throw new Error(`OpenAI API エラー: HTTP ${response.status} ${message}`.trim());
+    }
+    json = (await response.json()) as VectorStoreFilesResponse;
   }
-  const json = (await response.json()) as VectorStoreFilesResponse;
   return json.data.map((file) => ({
     id: file.id,
     status: file.status,
