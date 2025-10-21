@@ -32,6 +32,7 @@ export default function AdminPage() {
   const [editNotes, setEditNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [whitelistManagedExternally, setWhitelistManagedExternally] = useState(false);
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -39,6 +40,7 @@ export default function AdminPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [passwordManagedExternally, setPasswordManagedExternally] = useState(false);
 
   // Organization ID lookup state
   const [lookupApiKey, setLookupApiKey] = useState("");
@@ -64,6 +66,14 @@ export default function AdminPage() {
         if (!cancelled) {
           setEntries(loaded);
           setFeatureRestrictions(restrictions);
+          if (typeof window !== "undefined") {
+            setWhitelistManagedExternally(
+              window.localStorage.getItem("org-whitelist:managed-by-secure-config") === "true",
+            );
+            setPasswordManagedExternally(
+              window.localStorage.getItem("admin-password:managed-by-secure-config") === "true",
+            );
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -84,6 +94,11 @@ export default function AdminPage() {
   }, []);
 
   const handleAdd = useCallback(async () => {
+    if (whitelistManagedExternally) {
+      setError("ホワイトリストは配布設定ファイルで管理されています。編集するには管理者にお問い合わせください。");
+      return;
+    }
+
     if (!newOrgId.trim() || !newOrgName.trim()) {
       setError("Organization ID and Name are required");
       return;
@@ -111,9 +126,14 @@ export default function AdminPage() {
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to add organization");
     }
-  }, [newOrgId, newOrgName, newNotes]);
+  }, [newOrgId, newOrgName, newNotes, whitelistManagedExternally]);
 
   const handleDelete = useCallback(async (id: string) => {
+    if (whitelistManagedExternally) {
+      setError("ホワイトリストは配布設定ファイルで管理されています。削除するには管理者にお問い合わせください。");
+      return;
+    }
+
     if (!confirm("Are you sure you want to remove this organization from the whitelist?")) {
       return;
     }
@@ -127,13 +147,18 @@ export default function AdminPage() {
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to remove organization");
     }
-  }, []);
+  }, [whitelistManagedExternally]);
 
   const handleStartEdit = useCallback((entry: OrgWhitelistEntry) => {
+    if (whitelistManagedExternally) {
+      setError("ホワイトリストは配布設定ファイルで管理されています。編集するには管理者にお問い合わせください。");
+      return;
+    }
+
     setEditingId(entry.id);
     setEditOrgName(entry.orgName);
     setEditNotes(entry.notes || "");
-  }, []);
+  }, [whitelistManagedExternally]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingId(null);
@@ -142,6 +167,11 @@ export default function AdminPage() {
   }, []);
 
   const handleSaveEdit = useCallback(async () => {
+    if (whitelistManagedExternally) {
+      setError("ホワイトリストは配布設定ファイルで管理されています。編集するには管理者にお問い合わせください。");
+      return;
+    }
+
     if (!editingId || !editOrgName.trim()) {
       setError("Organization name is required");
       return;
@@ -164,9 +194,14 @@ export default function AdminPage() {
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to update organization");
     }
-  }, [editingId, editOrgName, editNotes]);
+  }, [editingId, editOrgName, editNotes, whitelistManagedExternally]);
 
   const handlePasswordChange = useCallback(async () => {
+    if (passwordManagedExternally) {
+      setPasswordError("管理者パスワードは配布設定ファイルで管理されています。変更するには管理者にお問い合わせください。");
+      return;
+    }
+
     setPasswordError(null);
     setPasswordSuccess(null);
 
@@ -196,7 +231,7 @@ export default function AdminPage() {
     } else {
       setPasswordError(result.error || "パスワードの変更に失敗しました");
     }
-  }, [currentPassword, newPassword, confirmPassword]);
+  }, [currentPassword, newPassword, confirmPassword, passwordManagedExternally]);
 
   const handleLookupOrgId = useCallback(async () => {
     if (!lookupApiKey.trim()) {
@@ -403,6 +438,12 @@ export default function AdminPage() {
             会社配布のAPIキーに紐づく組織IDをホワイトリストに追加します。
             個人のAPIキーが使用されるのを防ぎます。
           </p>
+          {whitelistManagedExternally && (
+            <div className="admin-alert admin-alert-info" style={{ alignItems: "center", gap: "8px" }}>
+              <AlertCircle size={18} />
+              <span>このホワイトリストは config.pkg によって管理されています。編集するには管理者に依頼してください。</span>
+            </div>
+          )}
 
           <div className="admin-form">
             <div className="admin-form-row">
@@ -456,6 +497,7 @@ export default function AdminPage() {
               type="button"
               className="admin-button admin-button-primary"
               onClick={handleAdd}
+              disabled={whitelistManagedExternally}
             >
               <Plus size={20} />
               Add Organization
@@ -540,6 +582,7 @@ export default function AdminPage() {
                                   className="admin-action-button admin-action-save"
                                   onClick={handleSaveEdit}
                                   title="Save"
+                                  disabled={whitelistManagedExternally}
                                 >
                                   <Save size={16} />
                                 </button>
@@ -557,6 +600,7 @@ export default function AdminPage() {
                                   className="admin-action-button admin-action-edit"
                                   onClick={() => handleStartEdit(entry)}
                                   title="Edit"
+                                  disabled={whitelistManagedExternally}
                                 >
                                   <Edit2 size={16} />
                                 </button>
@@ -564,6 +608,7 @@ export default function AdminPage() {
                                   className="admin-action-button admin-action-delete"
                                   onClick={() => handleDelete(entry.id)}
                                   title="Delete"
+                                  disabled={whitelistManagedExternally}
                                 >
                                   <Trash2 size={16} />
                                 </button>
@@ -588,6 +633,12 @@ export default function AdminPage() {
           <p className="admin-section-description">
             管理者画面のパスワードを変更します。初期パスワード「{getDefaultPassword()}」から必ず変更してください。
           </p>
+          {passwordManagedExternally && (
+            <div className="admin-alert admin-alert-info" style={{ alignItems: "center", gap: "8px" }}>
+              <AlertCircle size={18} />
+              <span>パスワードは config.pkg でロックされています。変更する場合は配布担当者に連絡してください。</span>
+            </div>
+          )}
 
           {passwordError && (
             <div className="admin-alert admin-alert-error">
@@ -655,6 +706,7 @@ export default function AdminPage() {
               type="button"
               className="admin-button admin-button-primary"
               onClick={handlePasswordChange}
+              disabled={passwordManagedExternally}
             >
               <Key size={20} />
               パスワードを変更

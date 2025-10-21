@@ -1,13 +1,7 @@
 import OpenAI from "openai";
 import type { ConnectionSettings } from "@/lib/settings/connection-storage";
-
-function normalizeBaseUrl(url: string | undefined) {
-  const trimmed = (url ?? "").trim();
-  if (!trimmed) {
-    return "https://api.openai.com/v1";
-  }
-  return trimmed.replace(/\/$/, "");
-}
+import { filterForbiddenHeaders } from "@/lib/security/headers";
+import { normalizeBaseUrl } from "@/lib/security/base-url";
 
 // Tauri環境かどうかを判定
 function isTauriEnvironment(): boolean {
@@ -31,6 +25,6 @@ export function createResponsesClient(connection: ConnectionSettings) {
     apiKey: connection.apiKey,
     baseURL: normalizeBaseUrl(connection.baseUrl),
     dangerouslyAllowBrowser: true,
-    defaultHeaders: connection.additionalHeaders,
+    defaultHeaders: filterForbiddenHeaders(connection.additionalHeaders),
   });
 }

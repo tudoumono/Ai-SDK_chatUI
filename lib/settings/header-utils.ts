@@ -1,14 +1,10 @@
+import { filterForbiddenHeaders, isForbiddenHeaderName } from "@/lib/security/headers";
+
 export type HeadersParseResult =
   | { headers: Record<string, string> }
   | { error: string };
 
 const ASCII_REGEX = /^[\x00-\x7F]+$/;
-const RESERVED_HEADER_NAMES = new Set([
-  "authorization",
-  "content-length",
-  "host",
-  "accept-encoding",
-]);
 
 function isAscii(value: string) {
   return ASCII_REGEX.test(value);
@@ -45,16 +41,24 @@ export function parseAdditionalHeaders(input: string): HeadersParseResult {
       };
     }
 
-    if (RESERVED_HEADER_NAMES.has(name.toLowerCase())) {
+    if (isForbiddenHeaderName(name)) {
       return {
-        error: `\"${name}\" ヘッダは設定済みのため追加できません。`,
+        error: `「${name}」ヘッダーはセキュリティ保護のため追加できません。`,
       };
     }
 
     headers[name] = value;
   }
 
-  return { headers };
+  const sanitized = filterForbiddenHeaders(headers);
+
+  if (!sanitized || Object.keys(sanitized).length === 0) {
+    return {
+      headers: {},
+    };
+  }
+
+  return { headers: sanitized };
 }
 
 export function sanitizeHeaders(headers?: Record<string, string>) {
@@ -65,6 +69,9 @@ export function sanitizeHeaders(headers?: Record<string, string>) {
       continue;
     }
     if (!isAscii(key) || !isAscii(value)) {
+      continue;
+    }
+    if (isForbiddenHeaderName(key)) {
       continue;
     }
     sanitized[key] = value;

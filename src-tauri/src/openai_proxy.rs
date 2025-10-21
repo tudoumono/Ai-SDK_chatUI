@@ -1,9 +1,114 @@
-use reqwest::{Client, Proxy, multipart};
+use reqwest::{Client, Proxy, Url, multipart};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 use uuid::Uuid;
 use base64::{Engine as _, engine::general_purpose};
+use once_cell::sync::Lazy;
+
+const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
+const STRICT_FORBIDDEN_HEADERS: &[&str] = &[
+    "authorization",
+    "proxy-authorization",
+    "content-length",
+    "connection",
+    "host",
+    "transfer-encoding",
+    "te",
+    "keep-alive",
+    "upgrade",
+    "expect",
+];
+const FORBIDDEN_HEADER_PREFIXES: &[&str] = &["sec-", "proxy-"];
+
+static ALLOWED_HOSTS: Lazy<HashSet<String>> = Lazy::new(|| {
+    let mut hosts: HashSet<String> = DEFAULT_ALLOWED_HOSTS
+        .iter()
+        .map(|host| host.to_ascii_lowercase())
+        .collect();
+
+    if let Ok(extra) = std::env::var("ALLOWED_OPENAI_HOSTS") {
+        for host in extra.split(',') {
+            let normalized = host.trim().to_ascii_lowercase();
+            if !normalized.is_empty() {
+                hosts.insert(normalized);
+            }
+        }
+    }
+
+    hosts
+});
+
+const DEFAULT_ALLOWED_HOSTS: &[&str] = &["api.openai.com"];
+
+fn allowed_hosts_list() -> String {
+    let mut items: Vec<&String> = ALLOWED_HOSTS.iter().collect();
+    items.sort();
+    items.iter().map(|host| host.as_str()).collect::<Vec<&str>>().join(", ")
+}
+
+fn is_forbidden_header(name: &str) -> bool {
+    let normalized = name.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return true;
+    }
+
+    if STRICT_FORBIDDEN_HEADERS.contains(&normalized.as_str()) {
+        return true;
+    }
+
+    FORBIDDEN_HEADER_PREFIXES
+        .iter()
+        .any(|prefix| normalized.starts_with(prefix))
+}
+
+fn normalize_base_url(raw: &str) -> Result<String, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(DEFAULT_BASE_URL.to_string());
+    }
+
+    let url = Url::parse(trimmed)
+        .map_err(|_| format!("ベースURLが正しくありません: {}", trimmed))?;
+
+    if url.scheme() != "https" {
+        return Err("HTTPS の URL のみ使用できます".to_string());
+    }
+
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err("認証情報を含む URL は使用できません".to_string());
+    }
+
+    let host = url
+        .host_str()
+        .ok_or_else(|| "ホスト名を含む URL を指定してください".to_string())?
+        .to_ascii_lowercase();
+
+    if !ALLOWED_HOSTS.contains(&host) {
+        return Err(format!(
+            "ホスト {} は許可されていません。許可済みホスト: {}",
+            host,
+            allowed_hosts_list()
+        ));
+    }
+
+    if url.query().is_some() {
+        return Err("クエリ文字列を含む URL は使用できません".to_string());
+    }
+
+    if url.fragment().is_some() {
+        return Err("フラグメントを含む URL は使用できません".to_string());
+    }
+
+    let origin = url.origin().ascii_serialization();
+    let path = url.path().trim_end_matches('/');
+    let normalized_path = if path.is_empty() || path == "/" { "" } else { path };
+
+    let mut normalized = origin;
+    normalized.push_str(normalized_path);
+
+    Ok(normalized)
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProxyConfig {
@@ -96,9 +201,12 @@ pub async fn make_openai_request(request: OpenAIRequest) -> Result<OpenAIRespons
         })?;
 
     // URLを構築
-    let base_url = request.base_url.trim_end_matches('/');
+    let normalized_base_url = normalize_base_url(&request.base_url).map_err(|err| {
+        log::error!("[Request {}] Base URL validation failed: {}", request_id, err);
+        err
+    })?;
     let path = request.path.trim_start_matches('/');
-    let url = format!("{}/{}", base_url, path);
+    let url = format!("{}/{}", normalized_base_url, path);
 
     // APIキーをマスクしてログ出力
     let masked_api_key = if request.api_key.len() > 8 {
@@ -130,12 +238,13 @@ pub async fn make_openai_request(request: OpenAIRequest) -> Result<OpenAIRespons
         _ => return Err(format!("Unsupported HTTP method: {}", request.method)),
     };
 
-    // Authorization ヘッダーを設定
-    req_builder = req_builder.header("Authorization", format!("Bearer {}", request.api_key));
-
     // 追加ヘッダーを設定
     if let Some(headers) = &request.additional_headers {
         for (key, value) in headers {
+            if is_forbidden_header(key) {
+                log::warn!("[Request {}] Forbidden header dropped: {}", request_id, key);
+                continue;
+            }
             req_builder = req_builder.header(key, value);
         }
     }
@@ -149,6 +258,9 @@ pub async fn make_openai_request(request: OpenAIRequest) -> Result<OpenAIRespons
     if let Some(body) = &request.body {
         req_builder = req_builder.json(body);
     }
+
+    // Authorization は常に最後に設定
+    req_builder = req_builder.header("Authorization", format!("Bearer {}", request.api_key));
 
     // リクエストを送信
     log::info!("[Request {}] Sending request...", request_id);
@@ -306,8 +418,11 @@ pub async fn upload_file_to_openai(request: FileUploadRequest) -> Result<OpenAIR
     log::info!("[Request {}] File size: {} bytes", request_id, file_bytes.len());
 
     // URLを構築
-    let base_url = request.base_url.trim_end_matches('/');
-    let url = format!("{}/files", base_url);
+    let normalized_base_url = normalize_base_url(&request.base_url).map_err(|err| {
+        log::error!("[Request {}] Base URL validation failed: {}", request_id, err);
+        err
+    })?;
+    let url = format!("{}/files", normalized_base_url);
 
     // multipart/form-data を作成
     let file_part = multipart::Part::bytes(file_bytes)
@@ -322,15 +437,21 @@ pub async fn upload_file_to_openai(request: FileUploadRequest) -> Result<OpenAIR
     // リクエストを送信
     log::info!("[Request {}] Uploading to {}", request_id, url);
     let mut req_builder = client.post(&url)
-        .header("Authorization", format!("Bearer {}", request.api_key))
         .multipart(form);
 
     // 追加ヘッダーを設定
     if let Some(headers) = &request.additional_headers {
         for (key, value) in headers {
+            if is_forbidden_header(key) {
+                log::warn!("[Request {}] Forbidden header dropped: {}", request_id, key);
+                continue;
+            }
             req_builder = req_builder.header(key, value);
         }
     }
+
+    // Authorization は常に最後に設定
+    req_builder = req_builder.header("Authorization", format!("Bearer {}", request.api_key));
 
     let send_start = Instant::now();
     let response = req_builder

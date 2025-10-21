@@ -25,6 +25,7 @@ import {
   unlockApiKeyInput,
   isApiKeyLocked
 } from "@/lib/settings/org-validation-guard";
+import { validateBaseUrl } from "@/lib/security/base-url";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -88,8 +89,9 @@ export default function WelcomePage() {
   const [isLocked, setIsLocked] = useState(false);
 
   const requestTarget = useMemo(() => {
-    const trimmed = baseUrl.trim().replace(/\/$/, "");
-    return `${trimmed}/models`;
+    const result = validateBaseUrl(baseUrl);
+    const normalized = result.ok ? result.normalized : DEFAULT_BASE_URL;
+    return `${normalized}/models`;
   }, [baseUrl]);
 
   useEffect(() => {
@@ -161,6 +163,18 @@ export default function WelcomePage() {
       setHeadersError(null);
       setPassphraseError(null);
 
+      const baseUrlValidation = validateBaseUrl(baseUrl);
+      if (!baseUrlValidation.ok) {
+        setResult({
+          state: "error",
+          message: baseUrlValidation.message,
+        });
+        return;
+      }
+
+      const normalizedBaseUrl = baseUrlValidation.normalized;
+      const target = `${normalizedBaseUrl}/models`;
+
       const headers = buildRequestHeaders(
         { Authorization: `Bearer ${apiKey.trim()}` },
         parsed.headers,
@@ -187,12 +201,12 @@ export default function WelcomePage() {
       appendLog({
         level: "info",
         scope: "api",
-        message: `接続テスト開始 ${requestTarget}`,
+        message: `接続テスト開始 ${target}`,
         detail: JSON.stringify(maskedHeaders),
       });
 
       try {
-        const response = await fetch(requestTarget, {
+        const response = await fetch(target, {
           method: "GET",
           headers,
           cache: "no-store",
@@ -213,7 +227,7 @@ export default function WelcomePage() {
               message: "組織IDを検証中...",
             });
 
-            const validation = await validateOrgWhitelist(apiKey.trim(), baseUrl.trim());
+            const validation = await validateOrgWhitelist(apiKey.trim(), normalizedBaseUrl);
 
             if (!validation.valid) {
               appendLog({
@@ -248,7 +262,7 @@ export default function WelcomePage() {
           }
 
           await saveConnection({
-            baseUrl: baseUrl.trim(),
+            baseUrl: normalizedBaseUrl,
             apiKey: apiKey.trim(),
             additionalHeaders: parsed.headers,
             httpProxy: httpProxy.trim() || undefined,
@@ -257,6 +271,7 @@ export default function WelcomePage() {
             encryptionEnabled,
             passphrase: passphrase.trim() || undefined,
           });
+          setBaseUrl(normalizedBaseUrl);
           setSavedFlags(hasStoredConnection());
 
           appendLog({
@@ -312,7 +327,6 @@ export default function WelcomePage() {
       httpProxy,
       httpsProxy,
       passphrase,
-      requestTarget,
       storagePolicy,
       whitelistEnabled,
     ],

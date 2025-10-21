@@ -1,10 +1,9 @@
 import type { VectorStoreRecord } from "@/lib/storage/schema";
-import {
-  loadConnection,
-  type ConnectionSettings,
-} from "@/lib/settings/connection-storage";
+import { loadConnection, type ConnectionSettings } from "@/lib/settings/connection-storage";
 import { buildRequestHeaders } from "@/lib/settings/header-utils";
 import { saveLog } from "@/lib/logging/error-logger";
+import { normalizeBaseUrl } from "@/lib/security/base-url";
+import { filterForbiddenHeaders } from "@/lib/security/headers";
 
 function ensureConnection(connection?: ConnectionSettings | null) {
   if (!connection) {
@@ -14,14 +13,6 @@ function ensureConnection(connection?: ConnectionSettings | null) {
     throw new Error("API キーが見つかりません");
   }
   return connection;
-}
-
-function buildBaseUrl(connection: ConnectionSettings) {
-  const trimmed = connection.baseUrl.trim().replace(/\/$/, "");
-  if (!trimmed) {
-    return "https://api.openai.com/v1";
-  }
-  return trimmed;
 }
 
 type VectorStoreListResponse = {
@@ -76,7 +67,7 @@ export async function fetchVectorStoresFromApi(
   const connection = ensureConnection(
     connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = buildBaseUrl(connection);
+  const baseUrl = normalizeBaseUrl(connection.baseUrl);
   const url = `${baseUrl}/vector_stores`;
   const response = await fetch(url, {
     method: "GET",
@@ -134,7 +125,7 @@ export async function fetchVectorStoreDetail(
   const connection = ensureConnection(
     connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = buildBaseUrl(connection);
+  const baseUrl = normalizeBaseUrl(connection.baseUrl);
   const url = `${baseUrl}/vector_stores/${id}`;
   const response = await fetch(url, {
     method: "GET",
@@ -180,7 +171,7 @@ export async function deleteVectorStoreFromApi(
   const connection = ensureConnection(
     connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = buildBaseUrl(connection);
+  const baseUrl = normalizeBaseUrl(connection.baseUrl);
   const url = `${baseUrl}/vector_stores/${id}`;
   const response = await fetch(url, {
     method: "DELETE",
@@ -229,7 +220,7 @@ export async function fetchVectorStoreFiles(
   const connection = ensureConnection(
     connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = buildBaseUrl(connection);
+  const baseUrl = normalizeBaseUrl(connection.baseUrl);
   const url = `${baseUrl}/vector_stores/${vectorStoreId}/files`;
   const response = await fetch(url, {
     method: "GET",
@@ -266,7 +257,7 @@ export async function fetchFileInfo(
   const connection = ensureConnection(
     connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = buildBaseUrl(connection);
+  const baseUrl = normalizeBaseUrl(connection.baseUrl);
   const url = `${baseUrl}/files/${fileId}`;
   const response = await fetch(url, {
     method: "GET",
@@ -294,7 +285,7 @@ export async function deleteVectorStoreFile(
   const connection = ensureConnection(
     connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = buildBaseUrl(connection);
+  const baseUrl = normalizeBaseUrl(connection.baseUrl);
   const url = `${baseUrl}/vector_stores/${vectorStoreId}/files/${fileId}`;
   const response = await fetch(url, {
     method: "DELETE",
@@ -336,7 +327,7 @@ export async function createVectorStore(
   const connection = ensureConnection(
     options?.connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = buildBaseUrl(connection);
+  const baseUrl = normalizeBaseUrl(connection.baseUrl);
   const url = `${baseUrl}/vector_stores`;
 
   const body: Record<string, unknown> = { name };
@@ -409,7 +400,11 @@ export async function uploadFileToOpenAI(
       onProgress(50);
     }
 
-    const baseUrl = buildBaseUrl(connection);
+    const baseUrl = normalizeBaseUrl(connection.baseUrl);
+    const safeAdditionalHeaders = filterForbiddenHeaders(
+      connection.additionalHeaders,
+      (name) => console.warn(`[VectorStore] Forbidden header dropped: ${name}`),
+    );
 
     // Tauri経由でファイルをアップロード
     try {
@@ -420,7 +415,7 @@ export async function uploadFileToOpenAI(
           file_data: base64,
           file_name: file.name,
           purpose: "assistants",
-          additional_headers: connection.additionalHeaders,
+          additional_headers: safeAdditionalHeaders,
           proxy_config: {
             http_proxy: connection.httpProxy,
             https_proxy: connection.httpsProxy,
@@ -467,8 +462,12 @@ export async function uploadFileToOpenAI(
     }
   } else {
     // ブラウザ環境: XMLHttpRequestを使用
-    const baseUrl = buildBaseUrl(connection);
+    const baseUrl = normalizeBaseUrl(connection.baseUrl);
     const url = `${baseUrl}/files`;
+    const safeAdditionalHeaders = filterForbiddenHeaders(
+      connection.additionalHeaders,
+      (name) => console.warn(`[VectorStore] Forbidden header dropped: ${name}`),
+    );
 
     const formData = new FormData();
     formData.append("file", file);
@@ -508,8 +507,8 @@ export async function uploadFileToOpenAI(
       xhr.open("POST", url);
       xhr.setRequestHeader("Authorization", `Bearer ${connection.apiKey}`);
 
-      if (connection.additionalHeaders) {
-        Object.entries(connection.additionalHeaders).forEach(([key, value]) => {
+      if (safeAdditionalHeaders) {
+        Object.entries(safeAdditionalHeaders).forEach(([key, value]) => {
           xhr.setRequestHeader(key, value);
         });
       }
@@ -527,7 +526,7 @@ export async function attachFileToVectorStore(
   const connection = ensureConnection(
     connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = buildBaseUrl(connection);
+  const baseUrl = normalizeBaseUrl(connection.baseUrl);
   const url = `${baseUrl}/vector_stores/${vectorStoreId}/files`;
   const response = await fetch(url, {
     method: "POST",
@@ -555,7 +554,7 @@ export async function updateVectorStore(
   const connection = ensureConnection(
     options?.connectionOverride ?? (await loadConnection()),
   );
-  const baseUrl = buildBaseUrl(connection);
+  const baseUrl = normalizeBaseUrl(connection.baseUrl);
   const url = `${baseUrl}/vector_stores/${vectorStoreId}`;
 
   const body: Record<string, unknown> = { name };

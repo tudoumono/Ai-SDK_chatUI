@@ -1,4 +1,5 @@
 mod openai_proxy;
+mod secure_config;
 
 use openai_proxy::{make_openai_request, upload_file_to_openai, OpenAIRequest, FileUploadRequest, OpenAIResponse};
 
@@ -34,7 +35,7 @@ pub fn run() {
     })
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
-    .invoke_handler(tauri::generate_handler![proxy_openai_request, proxy_file_upload])
+    .invoke_handler(tauri::generate_handler![proxy_openai_request, proxy_file_upload, secure_config::load_secure_config])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
