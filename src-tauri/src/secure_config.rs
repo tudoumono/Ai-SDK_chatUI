@@ -32,7 +32,7 @@ pub struct SecureConfig {
     pub signature: Option<String>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SecureConfigSearchPath {
     pub path: String,
