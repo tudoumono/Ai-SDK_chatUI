@@ -23,9 +23,10 @@ import {
   clearValidationResult,
   lockApiKeyInput,
   unlockApiKeyInput,
-  isApiKeyLocked
+  isApiKeyLocked,
 } from "@/lib/settings/org-validation-guard";
 import { validateBaseUrl } from "@/lib/security/base-url";
+import { getSecureConfigStatus } from "@/lib/security/secure-config";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -87,12 +88,54 @@ export default function WelcomePage() {
   const [savedFlags, setSavedFlags] = useState({ session: false, persistent: false, encrypted: false });
   const [whitelistEnabled, setWhitelistEnabled] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [secureConfigInfo, setSecureConfigInfo] = useState<
+    { path: string | null; status: "applied" | "missing" | "error" | "unsupported" | "none" } | null
+  >(null);
 
   const requestTarget = useMemo(() => {
     const result = validateBaseUrl(baseUrl);
     const normalized = result.ok ? result.normalized : DEFAULT_BASE_URL;
     return `${normalized}/models`;
   }, [baseUrl]);
+
+  const secureConfigBanner = useMemo(() => {
+    if (!secureConfigInfo || secureConfigInfo.status === "none") {
+      return null;
+    }
+    const pathLabel = secureConfigInfo.path ?? "不明";
+    switch (secureConfigInfo.status) {
+      case "applied":
+        return (
+          <div className="status-banner status-success">
+            <div className="status-title">config.pkg を適用中</div>
+            <p className="status-message">パス: {pathLabel} から設定を読み込みました。</p>
+          </div>
+        );
+      case "missing":
+        return (
+          <div className="status-banner status-info">
+            <div className="status-title">config.pkg は見つかりませんでした</div>
+            <p className="status-message">検索されたパス: {pathLabel} / ローカル設定を使用しています。</p>
+          </div>
+        );
+      case "unsupported":
+        return (
+          <div className="status-banner status-info">
+            <div className="status-title">config.pkg はこの環境では利用できません</div>
+            <p className="status-message">ブラウザ版では配布設定ファイルは読み込まれません。</p>
+          </div>
+        );
+      case "error":
+        return (
+          <div className="status-banner status-error">
+            <div className="status-title">config.pkg の読み込みに失敗しました</div>
+            <p className="status-message">パス: {pathLabel} / 詳細はログを確認してください。</p>
+          </div>
+        );
+      default:
+        return null;
+    }
+  }, [secureConfigInfo]);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,6 +166,25 @@ export default function WelcomePage() {
     })();
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const refreshStatus = () => {
+      setSecureConfigInfo(getSecureConfigStatus());
+    };
+    refreshStatus();
+    const handler = (event: StorageEvent) => {
+      if (event.key === "secure-config:last-path" || event.key === "secure-config:last-status") {
+        refreshStatus();
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
     };
   }, []);
 
@@ -432,6 +494,8 @@ export default function WelcomePage() {
           </p>
         </div>
       </div>
+
+      {secureConfigBanner}
 
       <section className="section-card">
         <div className="section-card-title">接続テスト</div>
