@@ -142,6 +142,288 @@ export default function WelcomePage() {
     ],
     [savedFlags],
   );
+<<<<<<< HEAD
+=======
+
+  const resetResult = useCallback(() => {
+    setResult({ state: "idle", message: "接続テストは未実行です。" });
+  }, []);
+
+  const handleNextStep = useCallback(() => {
+    setWizardError(null);
+    if (currentStep === "credentials") {
+      if (!apiKey.trim()) {
+        setWizardError("API キーを入力してください。");
+        return;
+      }
+
+      const baseUrlValidation = validateBaseUrl(baseUrl);
+      if (!baseUrlValidation.ok) {
+        setWizardError(baseUrlValidation.message);
+        return;
+      }
+
+      if (baseUrlValidation.normalized !== baseUrl) {
+        setBaseUrl(baseUrlValidation.normalized);
+      }
+
+      resetResult();
+      setCurrentStep("storage");
+      return;
+    }
+
+    if (currentStep === "storage") {
+      if (encryptionEnabled && !passphrase.trim()) {
+        setPassphraseError("暗号化パスフレーズを入力してください。");
+        setWizardError("暗号化パスフレーズを入力してください。");
+        return;
+      }
+
+      resetResult();
+      setCurrentStep("test");
+    }
+  }, [
+    apiKey,
+    baseUrl,
+    currentStep,
+    encryptionEnabled,
+    passphrase,
+    resetResult,
+  ]);
+
+  const handlePreviousStep = useCallback(() => {
+    setWizardError(null);
+    if (currentStep === "storage") {
+      setCurrentStep("credentials");
+      return;
+    }
+
+    if (currentStep === "test") {
+      setCurrentStep("storage");
+    }
+  }, [currentStep]);
+
+  const handleConnectionTest = useCallback(async () => {
+    setWizardError(null);
+
+    if (!apiKey.trim()) {
+      setResult({ state: "error", message: "API キーを入力してください。" });
+      return;
+    }
+
+    if (encryptionEnabled && !passphrase.trim()) {
+      setPassphraseError("暗号化パスフレーズを入力してください。");
+      setResult({ state: "error", message: "暗号化パスフレーズを入力してください。" });
+      return;
+    }
+
+    const parsed = parseAdditionalHeaders(additionalHeaders);
+    if ("error" in parsed) {
+      setHeadersError(parsed.error);
+      setResult({ state: "error", message: "追加ヘッダの形式エラーを修正してください。" });
+      return;
+    }
+    setHeadersError(null);
+    setPassphraseError(null);
+
+    const baseUrlValidation = validateBaseUrl(baseUrl);
+    if (!baseUrlValidation.ok) {
+      setResult({ state: "error", message: baseUrlValidation.message });
+      return;
+    }
+
+    const normalizedBaseUrl = baseUrlValidation.normalized;
+    const target = `${normalizedBaseUrl}/models`;
+
+    const headers = buildRequestHeaders(
+      { Authorization: `Bearer ${apiKey.trim()}` },
+      parsed.headers,
+    );
+
+    setResult({ state: "loading", message: "接続テストを実行中です…" });
+
+    const maskedHeaders = Array.from(headers.entries()).map(([key, value]) => {
+      if (key.toLowerCase() === "authorization") {
+        const match = value.match(/^(Bearer\s+)(.+)$/i);
+        if (match) {
+          const token = match[2];
+          const masked = token.length > 8
+            ? `${token.substring(0, 8)}****${token.substring(token.length - 4)}`
+            : "****";
+          return [key, `${match[1]}${masked}`];
+        }
+      }
+      return [key, value];
+    });
+
+    appendLog({
+      level: "info",
+      scope: "api",
+      message: `接続テスト開始 ${target}`,
+      detail: JSON.stringify(maskedHeaders),
+    });
+
+    try {
+      const response = await fetch(target, {
+        method: "GET",
+        headers,
+        cache: "no-store",
+      });
+
+      if (response.ok) {
+        const payload = await response.json().catch(() => null);
+        const count = Array.isArray(payload?.data) ? payload.data.length : undefined;
+        const suffix = count !== undefined ? ` (取得モデル数: ${count})` : "";
+        const policyLabel =
+          STORAGE_POLICIES.find((policy) => policy.value === storagePolicy)?.title ?? "不明";
+
+        if (whitelistEnabled) {
+          setResult({ state: "loading", message: "組織IDを検証中..." });
+
+          const validation = await validateOrgWhitelist(apiKey.trim(), normalizedBaseUrl);
+
+          if (!validation.valid) {
+            appendLog({
+              level: "error",
+              scope: "setup",
+              message: "組織ID検証失敗",
+              detail: validation.error || "Unknown error",
+            });
+
+            setResult({
+              state: "error",
+              message: `組織ID検証エラー: ${validation.error || "このAPIキーは許可されていません"}`,
+            });
+            return;
+          }
+
+          appendLog({
+            level: "info",
+            scope: "setup",
+            message: "組織ID検証成功",
+            detail: `Matched org: ${validation.matchedOrgId || "N/A"}`,
+          });
+
+          await saveValidationResult(apiKey.trim(), validation.matchedOrgId || "");
+          lockApiKeyInput();
+          setIsLocked(true);
+        } else {
+          clearValidationResult();
+        }
+
+        await saveConnection({
+          baseUrl: normalizedBaseUrl,
+          apiKey: apiKey.trim(),
+          additionalHeaders: parsed.headers,
+          httpProxy: httpProxy.trim() || undefined,
+          httpsProxy: httpsProxy.trim() || undefined,
+          storagePolicy,
+          encryptionEnabled,
+          passphrase: passphrase.trim() || undefined,
+        });
+        setBaseUrl(normalizedBaseUrl);
+        setSavedFlags(hasStoredConnection());
+
+        appendLog({
+          level: "info",
+          scope: "setup",
+          message: "接続テスト成功",
+          detail: `HTTP ${response.status}${suffix}`,
+        });
+
+        const whitelistMessage = whitelistEnabled ? " / 組織ID検証: OK" : "";
+        setResult({
+          state: "success",
+          statusCode: response.status,
+          message: `接続成功: HTTP ${response.status}${suffix}${whitelistMessage} / 保存ポリシー: ${policyLabel}`,
+        });
+        return;
+      }
+
+      const responseText = await response.text();
+      const detail = responseText ? `レスポンス: ${responseText}` : "";
+
+      appendLog({
+        level: "error",
+        scope: "api",
+        message: `接続テスト失敗 HTTP ${response.status}`,
+        detail,
+      });
+
+      setResult({
+        state: "error",
+        statusCode: response.status,
+        message: `接続失敗: HTTP ${response.status}. ${detail}`.trim(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "原因不明のエラーです";
+      appendLog({
+        level: "error",
+        scope: "api",
+        message: "接続テスト例外",
+        detail: message,
+      });
+      setResult({
+        state: "error",
+        message: `接続テストに失敗しました: ${message}`,
+      });
+    }
+  }, [
+    additionalHeaders,
+    apiKey,
+    baseUrl,
+    encryptionEnabled,
+    httpProxy,
+    httpsProxy,
+    passphrase,
+    storagePolicy,
+    whitelistEnabled,
+  ]);
+
+  const handleUnlock = useCallback(() => {
+    if (
+      !confirm(
+        "⚠️ APIキーのロックを解除すると、検証キャッシュも削除されます。\n\n再度APIキーを入力し、組織ID検証を行う必要があります。\n\n続行しますか？",
+      )
+    ) {
+      return;
+    }
+    unlockApiKeyInput();
+    setIsLocked(false);
+    resetResult();
+    setCurrentStep("credentials");
+    appendLog({
+      level: "info",
+      scope: "setup",
+      message: "APIキーのロックを解除しました",
+    });
+  }, [resetResult]);
+
+  const handleClear = useCallback(async () => {
+    await clearConnection();
+    unlockApiKeyInput();
+    setIsLocked(false);
+    setSavedFlags({ session: false, persistent: false, encrypted: false });
+    setApiKey("");
+    setBaseUrl(DEFAULT_BASE_URL);
+    setHttpProxy("");
+    setHttpsProxy("");
+    setAdditionalHeaders("");
+    setStoragePolicy("none");
+    setEncryptionEnabled(true);
+    setPassphrase("");
+    setPassphraseError(null);
+    resetResult();
+    setCurrentStep("credentials");
+    setWizardError(null);
+    setShowAdvancedOptions(false);
+    appendLog({
+      level: "info",
+      scope: "setup",
+      message: "保存済み接続を削除しました",
+    });
+  }, [resetResult]);
+>>>>>>> 60d84a7 (feat: ガイド付きオンボーディングとUI刷新)
 
   const secureConfigBanner = useMemo(() => {
     if (!secureConfigInfo || secureConfigInfo.status === "none") {
