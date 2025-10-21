@@ -155,7 +155,7 @@ set FETCH_PS=%TEMP_FILE%.ps1
   echo foreach($org in $response.orgs.data){
   echo   $id = if ($null -eq $org.id) { '' } else { $org.id }
   echo   $name = if ($null -eq $org.name) { '' } else { $org.name }
-  echo   Write-Output ("{0}|{1}" -f $id, $name)
+  echo   Write-Output ("{0}^|{1}" -f $id, $name)
   echo }
 ) > "%FETCH_PS%"
 
