@@ -26,12 +26,13 @@ set ADMIN_PASSWORD_HASH=
 echo.
 set /p ADMIN_PASSWORD=管理者パスワードのハッシュ値を含めますか? (y/N): 
 if /i "%ADMIN_PASSWORD%"=="y" (
+  set "ADMIN_PLAIN="
   set /p ADMIN_PLAIN=新しい管理者パスワードを入力してください: 
-  if "%ADMIN_PLAIN%"=="" (
+  if "!ADMIN_PLAIN!"=="" (
     echo パスワードが入力されなかったためスキップします。
   ) else (
-    set "ADMIN_PLAIN_ESC=%ADMIN_PLAIN:"=\""%"
-    for /f %%H in ('powershell -NoProfile -Command "$pass = \"%ADMIN_PLAIN_ESC%\"; $bytes = [Text.Encoding]::UTF8.GetBytes($pass); $hash = [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes); ($hash | ForEach-Object { $_.ToString(''x2'') }) -join \"\""') do set ADMIN_PASSWORD_HASH=%%H
+    set "ADMIN_PLAIN_ESC=!ADMIN_PLAIN:"=\"!"
+    for /f %%H in ('powershell -NoProfile -Command "$pass = \"%ADMIN_PLAIN_ESC%\"; $bytes = [Text.Encoding]::UTF8.GetBytes($pass); $hash = [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes); ($hash | ForEach-Object { $_.ToString(''x2'') }) -join \"\""') do set "ADMIN_PASSWORD_HASH=%%H"
   )
 )
 
