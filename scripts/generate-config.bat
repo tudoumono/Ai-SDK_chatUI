@@ -24,7 +24,8 @@ if exist "%OUTPUT_PATH%" (
 echo.
 set ADMIN_PASSWORD_HASH=
 echo.
-set /p ADMIN_PASSWORD=管理者パスワードのハッシュ値を含めますか? (y/N): 
+set /p ADMIN_PASSWORD=管理者パスワードのハッシュ値を含めますか? (Y/n): 
+if "%ADMIN_PASSWORD%"=="" set ADMIN_PASSWORD=y
 if /i "%ADMIN_PASSWORD%"=="y" (
   set "ADMIN_PLAIN="
   set /p ADMIN_PLAIN=新しい管理者パスワードを入力してください: 
@@ -112,12 +113,14 @@ goto :eof
 :CollectOrgEntries
 echo.
 set FETCH_CHOICE=
-set /p FETCH_CHOICE=OpenAI API から組織IDを取得しますか? (y/N): 
+set /p FETCH_CHOICE=OpenAI API から組織IDを取得しますか? (Y/n): 
+if "%FETCH_CHOICE%"=="" set FETCH_CHOICE=y
 if /i "%FETCH_CHOICE%"=="y" call :FetchOrgIds
 
 :CollectManualLoop
 set ADD_CHOICE=
-set /p ADD_CHOICE=組織を手動で追加しますか? (y/N): 
+set /p ADD_CHOICE=組織を手動で追加しますか? (Y/n): 
+if "%ADD_CHOICE%"=="" set ADD_CHOICE=y
 if /i "%ADD_CHOICE%"=="y" (
   call :AddOrgManual
   goto :CollectManualLoop
@@ -216,7 +219,8 @@ goto :eof
 :PromptToggle
 set "KEY=%~1"
 set "DEFAULT=%~2"
-set /p "%KEY%=Enable %KEY% ? (y/N): "
+set /p "%KEY%=Enable %KEY% ? (Y/n): "
+if "!%KEY%!"=="" set "%KEY%=y"
 set "VALUE=!%KEY%!"
 if "!VALUE!"=="" set "VALUE=%DEFAULT%"
 if /i "!VALUE!"=="y" (
