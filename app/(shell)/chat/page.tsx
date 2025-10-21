@@ -168,9 +168,14 @@ export default function ChatPage() {
   const hasDocumentAttachment = attachedFiles.some(item => item.purpose === 'assistants');
 
   // Vector Storeを一時的なものと永続的なものに分類
+  // 一時的なVector Storeは、現在の会話のvectorStoreIdsに含まれるもののみ表示
   const temporaryVectorStores = useMemo(
-    () => vectorStores.filter(store => store.isTemporary),
-    [vectorStores]
+    () => {
+      return vectorStores.filter(
+        store => store.isTemporary && selectedVectorStoreIds.includes(store.id)
+      );
+    },
+    [vectorStores, selectedVectorStoreIds]
   );
   const permanentVectorStores = useMemo(
     () => vectorStores.filter(store => !store.isTemporary),
