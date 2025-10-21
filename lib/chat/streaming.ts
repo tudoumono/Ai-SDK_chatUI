@@ -2,6 +2,7 @@ import type { Response } from "openai/resources/responses/responses";
 import type { ConnectionSettings } from "@/lib/settings/connection-storage";
 import type { MessagePart, MessageRecord } from "@/lib/storage/schema";
 import { createResponsesClient } from "./openai-client";
+import { saveLog } from "@/lib/logging/error-logger";
 
 export type StreamCallbacks = {
   onTextSnapshot?: (text: string) => void;
@@ -165,11 +166,12 @@ export async function streamAssistantResponse(
   request: StreamRequest,
   callbacks: StreamCallbacks = {},
 ): Promise<StreamResult> {
-  const client = createResponsesClient(request.connection);
-  const input = toInputMessages(request.messages, request.attachments, request.systemRole);
-  if (input.length === 0) {
-    throw new Error("送信するメッセージがありません。");
-  }
+  try {
+    const client = createResponsesClient(request.connection);
+    const input = toInputMessages(request.messages, request.attachments, request.systemRole);
+    if (input.length === 0) {
+      throw new Error("送信するメッセージがありません。");
+    }
 
   // 初期状態
   if (request.vectorStoreIds && request.vectorStoreIds.length > 0 && request.webSearchEnabled) {
@@ -313,12 +315,40 @@ export async function streamAssistantResponse(
     };
   }
 
-  return {
-    responseId: rawResponse.id,
-    text,
-    sources,
-    rawResponse,
-    usedTools,
-    tokenUsage,
-  };
+    return {
+      responseId: rawResponse.id,
+      text,
+      sources,
+      rawResponse,
+      usedTools,
+      tokenUsage,
+    };
+  } catch (error) {
+    // Responses API呼び出しエラーをログに記録
+    console.error('[streaming] Error in streamAssistantResponse:', error);
+
+    await saveLog(
+      'error',
+      'api',
+      'Responses API call failed',
+      error instanceof Error ? error : undefined,
+      {
+        model: request.model,
+        hasAttachments: !!request.attachments && request.attachments.length > 0,
+        attachmentCount: request.attachments?.length || 0,
+        attachments: request.attachments?.map(att => ({
+          fileId: att.fileId,
+          toolsLength: att.tools.length,
+          tools: att.tools.map(t => t.type),
+        })),
+        vectorStoreIds: request.vectorStoreIds,
+        webSearchEnabled: request.webSearchEnabled,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorType: typeof error,
+      }
+    );
+
+    // エラーを再スロー
+    throw error;
+  }
 }
