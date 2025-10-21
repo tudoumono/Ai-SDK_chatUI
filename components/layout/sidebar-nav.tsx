@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import {
@@ -14,6 +15,12 @@ import {
   Moon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
+import {
+  FEATURE_RESTRICTIONS_EVENT,
+  FEATURE_RESTRICTIONS_STORAGE_KEY,
+  loadFeatureRestrictions,
+  type FeatureRestrictions,
+} from "@/lib/settings/feature-restrictions";
 
 const NAV_ITEMS = [
   {
@@ -57,6 +64,40 @@ const NAV_ITEMS = [
 export function SidebarNav() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
+  const [featureRestrictions, setFeatureRestrictions] = useState<FeatureRestrictions>(() => loadFeatureRestrictions());
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleUpdate = () => {
+      setFeatureRestrictions(loadFeatureRestrictions());
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === FEATURE_RESTRICTIONS_STORAGE_KEY || event.key === `${FEATURE_RESTRICTIONS_STORAGE_KEY}:managed-by-secure-config`) {
+        handleUpdate();
+      }
+    };
+
+    window.addEventListener(FEATURE_RESTRICTIONS_EVENT, handleUpdate);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener(FEATURE_RESTRICTIONS_EVENT, handleUpdate);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  const filteredNavItems = useMemo(() => {
+    return NAV_ITEMS.filter((item) => {
+      if (item.href === "/vector-stores") {
+        return featureRestrictions.allowVectorStore;
+      }
+      return true;
+    });
+  }, [featureRestrictions.allowVectorStore]);
 
   return (
     <nav className="sidebar-nav">
@@ -65,7 +106,7 @@ export function SidebarNav() {
         {/* <span className="sidebar-subtitle">G1〜G5 主要画面</span> */}
       </div>
       <ul className="sidebar-list">
-        {NAV_ITEMS.map((item) => {
+        {filteredNavItems.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
           return (

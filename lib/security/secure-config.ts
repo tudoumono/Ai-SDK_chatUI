@@ -1,12 +1,19 @@
 import type { OrgWhitelistEntry } from "@/lib/settings/org-whitelist";
 import { isTauriEnvironment } from "@/lib/utils/tauri-helpers";
+import {
+  applyFeatureRestrictionsFromSecureConfig,
+  type FeatureRestrictionsInput,
+} from "@/lib/settings/feature-restrictions";
 
 export type SecureConfigPayload = {
   version?: number;
   orgWhitelist?: Array<Partial<OrgWhitelistEntry> & { orgId: string; orgName: string }>;
   adminPasswordHash?: string | null;
+  features?: SecureFeatureRestrictions | null;
   signature?: string | null;
 };
+
+export type SecureFeatureRestrictions = FeatureRestrictionsInput;
 
 export async function loadSecureConfig(): Promise<SecureConfigPayload | null> {
   if (!isTauriEnvironment()) {
@@ -75,6 +82,14 @@ export async function bootstrapSecureConfig(): Promise<void> {
       localStorage.setItem("admin-password:managed-by-secure-config", "true");
     } catch (error) {
       console.warn("[SecureConfig] Failed to persist admin password hash:", error);
+    }
+  }
+
+  if (config.features) {
+    try {
+      applyFeatureRestrictionsFromSecureConfig(config.features);
+    } catch (error) {
+      console.warn("[SecureConfig] Failed to apply feature restrictions:", error);
     }
   }
 }

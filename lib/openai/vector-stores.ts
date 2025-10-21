@@ -3,6 +3,7 @@ import { loadConnection, type ConnectionSettings } from "@/lib/settings/connecti
 import { buildRequestHeaders } from "@/lib/settings/header-utils";
 import { saveLog } from "@/lib/logging/error-logger";
 import { normalizeBaseUrl } from "@/lib/security/base-url";
+import { isFileUploadAllowed } from "@/lib/settings/feature-restrictions";
 import { filterForbiddenHeaders } from "@/lib/security/headers";
 
 function ensureConnection(connection?: ConnectionSettings | null) {
@@ -371,6 +372,9 @@ export async function uploadFileToOpenAI(
   connectionOverride?: ConnectionSettings,
   onProgress?: (progress: number) => void,
 ): Promise<string> {
+  if (!isFileUploadAllowed()) {
+    throw new Error("ファイルアップロード機能は管理者によって無効化されています。");
+  }
   const connection = ensureConnection(
     connectionOverride ?? (await loadConnection()),
   );

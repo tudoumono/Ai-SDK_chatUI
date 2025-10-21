@@ -1,6 +1,7 @@
 import type { ConnectionSettings } from "@/lib/settings/connection-storage";
 import { createResponsesClient } from "./openai-client";
 import { saveLog } from "@/lib/logging/error-logger";
+import { isChatAttachmentAllowed, isFileUploadAllowed } from "@/lib/settings/feature-restrictions";
 
 export type UploadedFileInfo = {
   fileId: string;
@@ -15,6 +16,14 @@ export async function uploadFileToOpenAI(
   purpose: 'vision' | 'assistants',
   connection: ConnectionSettings,
 ): Promise<UploadedFileInfo> {
+  if (!isFileUploadAllowed()) {
+    throw new Error("ファイルアップロード機能は管理者により無効化されています。");
+  }
+
+  if (!isChatAttachmentAllowed()) {
+    throw new Error("チャットでのファイル添付は管理者により無効化されています。");
+  }
+
   const client = createResponsesClient(connection);
 
   try {

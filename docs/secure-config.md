@@ -32,13 +32,20 @@
       "notes": "営業部門専用"
     }
   ],
-  "adminPasswordHash": "<SHA-256 hex>"
+  "adminPasswordHash": "<SHA-256 hex>",
+  "features": {
+    "allowWebSearch": false,
+    "allowVectorStore": true,
+    "allowFileUpload": false,
+    "allowChatFileAttachment": false
+  }
 }
 ```
 
 - `version` … 任意。将来のフォーマット移行判定に使用します。
 - `orgWhitelist` … `OrgWhitelistEntry` と同じ構造。`id` が無い場合はアプリ側で自動生成されます。
 - `adminPasswordHash` … `admin-password-hash` と同じ SHA-256 ハッシュ文字列。
+- `features` … 主要な機能トグル。未指定の項目は既定値 (true) が適用されます。
 - `signature` … 署名を導入する際の拡張フィールド（現状は未使用）。
 
 ## 生成ワークフロー例
@@ -47,6 +54,7 @@
 2. 管理者パスワードを決め、`echo -n "new-password" | shasum -a 256` 等でハッシュ化します。
 3. 上記フォーマットに沿って `config.pkg` を作成します。
 4. 配布スクリプトで exe と同じディレクトリに格納し、インストール後に所定の `app_config_dir` へコピーします。
+   - Vector Store やファイルアップロードを無効化したい部署では `features` を必ず指定してください。
 
 > ✅ 今後 `scripts/api/generate-config.ts` を追加し、KMS 経由で署名付きファイルを自動生成する予定です。（Issue: `#security-config-cli`）
 

@@ -18,6 +18,12 @@ import {
   updateVectorStore as updateVectorStoreApi,
   type VectorStoreFileInfo
 } from "@/lib/openai/vector-stores";
+import {
+  FEATURE_RESTRICTIONS_EVENT,
+  FEATURE_RESTRICTIONS_STORAGE_KEY,
+  loadFeatureRestrictions,
+  type FeatureRestrictions,
+} from "@/lib/settings/feature-restrictions";
 import "./ingest.css";
 
 type UploadedFile = {
@@ -60,6 +66,10 @@ function IngestContent() {
   const searchParams = useSearchParams();
   const vectorStoreId = searchParams.get("id");
 
+  const [featureRestrictions, setFeatureRestrictions] = useState<FeatureRestrictions>(() => loadFeatureRestrictions());
+  const canUseVectorStore = featureRestrictions.allowVectorStore;
+  const canUploadFiles = featureRestrictions.allowFileUpload;
+
   const [storeName, setStoreName] = useState("");
   const [description, setDescription] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -84,6 +94,30 @@ function IngestContent() {
       days: DEFAULT_RETENTION_DAYS,
     },
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleUpdate = () => {
+      setFeatureRestrictions(loadFeatureRestrictions());
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === FEATURE_RESTRICTIONS_STORAGE_KEY || event.key === `${FEATURE_RESTRICTIONS_STORAGE_KEY}:managed-by-secure-config`) {
+        handleUpdate();
+      }
+    };
+
+    window.addEventListener(FEATURE_RESTRICTIONS_EVENT, handleUpdate);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener(FEATURE_RESTRICTIONS_EVENT, handleUpdate);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   const loadRegisteredFiles = useCallback(async (vsId?: string) => {
     const targetId = vsId || currentVectorStoreId;
@@ -881,3 +915,26 @@ function IngestContent() {
     </div>
   );
 }
+  if (!canUseVectorStore || !canUploadFiles) {
+    const message = !canUseVectorStore && !canUploadFiles
+      ? "管理者により Vector Store とファイルアップロード機能が無効化されています。"
+      : !canUseVectorStore
+        ? "管理者により Vector Store 機能が無効化されています。"
+        : "管理者によりファイルアップロード機能が無効化されています。";
+    return (
+      <div className="ingest-page">
+        <main className="ingest-main">
+          <div className="ingest-disabled">
+            <h2>機能が無効化されています</h2>
+            <p>{message}</p>
+            <p>
+              設定を変更する必要がある場合は、管理者にお問い合わせください。
+            </p>
+            <Link href="/admin" className="ingest-disabled-link">
+              管理者画面へ戻る
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
