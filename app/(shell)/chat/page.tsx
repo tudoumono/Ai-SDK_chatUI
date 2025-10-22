@@ -296,23 +296,31 @@ const scheduleAssistantSnapshotSave = useCallback((message: MessageRecord) => {
         setConversations(workingConversations);
         setActiveConversationId((prev) => prev ?? workingConversations[0]?.id ?? null);
 
-        // モデル一覧を取得
-        if (loadedConnection?.apiKey) {
-          const models = await fetchModelsFromApi(loadedConnection);
-          setAvailableModels(models);
-        }
-
-        // ロールプリセットを読み込み
+        // ロールプリセットを読み込み（軽量なので同期的に実行）
         const presets = await loadRolePresets();
         setRolePresets(presets);
+
+        // 初期化完了 - 画面を表示
+        setInitializing(false);
+
+        // モデル一覧を非同期で取得（画面表示をブロックしない）
+        if (loadedConnection?.apiKey) {
+          fetchModelsFromApi(loadedConnection)
+            .then((models) => {
+              if (!cancelled) {
+                setAvailableModels(models);
+              }
+            })
+            .catch((error) => {
+              console.error("Failed to fetch models in background:", error);
+              // エラーでもデフォルトモデルが使えるので問題なし
+            });
+        }
       } catch (error) {
         if (!cancelled) {
           setConnectionError(
             error instanceof Error ? error.message : "初期化に失敗しました。",
           );
-        }
-      } finally {
-        if (!cancelled) {
           setInitializing(false);
         }
       }
