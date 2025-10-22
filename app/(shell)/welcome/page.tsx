@@ -682,11 +682,13 @@ export default function WelcomePage() {
               placeholder={DEFAULT_BASE_URL}
               type="url"
               value={baseUrl}
-              onChange={(event) => {
-                setBaseUrl(event.target.value);
-                resetResult();
-              }}
+              readOnly
+              disabled
+              style={{ backgroundColor: "var(--background-secondary)", cursor: "not-allowed" }}
             />
+            <p className="field-hint">
+              セキュリティ上の理由により、Welcome画面ではBase URLを変更できません。変更が必要な場合は<Link href="/settings">設定画面</Link>をご利用ください。
+            </p>
           </div>
 
           <div className="advanced-panel">
