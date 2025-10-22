@@ -322,6 +322,46 @@ export default function WelcomePage() {
     }
   }, []);
 
+  const handleBrowseConfigFile = useCallback(async () => {
+    if (!isTauriEnvironment()) {
+      alert("ファイル選択はデスクトップアプリ版でのみ利用可能です。");
+      return;
+    }
+
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        filters: [
+          {
+            name: "Config Package",
+            extensions: ["pkg"],
+          },
+          {
+            name: "All Files",
+            extensions: ["*"],
+          },
+        ],
+        title: "config.pkg ファイルを選択",
+      });
+
+      if (selected && typeof selected === "string") {
+        await handleLoadConfigFromPath(selected);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      appendLog({
+        level: "error",
+        scope: "setup",
+        message: "ファイル選択エラー",
+        detail: message,
+      });
+      alert(`ファイル選択エラー: ${message}`);
+    }
+  }, [handleLoadConfigFromPath]);
+
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -1019,6 +1059,29 @@ export default function WelcomePage() {
                 )}
               </div>
             ))}
+          </div>
+
+          <div
+            style={{
+              marginTop: "1.5rem",
+              padding: "1rem",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)",
+              backgroundColor: "var(--background-secondary)",
+            }}
+          >
+            <p style={{ marginBottom: "0.75rem", fontSize: "0.875rem" }}>
+              または、ファイルから直接選択:
+            </p>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleBrowseConfigFile}
+              disabled={isLoadingConfig}
+              style={{ width: "100%" }}
+            >
+              📁 ファイルを選択...
+            </button>
           </div>
 
           <div style={{ marginTop: "1.5rem", display: "flex", justifyContent: "flex-end" }}>
