@@ -1,4 +1,4 @@
-param()
+﻿param()
 
 function Read-YesNo {
   param(
