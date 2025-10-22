@@ -103,13 +103,25 @@ if "!ADMIN_PASSWORD_HASH!"=="" (
 
 if exist "%ORG_ENTRIES_FILE%" del "%ORG_ENTRIES_FILE%"
 
-move /y "%TEMP_FILE%" "%OUTPUT_PATH%" >nul
-if errorlevel 1 (
+rem UTF-8 BOM付きで保存するためPowerShellを使用
+set CONVERT_PS=%TEMP_FILE%.convert.ps1
+(
+  echo $content = Get-Content -Path '%TEMP_FILE%' -Raw -Encoding UTF8
+  echo $utf8Bom = New-Object System.Text.UTF8Encoding $true
+  echo [System.IO.File]::WriteAllText^('%OUTPUT_PATH%', $content, $utf8Bom^)
+) > "%CONVERT_PS%"
+
+powershell -NoProfile -File "%CONVERT_PS%" >nul 2>&1
+set CONVERT_RESULT=%errorlevel%
+del "%CONVERT_PS%" >nul 2>&1
+del "%TEMP_FILE%" >nul 2>&1
+
+if %CONVERT_RESULT% neq 0 (
   echo ファイルの生成に失敗しました。
   call :Finish
 ) else (
   echo.
-  echo %OUTPUT_PATH% を生成しました。
+  echo %OUTPUT_PATH% を生成しました（UTF-8 BOM付き）。
   call :Finish
 )
 
