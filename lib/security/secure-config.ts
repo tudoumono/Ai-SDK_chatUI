@@ -20,6 +20,12 @@ export type SecureConfigSearchPath = {
   label: string;
 };
 
+export type ConfigCandidate = {
+  path: string;
+  label: string;
+  exists: boolean;
+};
+
 type SecureConfigLoadResult = {
   config: SecureConfigPayload | null;
   path: string | null;
@@ -88,6 +94,72 @@ export function getSecureConfigStatus():
     return { path, status, searchedPaths };
   } catch {
     return null;
+  }
+}
+
+export async function getConfigCandidates(): Promise<ConfigCandidate[]> {
+  if (!isTauriEnvironment()) {
+    return [];
+  }
+
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const response = await invoke<{ candidates: ConfigCandidate[] }>("get_config_candidates");
+    return response.candidates;
+  } catch (error) {
+    console.error("[SecureConfig] Failed to get config candidates:", error);
+    return [];
+  }
+}
+
+export async function loadSecureConfigFromPath(path: string): Promise<SecureConfigLoadResult | null> {
+  if (!isTauriEnvironment()) {
+    return null;
+  }
+
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const response = await invoke<SecureConfigLoadResult>("load_secure_config_from_path", { path });
+
+    if (response && response.config) {
+      // Apply the config
+      const { config } = response;
+
+      recordSecureConfigStatus(path, "applied", []);
+
+      const whitelistEntries = normalizeWhitelistEntries(config.orgWhitelist);
+      if (whitelistEntries.length > 0) {
+        try {
+          localStorage.setItem("org-whitelist", JSON.stringify(whitelistEntries));
+          localStorage.setItem("org-whitelist:managed-by-secure-config", "true");
+        } catch (error) {
+          console.warn("[SecureConfig] Failed to persist whitelist to localStorage:", error);
+        }
+      }
+
+      if (config.adminPasswordHash) {
+        try {
+          localStorage.setItem("admin-password-hash", config.adminPasswordHash);
+          localStorage.setItem("admin-password:managed-by-secure-config", "true");
+        } catch (error) {
+          console.warn("[SecureConfig] Failed to persist admin password hash:", error);
+        }
+      }
+
+      if (config.features) {
+        try {
+          applyFeatureRestrictionsFromSecureConfig(config.features);
+        } catch (error) {
+          console.warn("[SecureConfig] Failed to apply feature restrictions:", error);
+        }
+      }
+    }
+
+    return response;
+  } catch (error) {
+    console.error("[SecureConfig] Failed to load secure config from path:", error);
+    recordSecureConfigStatus(path, "error", []);
+    throw error;
   }
 }
 

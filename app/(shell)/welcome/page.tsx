@@ -26,7 +26,13 @@ import {
   isApiKeyLocked,
 } from "@/lib/settings/org-validation-guard";
 import { validateBaseUrl } from "@/lib/security/base-url";
-import { getSecureConfigStatus, type SecureConfigSearchPath } from "@/lib/security/secure-config";
+import {
+  getSecureConfigStatus,
+  getConfigCandidates,
+  loadSecureConfigFromPath,
+  type SecureConfigSearchPath,
+  type ConfigCandidate,
+} from "@/lib/security/secure-config";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -96,6 +102,10 @@ export default function WelcomePage() {
     }
     | null
   >(null);
+  const [configCandidates, setConfigCandidates] = useState<ConfigCandidate[]>([]);
+  const [showConfigSelector, setShowConfigSelector] = useState(false);
+  const [selectedConfigPath, setSelectedConfigPath] = useState<string | null>(null);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(false);
 
   const requestTarget = useMemo(() => {
     const result = validateBaseUrl(baseUrl);
@@ -159,6 +169,18 @@ export default function WelcomePage() {
                 ファイルが手元にある場合は、<strong>Ai-SDK ChatUI.exe と同じフォルダ</strong>に <code>config.pkg</code> を置いてからアプリを再起動してください。
                 アプリが設定フォルダへ反映します。ご不明な場合は配布担当者にお問い合わせください。
               </p>
+              {configCandidates.length > 0 && (
+                <div style={{ marginTop: "16px" }}>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => setShowConfigSelector(true)}
+                    style={{ fontSize: "0.875rem", padding: "0.5rem 1rem" }}
+                  >
+                    config.pkg を探して読み込む
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -191,7 +213,7 @@ export default function WelcomePage() {
       default:
         return null;
     }
-  }, [secureConfigInfo]);
+  }, [secureConfigInfo, configCandidates.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -244,8 +266,58 @@ export default function WelcomePage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const candidates = await getConfigCandidates();
+      if (cancelled) {
+        return;
+      }
+      setConfigCandidates(candidates);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const resetResult = useCallback(() => {
     setResult({ state: "idle", message: "接続テストは未実行です。" });
+  }, []);
+
+  const handleLoadConfigFromPath = useCallback(async (path: string) => {
+    setIsLoadingConfig(true);
+    try {
+      appendLog({
+        level: "info",
+        scope: "setup",
+        message: `config.pkg を読み込んでいます: ${path}`,
+      });
+
+      const result = await loadSecureConfigFromPath(path);
+
+      if (result?.config) {
+        // Force reload the page to apply the config
+        window.location.reload();
+      } else {
+        appendLog({
+          level: "error",
+          scope: "setup",
+          message: "config.pkg の読み込みに失敗しました",
+        });
+        alert("config.pkg の読み込みに失敗しました。");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      appendLog({
+        level: "error",
+        scope: "setup",
+        message: "config.pkg の読み込みエラー",
+        detail: message,
+      });
+      alert(`エラー: ${message}`);
+    } finally {
+      setIsLoadingConfig(false);
+    }
   }, []);
 
   const handleSubmit = useCallback(
@@ -487,46 +559,47 @@ export default function WelcomePage() {
   }, []);
 
   return (
-    <main className="page-grid">
-      <div className="page-header">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
-          <div>
-            <h1 className="page-header-title">ようこそ！まずは接続を確認しましょう</h1>
-            {whitelistEnabled && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem", color: "var(--accent)" }}>
-                <Shield size={16} />
-                <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>組織IDホワイトリスト検証が有効です</span>
-              </div>
-            )}
+    <>
+      <main className="page-grid">
+        <div className="page-header">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+            <div>
+              <h1 className="page-header-title">ようこそ！まずは接続を確認しましょう</h1>
+              {whitelistEnabled && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem", color: "var(--accent)" }}>
+                  <Shield size={16} />
+                  <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>組織IDホワイトリスト検証が有効です</span>
+                </div>
+              )}
+            </div>
+            <Link
+              href="/admin"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.5rem 1rem",
+                background: "var(--background-secondary)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-md)",
+                textDecoration: "none",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                transition: "all var(--transition-fast)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--accent)";
+                e.currentTarget.style.color = "var(--accent)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border)";
+                e.currentTarget.style.color = "var(--foreground)";
+              }}
+            >
+              <Shield size={16} />
+              管理者画面
+            </Link>
           </div>
-          <Link
-            href="/admin"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.5rem 1rem",
-              background: "var(--background-secondary)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              textDecoration: "none",
-              color: "var(--foreground)",
-              fontSize: "0.875rem",
-              transition: "all var(--transition-fast)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--accent)";
-              e.currentTarget.style.color = "var(--accent)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--border)";
-              e.currentTarget.style.color = "var(--foreground)";
-            }}
-          >
-            <Shield size={16} />
-            管理者画面
-          </Link>
-        </div>
         <p className="page-header-description">
           API キーと（必要に応じて）プロキシ設定を入力して `/v1/models` への接続をテストします。
         </p>
@@ -808,5 +881,102 @@ export default function WelcomePage() {
         </div>
       </section>
     </main>
+
+    {showConfigSelector && (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }}
+        onClick={() => setShowConfigSelector(false)}
+      >
+        <div
+          style={{
+            backgroundColor: "var(--background)",
+            borderRadius: "var(--radius-lg)",
+            padding: "2rem",
+            maxWidth: "600px",
+            width: "90%",
+            maxHeight: "80vh",
+            overflow: "auto",
+            border: "1px solid var(--border)",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 style={{ marginBottom: "1rem", fontSize: "1.5rem", fontWeight: 600 }}>
+            config.pkg を選択
+          </h2>
+          <p style={{ marginBottom: "1.5rem", color: "var(--foreground-secondary)" }}>
+            読み込むconfig.pkgファイルを選択してください。
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {configCandidates.map((candidate) => (
+              <div
+                key={candidate.path}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "1rem",
+                  backgroundColor: candidate.exists
+                    ? "var(--background-secondary)"
+                    : "var(--background)",
+                  opacity: candidate.exists ? 1 : 0.5,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "0.5rem" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, marginBottom: "0.25rem" }}>
+                      {candidate.label}
+                    </div>
+                    <code style={{ fontSize: "0.875rem", color: "var(--foreground-secondary)", wordBreak: "break-all" }}>
+                      {candidate.path}
+                    </code>
+                  </div>
+                  <div style={{ marginLeft: "1rem" }}>
+                    {candidate.exists ? (
+                      <span style={{ color: "var(--success)", fontSize: "0.875rem" }}>✓ 存在</span>
+                    ) : (
+                      <span style={{ color: "var(--foreground-tertiary)", fontSize: "0.875rem" }}>未検出</span>
+                    )}
+                  </div>
+                </div>
+                {candidate.exists && (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => handleLoadConfigFromPath(candidate.path)}
+                    disabled={isLoadingConfig}
+                    style={{ width: "100%", marginTop: "0.5rem" }}
+                  >
+                    {isLoadingConfig ? "読み込み中..." : "このファイルを読み込む"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: "1.5rem", display: "flex", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              className="outline-button"
+              onClick={() => setShowConfigSelector(false)}
+              disabled={isLoadingConfig}
+            >
+              キャンセル
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }

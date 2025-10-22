@@ -89,6 +89,71 @@ fn candidate_paths(app: &tauri::AppHandle) -> Vec<(PathBuf, String)> {
     paths
 }
 
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigCandidate {
+    pub path: String,
+    pub label: String,
+    pub exists: bool,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigCandidatesResult {
+    pub candidates: Vec<ConfigCandidate>,
+}
+
+#[tauri::command]
+pub fn get_config_candidates(app: tauri::AppHandle) -> Result<ConfigCandidatesResult, String> {
+    let candidates = candidate_paths(&app);
+
+    let result_candidates = candidates
+        .iter()
+        .map(|(path, label)| ConfigCandidate {
+            path: path.display().to_string(),
+            label: label.clone(),
+            exists: path.exists(),
+        })
+        .collect();
+
+    Ok(ConfigCandidatesResult {
+        candidates: result_candidates,
+    })
+}
+
+#[tauri::command]
+pub fn load_secure_config_from_path(path: String) -> Result<SecureConfigResult, String> {
+    let path_buf = PathBuf::from(&path);
+
+    if !path_buf.exists() {
+        return Err(format!("指定されたパスにファイルが存在しません: {}", path));
+    }
+
+    log::info!("Loading secure config from {:?}", path_buf);
+
+    let data = fs::read(&path_buf).map_err(|err| {
+        format!(
+            "config.pkg の読み込みに失敗しました ({}): {}",
+            path,
+            err
+        )
+    })?;
+
+    let config: SecureConfig = serde_json::from_slice(&data).map_err(|err| {
+        format!(
+            "config.pkg の解析に失敗しました ({}): {}",
+            path,
+            err
+        )
+    })?;
+
+    Ok(SecureConfigResult {
+        config: Some(config),
+        path: Some(path),
+        searched_paths: vec![],
+    })
+}
+
 #[tauri::command]
 pub fn load_secure_config(app: tauri::AppHandle) -> Result<SecureConfigResult, String> {
     let candidates = candidate_paths(&app);

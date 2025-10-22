@@ -35,7 +35,13 @@ pub fn run() {
     })
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
-    .invoke_handler(tauri::generate_handler![proxy_openai_request, proxy_file_upload, secure_config::load_secure_config])
+    .invoke_handler(tauri::generate_handler![
+      proxy_openai_request,
+      proxy_file_upload,
+      secure_config::load_secure_config,
+      secure_config::get_config_candidates,
+      secure_config::load_secure_config_from_path
+    ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
