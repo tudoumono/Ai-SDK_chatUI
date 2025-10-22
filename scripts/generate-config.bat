@@ -103,12 +103,12 @@ if "!ADMIN_PASSWORD_HASH!"=="" (
 
 if exist "%ORG_ENTRIES_FILE%" del "%ORG_ENTRIES_FILE%"
 
-rem UTF-8 BOM付きで保存するためPowerShellを使用
+rem UTF-8（BOMなし）で保存するためPowerShellを使用
 set CONVERT_PS=%TEMP_FILE%.convert.ps1
 (
   echo $content = Get-Content -Path '%TEMP_FILE%' -Raw -Encoding UTF8
-  echo $utf8Bom = New-Object System.Text.UTF8Encoding $true
-  echo [System.IO.File]::WriteAllText^('%OUTPUT_PATH%', $content, $utf8Bom^)
+  echo $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+  echo [System.IO.File]::WriteAllText^('%OUTPUT_PATH%', $content, $utf8NoBom^)
 ) > "%CONVERT_PS%"
 
 powershell -NoProfile -File "%CONVERT_PS%" >nul 2>&1
@@ -121,7 +121,7 @@ if %CONVERT_RESULT% neq 0 (
   call :Finish
 ) else (
   echo.
-  echo %OUTPUT_PATH% を生成しました（UTF-8 BOM付き）。
+  echo %OUTPUT_PATH% を生成しました（UTF-8）。
   call :Finish
 )
 

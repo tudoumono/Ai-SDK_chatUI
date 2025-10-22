@@ -139,14 +139,7 @@ pub fn load_secure_config_from_path(path: String) -> Result<SecureConfigResult, 
         )
     })?;
 
-    // UTF-8 BOMを削除（先頭の3バイトがEF BB BFの場合）
-    let data_without_bom = if data.len() >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
-        &data[3..]
-    } else {
-        &data[..]
-    };
-
-    let config: SecureConfig = serde_json::from_slice(data_without_bom).map_err(|err| {
+    let config: SecureConfig = serde_json::from_slice(&data).map_err(|err| {
         format!(
             "config.pkg の解析に失敗しました ({}): {}",
             path,
@@ -180,14 +173,7 @@ pub fn load_secure_config(app: tauri::AppHandle) -> Result<SecureConfigResult, S
             )
         })?;
 
-        // UTF-8 BOMを削除（先頭の3バイトがEF BB BFの場合）
-        let data_without_bom = if data.len() >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
-            &data[3..]
-        } else {
-            &data[..]
-        };
-
-        let config: SecureConfig = serde_json::from_slice(data_without_bom).map_err(|err| {
+        let config: SecureConfig = serde_json::from_slice(&data).map_err(|err| {
             format!(
                 "config.pkg の解析に失敗しました ({}): {}",
                 path.display(),

@@ -178,9 +178,9 @@ if ($includeAdminPassword -and $adminPasswordHash) {
 
 $json = $config | ConvertTo-Json -Depth 5
 
-# UTF-8 BOM付きで保存（Windowsのメモ帳などで正しく表示されるように）
-$utf8Bom = New-Object System.Text.UTF8Encoding $true
-[System.IO.File]::WriteAllText($outputPath, $json, $utf8Bom)
+# UTF-8（BOMなし）で保存
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($outputPath, $json, $utf8NoBom)
 
 Write-Host ""
-Write-Host "$outputPath を生成しました（UTF-8 BOM付き）。"
+Write-Host "$outputPath を生成しました（UTF-8）。"
