@@ -687,7 +687,7 @@ export default function WelcomePage() {
               style={{ backgroundColor: "var(--background-secondary)", cursor: "not-allowed" }}
             />
             <p className="field-hint">
-              セキュリティ上の理由により、Welcome画面ではBase URLを変更できません。変更が必要な場合は<Link href="/settings">設定画面</Link>をご利用ください。
+              ⚠️ セキュリティ上の理由により、Base URLの変更は無効化されています。意図しない悪意のあるエンドポイントへのリクエスト送信を防止するためです。
             </p>
           </div>
 

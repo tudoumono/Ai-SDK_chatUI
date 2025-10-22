@@ -676,8 +676,13 @@ export default function SettingsPage() {
               placeholder="デフォルト: https://api.openai.com/v1"
               type="url"
               value={baseUrl}
-              onChange={(event) => setBaseUrl(event.target.value)}
+              readOnly
+              disabled
+              style={{ backgroundColor: "var(--background-secondary)", cursor: "not-allowed" }}
             />
+            <p className="field-hint">
+              ⚠️ セキュリティ上の理由により、Base URLの変更は無効化されています。意図しない悪意のあるエンドポイントへのリクエスト送信を防止するためです。
+            </p>
           </div>
 
           <div className="field-grid-two">
