@@ -33,6 +33,8 @@ import {
   type SecureConfigSearchPath,
   type ConfigCandidate,
 } from "@/lib/security/secure-config";
+import { isTauriEnvironment } from "@/lib/utils/tauri-helpers";
+import { filterForbiddenHeaders } from "@/lib/security/headers";
 
 const STORAGE_POLICIES: Array<{
   value: StoragePolicy;
@@ -396,14 +398,67 @@ export default function WelcomePage() {
       });
 
       try {
-        const response = await fetch(target, {
-          method: "GET",
-          headers,
-          cache: "no-store",
-        });
+        let response: Response;
+        let payload: any = null;
+
+        // Tauri環境ではバックエンド経由でリクエスト（プロキシ設定が反映される）
+        if (isTauriEnvironment()) {
+          const { invoke } = await import("@tauri-apps/api/core");
+
+          const headersObj: Record<string, string> = {};
+          headers.forEach((value, key) => {
+            headersObj[key] = value;
+          });
+
+          const safeAdditionalHeaders = filterForbiddenHeaders(parsed.headers, (name) => {
+            console.warn(`[Welcome] Forbidden header dropped: ${name}`);
+          });
+
+          const tauriResponse = await invoke<{
+            status: number;
+            body: string;
+            headers: Record<string, string>;
+          }>("proxy_openai_request", {
+            request: {
+              base_url: normalizedBaseUrl,
+              api_key: apiKey.trim(),
+              method: "GET",
+              path: "/models",
+              body: null,
+              additional_headers: safeAdditionalHeaders,
+              proxy_config: {
+                http_proxy: httpProxy.trim() || undefined,
+                https_proxy: httpsProxy.trim() || undefined,
+              },
+            },
+          });
+
+          // Tauri responseをfetch Response風に変換
+          const isOk = tauriResponse.status >= 200 && tauriResponse.status < 300;
+          response = {
+            ok: isOk,
+            status: tauriResponse.status,
+            json: async () => JSON.parse(tauriResponse.body),
+            text: async () => tauriResponse.body,
+          } as Response;
+
+          if (isOk) {
+            payload = JSON.parse(tauriResponse.body);
+          }
+        } else {
+          // ブラウザ環境では従来通りfetchを使用
+          response = await fetch(target, {
+            method: "GET",
+            headers,
+            cache: "no-store",
+          });
+
+          if (response.ok) {
+            payload = await response.json().catch(() => null);
+          }
+        }
 
         if (response.ok) {
-          const payload = await response.json().catch(() => null);
           const count = Array.isArray(payload?.data) ? payload.data.length : undefined;
           const suffix = count !== undefined ? ` (取得モデル数: ${count})` : "";
           const policyLabel =
