@@ -90,6 +90,21 @@ export default function VectorStoresPage() {
   );
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   const [copiedVectorStoreId, setCopiedVectorStoreId] = useState<string | null>(null);
+  const tableRef = useRef<HTMLTableElement | null>(null);
+  const getSortableHeaderClass = useCallback(
+    (column: ColumnKey) =>
+      `resizable sortable${sortConfig.column === column ? " is-active" : ""}`,
+    [sortConfig.column],
+  );
+  const getAriaSort = useCallback(
+    (column: ColumnKey) => {
+      if (sortConfig.column !== column) {
+        return "none";
+      }
+      return sortConfig.direction === "asc" ? "ascending" : "descending";
+    },
+    [sortConfig],
+  );
 
   const showStatus = useCallback((next: Status) => {
     if (statusTimerRef.current) {
@@ -155,43 +170,102 @@ export default function VectorStoresPage() {
   }, [loadStoresFromLocal]);
 
   useEffect(() => {
-    const table = document.querySelector(".vs-table");
-    if (!table) return;
+    if (loading) {
+      return;
+    }
 
-    const headers = table.querySelectorAll("th.resizable");
+    const table = tableRef.current;
+    if (!table) {
+      return;
+    }
+
+    const headers = table.querySelectorAll<HTMLTableCellElement>("th.resizable");
+    const cleanups: Array<() => void> = [];
 
     headers.forEach((header) => {
-      const handle = header.querySelector(".resize-handle");
+      const handle = header.querySelector<HTMLDivElement>(".resize-handle");
       if (!handle) return;
 
       let startX = 0;
       let startWidth = 0;
+      let isResizing = false;
+      let activePointerId: number | null = null;
 
-      const onMouseDown = (e: Event) => {
-        const mouseEvent = e as MouseEvent;
-        startX = mouseEvent.pageX;
-        startWidth = (header as HTMLElement).offsetWidth;
-
-        document.addEventListener("mousemove", onMouseMove);
-        document.addEventListener("mouseup", onMouseUp);
-        e.preventDefault();
-      };
-
-      const onMouseMove = (e: MouseEvent) => {
-        const width = startWidth + (e.pageX - startX);
-        if (width >= 100) {
-          (header as HTMLElement).style.width = `${width}px`;
+      const onPointerMove = (event: PointerEvent) => {
+        const width = startWidth + (event.pageX - startX);
+        if (width >= 120) {
+          header.style.width = `${width}px`;
         }
       };
 
-      const onMouseUp = () => {
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
+      const releasePointerCapture = () => {
+        if (activePointerId === null) {
+          return;
+        }
+
+        if (typeof handle.releasePointerCapture === "function") {
+          try {
+            handle.releasePointerCapture(activePointerId);
+          } catch (error) {
+            // Safari は capture されていない場合に例外を投げることがあるため無視する
+          }
+        }
+
+        activePointerId = null;
       };
 
-      handle.addEventListener("mousedown", onMouseDown);
+      const stopResizing = () => {
+        if (!isResizing) {
+          return;
+        }
+        isResizing = false;
+        releasePointerCapture();
+        document.body.classList.remove("vs-resizing");
+        document.removeEventListener("pointermove", onPointerMove);
+        document.removeEventListener("pointerup", stopResizing);
+        document.removeEventListener("pointercancel", stopResizing);
+      };
+
+      const onPointerDown = (event: PointerEvent) => {
+        isResizing = true;
+        startX = event.pageX;
+        startWidth = header.offsetWidth;
+        activePointerId = event.pointerId;
+
+        if (typeof handle.setPointerCapture === "function") {
+          try {
+            handle.setPointerCapture(event.pointerId);
+          } catch (error) {
+            // capture に失敗した場合は ID をリセットする
+            activePointerId = null;
+          }
+        }
+
+        document.body.classList.add("vs-resizing");
+        document.addEventListener("pointermove", onPointerMove);
+        document.addEventListener("pointerup", stopResizing);
+        document.addEventListener("pointercancel", stopResizing);
+        event.preventDefault();
+      };
+
+      handle.addEventListener("pointerdown", onPointerDown);
+
+      cleanups.push(() => {
+        handle.removeEventListener("pointerdown", onPointerDown);
+        releasePointerCapture();
+        document.body.classList.remove("vs-resizing");
+        document.removeEventListener("pointermove", onPointerMove);
+        document.removeEventListener("pointerup", stopResizing);
+        document.removeEventListener("pointercancel", stopResizing);
+      });
     });
-  }, [loading]);
+
+    return () => {
+      cleanups.forEach((cleanup) => {
+        cleanup();
+      });
+    };
+  }, [loading, visibleColumns]);
 
   // カラム選択ドロップダウンの外側クリックで閉じる
   useEffect(() => {
@@ -464,14 +538,18 @@ export default function VectorStoresPage() {
                 </div>
               </div>
               <div className="vs-table-container">
-                <table className="vs-table">
+                <table ref={tableRef} className="vs-table">
                   <thead>
                     <tr>
                     <th className="vs-favorite-col">
                       <div className="th-content">★</div>
                     </th>
                     {visibleColumns.has("name") && (
-                      <th className="resizable sortable" onClick={() => handleSort("name")}>
+                      <th
+                        className={getSortableHeaderClass("name")}
+                        onClick={() => handleSort("name")}
+                        aria-sort={getAriaSort("name")}
+                      >
                         <div className="th-content">
                           名前
                           {sortConfig.column === "name" && (
@@ -482,7 +560,11 @@ export default function VectorStoresPage() {
                       </th>
                     )}
                     {visibleColumns.has("id") && (
-                      <th className="resizable sortable" onClick={() => handleSort("id")}>
+                      <th
+                        className={getSortableHeaderClass("id")}
+                        onClick={() => handleSort("id")}
+                        aria-sort={getAriaSort("id")}
+                      >
                         <div className="th-content">
                           ID
                           {sortConfig.column === "id" && (
@@ -493,7 +575,11 @@ export default function VectorStoresPage() {
                       </th>
                     )}
                     {visibleColumns.has("createdAt") && (
-                      <th className="resizable sortable" onClick={() => handleSort("createdAt")}>
+                      <th
+                        className={getSortableHeaderClass("createdAt")}
+                        onClick={() => handleSort("createdAt")}
+                        aria-sort={getAriaSort("createdAt")}
+                      >
                         <div className="th-content">
                           作成日
                           {sortConfig.column === "createdAt" && (
@@ -504,7 +590,11 @@ export default function VectorStoresPage() {
                       </th>
                     )}
                     {visibleColumns.has("lastActiveAt") && (
-                      <th className="resizable sortable" onClick={() => handleSort("lastActiveAt")}>
+                      <th
+                        className={getSortableHeaderClass("lastActiveAt")}
+                        onClick={() => handleSort("lastActiveAt")}
+                        aria-sort={getAriaSort("lastActiveAt")}
+                      >
                         <div className="th-content">
                           最終利用
                           {sortConfig.column === "lastActiveAt" && (
@@ -515,7 +605,11 @@ export default function VectorStoresPage() {
                       </th>
                     )}
                     {visibleColumns.has("fileCount") && (
-                      <th className="resizable sortable" onClick={() => handleSort("fileCount")}>
+                      <th
+                        className={getSortableHeaderClass("fileCount")}
+                        onClick={() => handleSort("fileCount")}
+                        aria-sort={getAriaSort("fileCount")}
+                      >
                         <div className="th-content">
                           ファイル数
                           {sortConfig.column === "fileCount" && (
@@ -532,7 +626,11 @@ export default function VectorStoresPage() {
                       </th>
                     )}
                     {visibleColumns.has("expiresAt") && (
-                      <th className="resizable sortable" onClick={() => handleSort("expiresAt")}>
+                      <th
+                        className={getSortableHeaderClass("expiresAt")}
+                        onClick={() => handleSort("expiresAt")}
+                        aria-sort={getAriaSort("expiresAt")}
+                      >
                         <div className="th-content">
                           期限日時
                           {sortConfig.column === "expiresAt" && (

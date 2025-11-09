@@ -2,8 +2,15 @@
 .chat-layout {
   display: flex;
   height: 100vh;
-  width: 100%;
+  width: min(1280px, 100%);
+  margin: 0 auto;
   overflow: hidden;
+  border-radius: 32px;
+  border: 1px solid var(--surface-border);
+  background: rgba(9, 12, 24, 0.7);
+  box-shadow: var(--surface-shadow);
+  backdrop-filter: blur(28px);
+  position: relative;
 }
 
 .chat-resizer {
@@ -33,8 +40,9 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.02);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px);
 }
 
 .chat-sidebar-header {
@@ -43,7 +51,9 @@
   justify-content: space-between;
   height: 64px;
   padding: 0 var(--spacing-lg);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 12, 24, 0.35);
+  backdrop-filter: blur(14px);
 }
 
 .chat-sidebar-title {

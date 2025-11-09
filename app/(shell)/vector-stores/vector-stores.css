@@ -2,13 +2,41 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: var(--background);
+  background:
+    radial-gradient(120% 120% at 15% 20%, rgba(99, 102, 241, 0.32), transparent 70%),
+    radial-gradient(110% 110% at 85% 10%, rgba(34, 211, 238, 0.2), transparent 65%),
+    var(--background);
   color: var(--foreground);
+  position: relative;
+  overflow: hidden;
+}
+
+.vector-stores-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.08), transparent 60%);
+  opacity: 0.75;
+  mix-blend-mode: screen;
+  z-index: 0;
+}
+
+.vector-stores-page::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(160% 160% at 50% 120%, rgba(15, 23, 42, 0.85), transparent 65%);
+  opacity: 0.35;
+  z-index: 0;
 }
 
 .vs-header {
-  border-bottom: 1px solid var(--border);
-  padding: var(--spacing-lg) var(--spacing-xl);
+  border-bottom: none;
+  padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-lg);
+  position: relative;
+  z-index: 1;
 }
 
 .vs-header-content {
@@ -17,54 +45,98 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-lg);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 40px 90px -55px rgba(15, 23, 42, 0.9),
+    0 25px 60px -40px rgba(59, 130, 246, 0.35);
+  backdrop-filter: blur(30px);
+  position: relative;
+  overflow: hidden;
+}
+
+.vs-header-content::after {
+  content: "";
+  position: absolute;
+  inset: -30% 50% -30% -30%;
+  background: radial-gradient(80% 80% at 20% 40%, rgba(59, 130, 246, 0.5), transparent 70%);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.vs-header-content > * {
+  position: relative;
+  z-index: 1;
 }
 
 .vs-back-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 14px;
   color: var(--foreground);
   text-decoration: none;
   font-size: 1.25rem;
-  transition: all var(--transition-fast);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
   flex-shrink: 0;
+  box-shadow: 0 18px 36px -24px rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(16px);
 }
 
 .vs-back-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.12));
+  border-color: rgba(255, 255, 255, 0.35);
   color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 24px 50px -30px rgba(59, 130, 246, 0.55);
+}
+
+.vs-back-button:active {
+  transform: translateY(0);
+  box-shadow: 0 12px 30px -22px rgba(15, 23, 42, 0.85);
 }
 
 .vs-title {
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-weight: 700;
   margin: 0;
+  letter-spacing: 0.02em;
+  color: var(--foreground);
+  text-shadow: 0 18px 40px rgba(15, 23, 42, 0.65);
 }
 
 .vs-button-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 16px;
-  background: var(--accent);
+  padding: 10px 20px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   color: white;
   border: none;
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  font-weight: 500;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
   text-decoration: none;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  box-shadow: 0 18px 40px -22px var(--accent);
 }
 
 .vs-button-primary:hover {
-  background: var(--accent-hover);
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  transform: translateY(-1px);
+  box-shadow: 0 22px 48px -20px var(--accent);
+}
+
+.vs-button-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 10px 28px -18px var(--accent);
 }
 
 .vs-main {
@@ -73,6 +145,8 @@
   width: 100%;
   margin: 0 auto;
   padding: var(--spacing-xl);
+  position: relative;
+  z-index: 1;
 }
 
 .vs-search-section {
@@ -93,8 +167,9 @@
 }
 
 .vs-search-icon {
-  font-size: 1.25rem;
-  opacity: 0.6;
+  font-size: 1.1rem;
+  color: var(--accent);
+  opacity: 0.8;
 }
 
 .vs-search-input {
@@ -167,10 +242,13 @@
 }
 
 .vs-status {
-  padding: 6px 12px;
-  border-radius: var(--radius-md);
+  padding: 8px 18px;
+  border-radius: 999px;
   border: 1px solid transparent;
   font-size: 0.8rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06));
+  box-shadow: 0 18px 36px -28px rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(18px);
 }
 
 .vs-status-success {
@@ -199,15 +277,30 @@
 }
 
 .vs-table-shell {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 28px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03));
+  backdrop-filter: blur(28px);
+  box-shadow:
+    0 45px 120px -70px rgba(15, 23, 42, 0.95),
+    0 25px 60px -45px rgba(59, 130, 246, 0.35);
   margin-bottom: var(--spacing-lg);
   height: calc(100vh - 400px);
   min-height: 400px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+.vs-table-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(180% 160% at 15% -10%, rgba(59, 130, 246, 0.32), transparent 60%);
+  opacity: 0.45;
+  mix-blend-mode: screen;
 }
 
 .vs-table-container {
@@ -215,6 +308,7 @@
   overflow-y: auto;
   height: 100%;
   position: relative;
+  z-index: 1;
 }
 
 .vs-toolbar {
@@ -222,9 +316,13 @@
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-md) var(--spacing-lg);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
   gap: var(--spacing-md);
   flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
+  backdrop-filter: blur(24px);
 }
 
 .vs-toolbar-left {
@@ -248,19 +346,22 @@
 }
 
 .vs-refresh {
-  padding: 6px 14px;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: var(--foreground);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+  box-shadow: 0 16px 32px -24px rgba(15, 23, 42, 0.9);
 }
 
 .vs-refresh:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--accent);
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.1));
+  border-color: rgba(255, 255, 255, 0.35);
   color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 24px 48px -28px rgba(59, 130, 246, 0.45);
 }
 
 .vs-table {
@@ -268,15 +369,16 @@
   min-width: 1200px;
   border-collapse: collapse;
   table-layout: fixed;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .vs-table thead {
-  background: rgba(255, 255, 255, 0.03);
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
   position: sticky;
   top: 0;
   z-index: 10;
+  backdrop-filter: blur(18px);
 }
 
 .vs-table th {
@@ -287,8 +389,9 @@
   color: var(--foreground);
   position: relative;
   min-width: 100px;
-  border-bottom: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .vs-table th.resizable {
@@ -305,35 +408,44 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 4px;
+  width: 6px;
   height: 100%;
   cursor: col-resize;
   user-select: none;
-  background: transparent;
-  transition: background var(--transition-fast);
+  touch-action: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+  transition: background var(--transition-fast), opacity var(--transition-fast);
+  opacity: 0;
 }
 
 .resize-handle:hover {
-  background: var(--accent);
+  background: linear-gradient(180deg, var(--accent), rgba(255, 255, 255, 0));
+  opacity: 1;
 }
 
 .resize-handle:active {
-  background: var(--accent-hover);
+  background: linear-gradient(180deg, var(--accent-hover), rgba(255, 255, 255, 0));
+  opacity: 1;
+}
+
+.vs-table th.resizable:hover .resize-handle {
+  opacity: 1;
 }
 
 .vs-table tbody tr {
-  border-top: 1px solid var(--border);
-  transition: background var(--transition-fast);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background var(--transition-fast), transform var(--transition-fast);
 }
 
 .vs-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
 }
 
 .vs-table td {
   padding: var(--spacing-lg);
   font-size: 0.875rem;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -367,29 +479,36 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: white;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  color: #1f2937;
-  font-size: 0.875rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: var(--foreground);
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  padding: 8px 16px;
+  border-radius: 999px;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
   white-space: nowrap;
   text-decoration: none;
+  box-shadow: 0 18px 36px -28px rgba(15, 23, 42, 0.85);
 }
 
 .vs-action-button:hover {
-  background: #f3f4f6;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.12));
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 24px 48px -30px rgba(59, 130, 246, 0.45);
 }
 
 .vs-action-button.vs-action-delete {
   color: #ef4444;
+  box-shadow: 0 18px 36px -28px rgba(239, 68, 68, 0.65);
 }
 
 .vs-action-button.vs-action-delete:hover {
-  background: #fee2e2;
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.25), rgba(248, 113, 113, 0.1));
+  color: #ef4444;
+  box-shadow: 0 26px 48px -32px rgba(248, 113, 113, 0.55);
 }
 
 .vs-empty {
@@ -418,25 +537,28 @@
 .vs-favorite-button {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
   font-size: 1.25rem;
   cursor: pointer;
   padding: 4px 8px;
   transition: all var(--transition-fast);
   line-height: 1;
+  text-shadow: 0 10px 20px rgba(15, 23, 42, 0.7);
 }
 
 .vs-favorite-button:hover {
-  color: rgba(255, 193, 7, 0.7);
-  transform: scale(1.1);
+  color: rgba(255, 215, 0, 0.9);
+  transform: scale(1.1) translateY(-1px);
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
 }
 
 .vs-favorite-button.is-favorite {
-  color: #ffc107;
+  color: #facc15;
+  text-shadow: 0 0 16px rgba(250, 204, 21, 0.65);
 }
 
 .vs-favorite-button.is-favorite:hover {
-  color: #ffb300;
+  color: #fbbf24;
 }
 
 .vs-favorite-button:disabled {
@@ -503,13 +625,16 @@
   top: 100%;
   left: 0;
   margin-top: 4px;
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 12px;
-  min-width: 200px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 18px;
+  padding: 16px;
+  min-width: 220px;
   z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 30px 60px -40px rgba(15, 23, 42, 0.85),
+    0 20px 40px -30px rgba(59, 130, 246, 0.35);
+  backdrop-filter: blur(18px);
 }
 
 .vs-column-option {
@@ -543,7 +668,18 @@
 }
 
 .vs-table th.sortable:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06));
+}
+
+.vs-table th.sortable.is-active {
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08));
+}
+
+.vs-table th.sortable.is-active .sort-indicator {
+  opacity: 1;
+  color: var(--accent);
 }
 
 .sort-indicator {
@@ -556,18 +692,21 @@
   position: relative;
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 6px 12px;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 8px 16px;
   gap: 8px;
   min-width: 200px;
   transition: all var(--transition-fast);
+  box-shadow: 0 18px 36px -28px rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(18px);
 }
 
 .vs-search-box-compact:focus-within {
-  border-color: var(--accent);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.35);
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06));
+  box-shadow: 0 24px 48px -30px rgba(59, 130, 246, 0.45);
 }
 
 .vs-search-input-compact {
@@ -608,9 +747,9 @@
 .vs-id-copy-btn {
   flex-shrink: 0;
   padding: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 10px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -618,6 +757,7 @@
   color: var(--foreground-secondary);
   transition: all var(--transition-fast);
   opacity: 0;
+  box-shadow: 0 14px 28px -24px rgba(15, 23, 42, 0.85);
 }
 
 .vs-id-content:hover .vs-id-copy-btn {
@@ -625,25 +765,33 @@
 }
 
 .vs-id-copy-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.12));
+  border-color: rgba(255, 255, 255, 0.36);
   color: var(--accent);
-  transform: scale(1.08);
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 22px 42px -30px rgba(59, 130, 246, 0.45);
 }
 
 .vs-id-copy-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.97);
 }
 
 .vs-id-copy-btn.copied {
   opacity: 1 !important;
-  background: #28a745 !important;
-  border-color: #28a745 !important;
+  background: linear-gradient(135deg, #4ade80, #22c55e) !important;
+  border-color: rgba(34, 197, 94, 0.8) !important;
   color: white !important;
+  box-shadow: 0 24px 48px -32px rgba(34, 197, 94, 0.65) !important;
 }
 
 .vs-id-copy-btn svg {
   display: block;
+}
+
+body.vs-resizing,
+body.vs-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 
 @media (max-width: 768px) {
