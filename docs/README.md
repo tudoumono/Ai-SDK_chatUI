@@ -11,5 +11,6 @@ AI-SDK ChatUI プロジェクトに含まれるドキュメントの一覧です
 | [DEBUG_GUIDE.md](./DEBUG_GUIDE.md) | デバッグ手順 | ターミナル起動、ログ取得、よくあるエラーの切り分け、開発者ツールの使い方 |
 | [EXE_VERSION_TESTING_GUIDE.md](./EXE_VERSION_TESTING_GUIDE.md) | exe 版テスト手順 | データ／ログのエクスポート確認、診断情報、トラブルシューティング |
 | [PERFORMANCE_OPTIMIZATION.md](./PERFORMANCE_OPTIMIZATION.md) | パフォーマンス最適化ノート | メモリリーク対策、ビルドサイズ削減、IndexedDB 最適化、チェックリスト |
+| [INTEGRATION_STATUS.md](./INTEGRATION_STATUS.md) | Amplify + AgentCore の整合性レポート | 現状のフロント/バック/AgentCore 実装状況とギャップ、推奨アクション |
 
 > ℹ️ **更新ヒント**: 新しいドキュメントを追加した場合や大幅に内容が変わった場合は、この目次も忘れずに更新してください。
